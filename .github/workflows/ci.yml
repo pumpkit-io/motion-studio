@@ -1,0 +1,44 @@
+name: CI
+
+# Every branch gets CI: ticket branches, the integration branch and main.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # setup-uv publishes no floating major tags, so pin the release.
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          # Same uv as the build machine, so `--locked` never trips on a lockfile format change.
+          version: "0.5.21"
+          python-version: "3.12"
+          enable-cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: renderer/package-lock.json
+
+      - uses: extractions/setup-just@v4
+
+      - name: Install dependencies
+        run: |
+          uv sync --locked --extra cpu
+          npm ci --prefix renderer
+
+      - name: Lint and type-check
+        run: just lint
+
+      - name: Schema freshness
+        run: just schema-check
+
+      - name: Tests
+        run: just test
