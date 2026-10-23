@@ -56,6 +56,6 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 | Action | Version |
 |---|---|
 | actions/checkout | v7 (latest release v7.0.1) |
-| astral-sh/setup-uv | v10 (latest release v10.3.2) |
+| astral-sh/setup-uv | v10.3.2 (the repo publishes no floating `v10` tag) |
 | actions/setup-node | v7 (latest release v7.1.0) |
 | extractions/setup-just | v4 |
