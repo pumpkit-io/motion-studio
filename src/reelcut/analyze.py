@@ -254,7 +254,7 @@ def _report(
     if not noop:
         retakes_path.write_text(retakes.model_dump_json(indent=2) + "\n", encoding="utf-8")
         packed_path.write_text(
-            pack_project(_title(project), language, analyses, retakes), encoding="utf-8"
+            pack_project(project_title(project), language, analyses, retakes), encoding="utf-8"
         )
         old = assets_path.read_text(encoding="utf-8") if assets_path.exists() else ""
         sheets = {
@@ -263,7 +263,7 @@ def _report(
         }
         assets_path.write_text(
             pack_assets(
-                _title(project), analyses, descriptions=read_descriptions(old), sheets=sheets
+                project_title(project), analyses, descriptions=read_descriptions(old), sheets=sheets
             ),
             encoding="utf-8",
         )
@@ -413,7 +413,8 @@ def _clip_analysis(
     )
 
 
-def _title(project: ProjectPaths) -> str:
+def project_title(project: ProjectPaths) -> str:
+    """The `[project] title` from project.toml, or the slug."""
     data = tomllib.loads(project.project_toml.read_text(encoding="utf-8"))
     title = data.get("project", {}).get("title")
     return title if isinstance(title, str) and title else project.slug
