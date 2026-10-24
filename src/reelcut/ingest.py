@@ -16,6 +16,7 @@ from typing import Any, Literal
 import tomli_w
 from pydantic import BaseModel
 
+from reelcut import APP_NAME
 from reelcut.analysis.models import Role
 from reelcut.audio.enhance import Denoiser, denoiser_available, extract_voice
 from reelcut.config import load_config
@@ -209,6 +210,11 @@ def _ingest(
         known[rel] = clip_id
         probes[clip_id] = info
         added = True
+    if not probes:
+        raise UserError(
+            f"{project.raw} has no video or image files",
+            hint=f"copy the takes into it, then run `{APP_NAME} ingest {project.slug}`",
+        )
     if added:
         _write_clips(project, entries)
 
