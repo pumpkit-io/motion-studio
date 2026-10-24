@@ -59,3 +59,16 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 | astral-sh/setup-uv | v10.3.2 (the repo publishes no floating `v10` tag) |
 | actions/setup-node | v7 (latest release v7.1.0) |
 | extractions/setup-just | v4 |
+
+## ffmpeg options (ticket #3, 2026-10-24)
+
+| Option | ffmpeg 9.0.1 (build machine) | How the runner picks it |
+|---|---|---|
+| Filter graph from a file | `-/filter_complex <file>`; `-filter_complex_script` is gone ("Unrecognized option") | Trial run of `-/filter_complex`, then `-filter_complex_script` if `-h full` lists it |
+| Frame-rate mode | `-fps_mode` | `-fps_mode` if `-h full` lists it, else `-vsync` |
+| Progress | `-progress pipe:1 -nostats`, `out_time_us=` lines | Parsed from stdout |
+
+## Python libraries used by the core (ticket #3)
+
+- Typer 0.27.3 vendors Click as `typer._click`; catch `typer._click.exceptions`, not the separate `click` package.
+- platformdirs 4.13.5: `user_cache_path("reelcut")` is `~/Library/Caches/reelcut` on macOS and `~/.cache/reelcut` on Linux.

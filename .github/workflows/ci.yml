@@ -29,6 +29,10 @@ jobs:
 
       - uses: extractions/setup-just@v4
 
+      # Ubuntu's older ffmpeg exercises the media runner's option probing (no -/filter_complex).
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
       - name: Install dependencies
         run: |
           uv sync --locked --extra cpu
