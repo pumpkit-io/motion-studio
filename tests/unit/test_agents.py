@@ -120,7 +120,6 @@ def test_agents_sync_outside_a_workspace_is_a_user_error(
 PENDING: dict[tuple[str, ...], tuple[int, set[str]]] = {
     ("look",): (9, {"--frames", "--out"}),
     ("look-asset",): (9, set()),
-    ("render",): (13, {"--preview", "--final", "--format"}),
     ("music",): (14, set()),
     ("check",): (15, {"--preview", "--final"}),
 }

@@ -20,6 +20,7 @@ from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary, insta
 from reelcut.config import load_config
 from reelcut.errors import DependencyError, UserError
 from reelcut.paths import find_workspace
+from reelcut.render.renderer import cached_renderer, install_renderer, is_installed
 
 
 @dataclass(frozen=True)
@@ -79,6 +80,11 @@ def run_setup(
     else:
         step(f"downloading {ref.repo} for {backend} (about 1.6 GB)")
         items.append(Item(f"{backend} {ref.repo}", "installed", str(install_model(ref))))
+
+    if is_installed(cached_renderer()):
+        items.append(Item("renderer", "present", str(cached_renderer())))
+    else:
+        items.append(Item("renderer", "installed", str(install_renderer(step))))
     return SetupReport(items)
 
 

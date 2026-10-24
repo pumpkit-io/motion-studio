@@ -9,13 +9,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from reelcut import APP_NAME, __version__
+from reelcut import APP_NAME
 from reelcut.asr import DEFAULT_MODELS, default_backend, hf_cache, model_path
 from reelcut.asr.vad import SILERO_VERSION, vad_model_path
 from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
 from reelcut.errors import DependencyError
 from reelcut.media.ffmpeg import ffmpeg_caps
-from reelcut.paths import cache_dir, envs_dir, renderer_dir
+from reelcut.paths import cache_dir, envs_dir
+from reelcut.render.renderer import cached_renderer, is_installed, remotion_version
 from reelcut.state import free_disk_gb, min_free_gb
 
 REQUIRED_FILTERS = (
@@ -212,16 +213,18 @@ def _cache_checks() -> list[Check]:
     # `setup` fills these; until it has run they are warnings, not failures.
     setup = f"run `{APP_NAME} setup`"
     setup_music = f"run `{APP_NAME} setup --music`"
-    renderer = renderer_dir() / __version__
+    renderer = cached_renderer()
+    installed = is_installed(renderer)
+    remotion = remotion_version(renderer) if installed else None
     ace = envs_dir() / "ace-step"
     deep_filter = deep_filter_binary()
     return [
         Check(
             "renderer",
-            "ok" if renderer.is_dir() else "warn",
+            "ok" if installed else "warn",
             False,
-            str(renderer),
-            None if renderer.is_dir() else setup,
+            f"{renderer} (Remotion {remotion})" if installed else f"not installed in {renderer}",
+            None if installed else setup,
         ),
         Check(
             "ace-step env",

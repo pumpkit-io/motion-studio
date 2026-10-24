@@ -19,7 +19,7 @@ def setup(
     ] = False,
     as_json: JsonOption = False,
 ) -> None:
-    """Download the speech, voice-activity and denoiser models so later stages work offline."""
+    """Download the speech, voice-activity and denoiser models and the renderer, for offline use."""
 
     def step(message: str) -> None:
         if not as_json:
