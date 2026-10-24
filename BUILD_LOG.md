@@ -298,3 +298,30 @@ Open issues:
 
 - On the 5-minute concatenation Whisper sometimes attaches the first word of the next take to the end of the abandoned one ("... remember is The"); the retake still clusters, but the draft would keep a stray word. Check (#15) re-transcribes and will flag it.
 - `project.toml` is an input of the analyze stage, so role finalisation (#8) writing it marks analyze stale once; the next run is then a repack, not a re-transcription (per-clip records stay fresh).
+
+## Phase 6, CLI: plan draft, plan validate, words, docs edl (ticket #11)
+
+Built:
+
+- `reelcut plan draft <slug> [--force] [--json]` (`reelcut.plan.draft_project`, pure logic in `reelcut.edl.draft`). One segment per kept A-roll utterance, clips in ID order, segment IDs `c1-s0` (the utterance ID with a hyphen, so it can never parse as a reference) and the utterance text as `note`. Retake cluster members other than the winner are left out, which also drops an abandoned take whose complete retake won; an incomplete utterance with no retake stays. Utterances made only of hard fillers are left out. Policy `drop_fillers: "hard"`, `jumpcut_punch: true`, no events, `rationale: "deterministic draft"`, `language` from `project_language`, `title` from `[project] title`. Music `generate`, seed 1, BPM in the middle of the guide's band for the pace of the kept utterances (non-filler words per second of utterance time: under 2.3 → 90, 2.3 to 3 → 103, over 3 → 118) and a neutral prompt of matching energy that always says "instrumental". An existing `edl.json` is refused with exit 1 and a hint naming `--force`.
+- `reelcut plan validate <slug> [--json]` (`reelcut.plan.validate_project`): reads `edl.json`, every `analysis/<clip>.json` and, when the music stage has written it, the `beats` of `build/music.json`; resolves with the #10 resolver; writes `build/timeline.json`; marks the `plan` stage done (inputs `edl.json`, `analysis/`, `project.toml`). The summary (`reelcut.edl.summary`) has the guide §6.6 shape plus words per second on the duration line (the music skill tells the agent to pick the BPM from it). Warnings and errors print one line each with their fix, capped at 20 lines with a pointer to `--json`, so output stays under 30 lines. An EDL that does not resolve prints every error and exits 1; `--json` gives `{ok: false, valid: false, errors: [{code, message, hint}], ...}`.
+- `reelcut words <slug> <from> [<to>] [--json]`: the words of a range of word or utterance IDs in one clip, grouped under their utterance (`✗` for incomplete), five per line as `c1.w5 {ehm,} 4.87-5.17` (hard fillers in braces, soft in tildes, source seconds). Capped at 30 lines; `--json` has every word.
+- `reelcut docs edl [--json]`: prints `src/reelcut/reference/edl.md` through `importlib.resources`, so it works from any directory and from the installed wheel (checked: the wheel contains `reelcut/reference/edl.md`). `docs/edl.md` is a symlink to it. A test checks that every EDL field and every issue code the resolver raises is named in the reference.
+- Removed `words`, `plan draft`, `plan validate` and `docs edl` from `PENDING` in `tests/unit/test_agents.py`. `reelcut.analyze._title` is now the public `project_title`.
+
+Checked (acceptance):
+
+- `tests/integration/test_plan_fixtures.py` (`slow`, `mac`, `models`): on the EN and IT fixtures, ingest, analyze, `plan draft` and `plan validate` succeed; the draft has 4 of the 5 utterances (the abandoned take is skipped, its retake kept) and removes the hard filler. 6 tests pass in 22 s.
+- By hand on the IT fixture: `✓ edl.json valid · language it · 4 segments → 5 runs` / `Duration 10.7s (limit 60s) · words kept 31/39 · 2.9 words/s · hard fillers removed 1 · pauses tightened 0` / `Hook (first 3s): "Ciao, bentornati sul canale. Oggi, vi faccio…"` / `Events: none` / `→ …/build/timeline.json`. EN: 4 segments → 5 runs, 11.2 s, 37/45 words. A second `plan draft` exits 1.
+- `reelcut words demo c1.s0 c1.s1` prints the 14 words of the IT fixture's first two utterances with IDs and times; `reelcut docs edl` from `/` prints the reference.
+- `just edl-coverage`: 99.9% of `src/reelcut/edl` (draft and summary 100%).
+
+Deviations and why:
+
+- One segment per utterance rather than one per contiguous block: moving the hook to the front is then moving one entry, and the resolver splits at the inter-utterance pauses anyway.
+- The music prompt depends on pace only, not language: the bed is instrumental, so there is nothing language-specific to say.
+- The draft and summary are pure modules in `reelcut.edl` (counted by `just edl-coverage`); file I/O is in `reelcut.plan`, outside it.
+
+Open issues:
+
+- `reelcut.workspace.read_edl_policy` (for `config show`) still reads `policy` loosely rather than through `parse_edl`.
