@@ -5,9 +5,10 @@ The field descriptions become the JSON Schema the host agent reads, so they expl
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from reelcut.config import Brand, Format
+from reelcut.config import Format
+from reelcut.edl.issues import EdlError, Issue
 
 
 class _Model(BaseModel):
@@ -167,10 +168,30 @@ class Edl(_Model):
     rationale: str = ""
 
 
+def parse_edl(data: object) -> Edl:
+    """Validate decoded edl.json. Schema errors become an EdlError naming each field."""
+    try:
+        return Edl.model_validate(data)
+    except ValidationError as exc:
+        raise EdlError(
+            Issue(
+                code="invalid_edl",
+                message=f"{'.'.join(str(part) for part in err['loc']) or 'edl'}: {err['msg']}",
+                hint="`reelcut docs edl` prints the EDL reference",
+            )
+            for err in exc.errors()
+        ) from exc
+
+
 # Timeline: what the renderer reads. Frames are output frames at `fps`; end frames are exclusive.
 
 
-class SafeZone(_Model):
+class _Out(BaseModel):
+    # The resolver writes every field, so the renderer's types mark defaults as present.
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
+
+
+class SafeZone(_Out):
     """Fractions of the frame kept clear of platform UI on each side."""
 
     top: float
@@ -179,19 +200,19 @@ class SafeZone(_Model):
     left: float
 
 
-class FormatSpec(_Model):
+class FormatSpec(_Out):
     name: Format
     width: int
     height: int
     safe_zone: SafeZone
 
 
-class Crop(_Model):
+class Crop(_Out):
     cx: float = Field(description="Face centre x, 0-1 of the mezzanine frame.")
     cy: float = Field(description="Face centre y, 0-1 of the mezzanine frame.")
 
 
-class Run(_Model):
+class Run(_Out):
     """A continuous stretch of one clip. Runs follow each other with no gap in output time."""
 
     segment: str
@@ -207,7 +228,13 @@ class Run(_Model):
     )
 
 
-class TimelineWord(_Model):
+class TimelineBrand(_Out):
+    primary: str
+    accent: str
+    logo: str = Field(description="Relative to the workspace.")
+
+
+class TimelineWord(_Out):
     id: str
     text: str
     start_ms: int = Field(description="Output time.")
@@ -215,7 +242,7 @@ class TimelineWord(_Model):
     emphasis: bool = False
 
 
-class TimelineZoom(_Model):
+class TimelineZoom(_Out):
     type: Literal["zoom"]
     start: int
     end: int
@@ -223,14 +250,14 @@ class TimelineZoom(_Model):
     ease: Literal["snap", "smooth"]
 
 
-class TimelinePush(_Model):
+class TimelinePush(_Out):
     type: Literal["push"]
     start: int
     end: int
     scale: float = Field(description="Linear from 1.0 at start to this at end.")
 
 
-class TimelineBroll(_Model):
+class TimelineBroll(_Out):
     type: Literal["broll"]
     asset: str
     src: str = Field(description="Asset file, relative to the project.")
@@ -240,7 +267,7 @@ class TimelineBroll(_Model):
     mode: Literal["full", "pip"]
 
 
-class TimelineImage(_Model):
+class TimelineImage(_Out):
     type: Literal["image"]
     asset: str
     src: str
@@ -250,7 +277,7 @@ class TimelineImage(_Model):
     motion: Literal["kenburns", "none"]
 
 
-class TimelineTitle(_Model):
+class TimelineTitle(_Out):
     type: Literal["title"]
     text: str
     start: int
@@ -263,7 +290,7 @@ TimelineEvent = Annotated[
 ]
 
 
-class TimelineCaptions(_Model):
+class TimelineCaptions(_Out):
     enabled: bool
     style: Literal["pop", "clean", "karaoke"]
     font: str
@@ -280,7 +307,7 @@ class TimelineCaptions(_Model):
     )
 
 
-class Timeline(_Model):
+class Timeline(_Out):
     """The resolved edit: `build/timeline.json`, the renderer's props."""
 
     schema_version: Literal[1] = 1
@@ -293,5 +320,5 @@ class Timeline(_Model):
     words: list[TimelineWord] = Field(description="Kept words in output order.")
     events: list[TimelineEvent] = Field(description="Overlays and camera moves, by start frame.")
     captions: TimelineCaptions
-    brand: Brand
+    brand: TimelineBrand
     music_path: str | None = Field(description="Music bed relative to the project; null for none.")

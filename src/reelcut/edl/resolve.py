@@ -19,6 +19,7 @@ from reelcut.edl.models import (
     Run,
     SafeZone,
     Timeline,
+    TimelineBrand,
     TimelineCaptions,
     TimelineWord,
 )
@@ -173,7 +174,7 @@ def resolve(
         words=timeline_words,
         events=resolved.events,
         captions=_captions(config, edl, language),
-        brand=config.brand,
+        brand=TimelineBrand(**config.brand.model_dump()),
         music_path=None if music_mode == "none" else MUSIC_PATH,
     )
     return Resolution(timeline=timeline, warnings=problems.warnings, stats=stats)

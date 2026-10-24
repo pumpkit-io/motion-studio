@@ -1,4 +1,8 @@
-"""Steps 1-5 of guide §6.5: from a segment's words to frame-snapped runs of source time."""
+"""Steps 1-5 of guide §6.5: from a segment's words to frame-snapped runs of source time.
+
+Run edges snap to the nearest frame but never into their own edge words, within limits that
+keep a run off its neighbours.
+"""
 
 import math
 from collections.abc import Collection, Sequence
@@ -95,10 +99,10 @@ def cut_segment(
     pauses = 0
     kept_previous = False
     for draft in drafts:
-        start_f = max(_nearest(draft.start, fps), draft.lo_f)
-        end_f = min(_nearest(draft.end, fps), draft.hi_f)
         kept = [words[i] for i in draft.indices]
-        if (end_f - start_f) * 1000 < policy.min_segment_ms * fps:
+        start_f = max(min(_nearest(draft.start, fps), _floor(kept[0].start, fps)), draft.lo_f)
+        end_f = min(max(_nearest(draft.end, fps), _ceil(kept[-1].end, fps)), draft.hi_f)
+        if end_f <= start_f or (end_f - start_f) * 1000 < policy.min_segment_ms * fps:
             _warn_short(problems, segment, kept, (end_f - start_f) / fps, policy)
             kept_previous = False
             continue

@@ -46,3 +46,6 @@ jobs:
 
       - name: Tests
         run: just test
+
+      - name: EDL coverage
+        run: just edl-coverage

@@ -248,3 +248,27 @@ def test_an_edl_longer_than_its_limit_gets_a_warning() -> None:
     assert [(w.code, w.message) for w in result.warnings] == [
         ("too_long", "duration 2.7 s is over the 1.0 s limit")
     ]
+
+
+def test_the_language_comes_from_the_config_unless_it_is_auto() -> None:
+    config = Config.model_validate({"defaults": {"language": "it"}})
+    silent = TWO_LINES.model_copy(update={"language": None})
+
+    assert resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s0")), config).timeline.language == "it"
+    unknown = resolve([silent], edl(("a", "c1.s0", "c1.s0")), Config()).timeline
+    assert (unknown.language, unknown.captions.max_chars_per_page) == (None, None)
+
+
+def test_an_edl_language_needs_a_language_file() -> None:
+    with pytest.raises(EdlError) as raised:
+        resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s0"), language="xx"), Config())
+
+    assert raised.value.problems[0].message == "language xx has no data file; available: en, it"
+
+
+def test_a_short_run_warning_shortens_long_text() -> None:
+    c1 = timed("c1", *[(f"word{n}", 0.5 + n * 0.02, 0.51 + n * 0.02) for n in range(8)])
+
+    [warning] = resolve([c1], edl(("a", "c1.w0", "c1.w7")), Config()).warnings[:1]
+
+    assert "('word0 word1 word2 word3 word4 word5 w...')" in warning.message

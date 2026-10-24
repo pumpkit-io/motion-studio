@@ -242,3 +242,28 @@ def test_beats_never_move_speech_cuts() -> None:
 
     assert snapped.timeline.runs == plain.timeline.runs
     assert snapped.timeline.words == plain.timeline.words
+
+
+def test_emphasis_words_must_exist_and_be_kept() -> None:
+    found = errors({"type": "emphasis", "words": ["c1.w99", "c1.w4"]}, drop_words=["c1.w4"])
+
+    assert found == [
+        ("unknown_ref", "event 1 (emphasis): c1.w99 does not exist; c1 has w0-w8"),
+        (
+            "dropped_anchor",
+            "event 1 (emphasis): c1.w4 is cut from the edit; nearest kept word: c1.w3",
+        ),
+    ]
+
+
+def test_an_anchor_in_a_clip_with_nothing_kept_says_so() -> None:
+    c2 = clip("c2", "Other words here.")
+
+    with pytest.raises(EdlError) as raised:
+        resolve(
+            [*CLIPS, c2], edl(("a", "c1.s0", "c1.s0"), events=[broll("c2.w0", "c2.w1")]), Config()
+        )
+
+    assert raised.value.problems[0].message == (
+        "event 1 (broll): start c2.w0 is cut from the edit; no word of c2 is kept"
+    )
