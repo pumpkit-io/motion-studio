@@ -40,8 +40,9 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 
 | Model | Licence | Status |
 |---|---|---|
-| Whisper large-v3-turbo (MLX and CTranslate2 conversions) | MIT (OpenAI Whisper) | UNVERIFIED for the exact converted repositories `reelcut setup` downloads |
-| Silero VAD | MIT | UNVERIFIED |
+| Whisper large-v3-turbo, CTranslate2 conversion `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf` (faster-whisper) | MIT | Verified 2026-10-24 from the repository's `license:mit` tag on Hugging Face. Upstream `openai/whisper-large-v3-turbo` is MIT. Downloaded by `reelcut setup`, not redistributed. |
+| Whisper large-v3-turbo, MLX conversion `mlx-community/whisper-large-v3-turbo` @ `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` (mlx-whisper) | MIT (upstream) | Checked 2026-10-24: the conversion repository states no licence of its own (no tag, no licence in its README); the upstream `openai/whisper-large-v3-turbo` weights it converts are MIT. Downloaded by `reelcut setup`, not redistributed. |
+| Silero VAD `silero_vad.onnx` v6.2.3 | MIT | Verified 2026-10-24 from `LICENSE` at tag v6.2.3 of snakers4/silero-vad. SHA-256 `1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3`. Downloaded by `reelcut setup`, not redistributed. |
 | MediaPipe BlazeFace | Apache-2.0 | UNVERIFIED |
 | ACE-Step 1.5 weights | Unknown | UNVERIFIED. `reelcut setup --music` prints the licence of the exact weights it downloads, and every `music.json` records it. |
 | CrisperWhisper | Believed CC BY-NC 4.0 (non-commercial) | Not shipped in v0.1.0; see ROADMAP.md |

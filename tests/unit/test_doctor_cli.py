@@ -6,6 +6,8 @@ import pytest
 from conftest import FakeTools
 from typer.testing import CliRunner
 
+from reelcut.asr import DEFAULT_MODELS, default_backend
+from reelcut.asr.vad import SILERO_VERSION
 from reelcut.cli import app
 
 runner = CliRunner()
@@ -136,3 +138,32 @@ def test_doctor_finds_deepfilternet_in_the_cache(
     _, payload = doctor_json()
     assert check(payload, "deepfilternet")["status"] == "ok"
     assert str(binary) in check(payload, "deepfilternet")["detail"]
+
+
+def test_doctor_warns_until_setup_has_downloaded_the_speech_models(fake_tools: FakeTools) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    code, payload = doctor_json()
+    assert code == 0
+    for name in ("vad model", "asr model"):
+        assert check(payload, name)["status"] == "warn"
+        assert "setup" in check(payload, name)["fix"]
+
+
+def test_doctor_finds_the_speech_models_in_the_cache(
+    fake_tools: FakeTools, isolated_cache: Path
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    vad = isolated_cache / "models" / f"silero_vad-{SILERO_VERSION}.onnx"
+    vad.parent.mkdir(parents=True)
+    vad.write_bytes(b"onnx")
+    ref = DEFAULT_MODELS[default_backend()]
+    repo_dir = "models--" + ref.repo.replace("/", "--")
+    snapshot = isolated_cache / "models" / "huggingface" / repo_dir / "snapshots" / ref.revision
+    snapshot.mkdir(parents=True)
+    (snapshot / "config.json").write_text("{}", encoding="utf-8")
+    _, payload = doctor_json()
+    assert check(payload, "vad model")["status"] == "ok"
+    assert check(payload, "asr model")["status"] == "ok"
+    assert str(snapshot) in check(payload, "asr model")["detail"]

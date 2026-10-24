@@ -1,5 +1,6 @@
 """Analysers (VAD, fillers, pauses, utterances, retakes, shots, motion, faces) and packers."""
 
+from reelcut.analysis.language import project_language
 from reelcut.analysis.models import (
     ClipAnalysis,
     ClipInfo,
@@ -35,4 +36,5 @@ __all__ = [
     "analyse_transcript",
     "find_retakes",
     "pack_project",
+    "project_language",
 ]
