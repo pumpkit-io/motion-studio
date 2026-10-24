@@ -50,6 +50,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/reelcut"]
 
+# `setup` copies these into the cache and runs `npm ci` there (reelcut.render.renderer).
+[tool.hatch.build.targets.wheel.force-include]
+"renderer/package.json" = "reelcut/_renderer/package.json"
+"renderer/package-lock.json" = "reelcut/_renderer/package-lock.json"
+"renderer/tsconfig.json" = "reelcut/_renderer/tsconfig.json"
+"renderer/remotion.config.ts" = "reelcut/_renderer/remotion.config.ts"
+"renderer/src" = "reelcut/_renderer/src"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

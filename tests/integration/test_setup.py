@@ -21,7 +21,9 @@ def test_setup_leaves_the_denoiser_vad_face_and_speech_models_in_the_cache() -> 
         "silero-vad",
         "blaze_face_full_range-float16-1.tflite",
         "face_detection_yunet_2023mar.onnx",
+        "renderer",
     } <= items.keys()
+    assert (Path(items["renderer"]["path"]) / "node_modules" / ".bin" / "remotion").exists()
     assert any(name in items for name in ("mlx-whisper", "faster-whisper"))
     assert all(Path(item["path"]).exists() for item in items.values())
 
