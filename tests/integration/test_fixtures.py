@@ -109,7 +109,7 @@ def test_ground_truth_records_the_scripted_silences_filler_and_retake(
     lengths = [s["end_ms"] - s["start_ms"] for s in silences]
     # The script inserts these gaps; the tail is padded up to a whole frame.
     assert lengths[:-1] == [800, 1500, 300, 300, 1200, 900, 1500]
-    assert 1000 <= lengths[-1] < 1000 + 34
+    assert 3000 <= lengths[-1] < 3000 + 34
     fillers = truth["fillers"]
     assert [(f["text"], f["kind"]) for f in fillers] == [(filler, "hard")]
     utterances = truth["utterances"]

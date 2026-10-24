@@ -165,3 +165,15 @@ The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/n
 | faster-whisper 1.2.1 | `WhisperModel(path, device="cpu", compute_type="int8")`; `transcribe(..., word_timestamps=True, vad_filter=False, clip_timestamps=[...], hallucination_silence_threshold=, condition_on_previous_text=False)`; `detect_language(audio)` returns `(code, prob, [(code, prob), ...])` | Read from the installed package source |
 | CTranslate2 model | `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf`. faster-whisper's own `large-v3-turbo` alias names `mobiuslabsgmbh/...`, which Hugging Face now redirects to this repository | Hugging Face API (HTTP 307 on the old name) |
 | huggingface_hub | 2.3.0 (pulled by both backends); models go to `<cache>/models/huggingface` through `snapshot_download(cache_dir=...)` | `uv pip show` |
+
+## Visual analysis (ticket #8, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| MediaPipe Tasks face detector | mediapipe 1.1.1: `mediapipe.tasks.python.vision.FaceDetector.create_from_options(FaceDetectorOptions(base_options=BaseOptions(model_asset_path=...)))`, `detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))` returns `detections[].bounding_box` (`origin_x`, `origin_y`, `width`, `height`, pixels) and `categories[0].score`; default `min_detection_confidence` 0.5, IMAGE running mode | `inspect.signature` on the installed package, then run on the face photo |
+| BlazeFace model | `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite` (1,083,786 bytes; identical to `latest`) | URL from the face detector guide on ai.google.dev; SHA-256 pinned in `reelcut.vision` |
+| YuNet (fallback) | OpenCV 5.0.0: `cv2.FaceDetectorYN.create(model, "", (w, h), score_threshold)`, `setInputSize((w, h))`, `detect(bgr)` returns rows `[x, y, w, h, 10 landmark values, score]` | `cv2.FaceDetectorYN.create.__doc__`, then run on the face photo |
+| YuNet model | `face_detection_yunet_2023mar.onnx` at opencv_zoo commit `48b10fa505aeb51fbd127fc60a5c660040e823b7` (232,589 bytes) | `git ls-remote` for the commit; SHA-256 pinned in `reelcut.vision` |
+| PySceneDetect | scenedetect 0.7.2: `SceneManager()`, `auto_downscale = True`, `add_detector(ContentDetector())` (threshold 27, min scene 15 frames), `detect_scenes(open_video(path))`, `get_scene_list(start_in_scene=True)` of `FrameTimecode` pairs with `.seconds` | `inspect.signature` and `dir()` on the installed package |
+
+The face detector guide offers three BlazeFace models: short range, full range and sparse full range. reelcut uses full range. On a 1080x1920 frame scaled to 640 px tall, short range found the photo's face only when the face was at least about 15% of the frame width (score 0.58 there, nothing at 12% or less), while full range found it at every size tried (score 0.56 with the face at 6% of the width, 0.93 at 22%). Talking heads filmed with a back camera on a tripod are often that small. Both models load in Tasks' `FaceDetector`.
