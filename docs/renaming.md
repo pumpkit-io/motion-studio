@@ -80,6 +80,7 @@ Rename these by hand and reread them.
 Leave these as they are: they describe what was built under the old name.
 
 - `BUILD_LOG.md`
+- `HANDOFF.md`: the v0.1.0 hand-off to the creator, dated and tied to that build.
 - `video-harness-build-guide.md`
 
 ## Outside the repository

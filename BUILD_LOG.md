@@ -574,3 +574,40 @@ Open issues:
 
 - `reelcut doctor --fix` (user story 6) was never built; doctor prints a fix per item instead. The README does not promise `--fix`.
 - CrisperWhisper's licence is now confirmed CC BY-NC 4.0 (the repository moved to `nyralabs/CrisperWhisper`); ROADMAP.md updated.
+
+## Phase 13, adapted: hand-off (ticket #19)
+
+Built:
+
+- Reinstalled the global `reelcut` from the integration branch (`uv tool install --force --reinstall-package reelcut --python 3.12 '.[mac]'`); `reelcut --version` prints `reelcut 0.1.0` and `reelcut doctor` reports every item ok, with the renderer at `~/Library/Caches/reelcut/renderer/0.1.0`.
+- `reelcut init ~/Videos/reels` and `reelcut new first-test --from <an empty folder>`: `~/Videos/reels/projects/first-test/raw/` exists and is empty; `reelcut status first-test` there exits 0 with `0 clip(s) in raw/` and `next: copy clips into .../raw`.
+- Re-read the workspace `AGENTS.md` and the five skills as an editing agent would, then walked the morning path (empty project, takes dropped into `raw/` afterwards). One trap: with an empty `raw/`, `ingest` and `analyze` both exited 0 and marked their stages done, then `plan draft` said "has no analysis, run analyze", so an agent would loop. `ingest` now exits 1 with `<raw> has no video or image files` and the hint `copy the takes into it, then run reelcut ingest <slug>` (test `test_an_empty_raw_folder_is_a_user_error_naming_the_folder`), and `reelcut-edit` step 0 tells the agent to ask for takes and wait when `status` reports 0 clips. With files copied into `raw/` after the failed ingest, `ingest`, `analyze`, `plan draft`, `plan validate`, `render --preview` and `check --preview` ran through on the fixture. `reelcut agents sync` refreshed the skills in `~/Videos/reels`.
+- `HANDOFF.md`: what was built, the morning steps, fixture timings labelled as such, known limitations from the open issues below and in earlier tickets, licence caveats (Remotion, the ACE-Step weights result, CrisperWhisper), blocked items (none) and the top five roadmap items. `docs/renaming.md` lists it under historical records.
+
+Checked:
+
+- Offline: under `sandbox-exec` with outbound network denied and localhost allowed (curl to huggingface.co fails with "Couldn't connect"), a fresh workspace ran `ingest`, `analyze`, `plan draft`, `plan validate`, `music` (ACE-Step generate), `plan validate`, `render --final` and `check --final` on the English fixture plus B-roll: verdict pass, 37 of 37 words re-heard, -13.9 LUFS / -2.5 dBTP, one caption-density warning. Times: 5, 9, 0, 1, 248, 1, 20 and 7 s.
+- On this branch before merging: `just lint`, `just test` (344 passed), `just schema-check`, `just edl-coverage` (99.89%) and `just e2e` (16 passed in 606 s, with `REELCUT_RENDERER_DIR` at the 0.1.0 cache install) pass.
+
+Guide §12, definition of done:
+
+- [x] All phases' acceptance criteria are met and logged in `BUILD_LOG.md`, except the Phase 13 dogfood on real footage, which spec #1 replaces with this hand-off and the creator's morning run.
+- [x] `just lint`, `just test` and `just e2e` pass on this Mac; CI passes on Linux (see Checked, and the CI run for this branch).
+- [x] A fresh workspace, an agent and "edit this into a Reel" give a checked 9x16 final without the agent writing code: headless Claude Code in ticket #18 (7 min 4 s, `check --final` pass). Only Claude Code was run; Codex, Gemini CLI and Cursor were not.
+- [x] Works fully offline after `reelcut setup --music`: the sandboxed run above.
+- [x] English and Italian verified end to end: `just e2e` runs both.
+- [x] README, docs, THIRD_PARTY (Remotion, ACE-Step weights, CrisperWhisper), CHANGELOG, ROADMAP and HANDOFF are complete.
+- [x] The name is centralised in `APP_NAME` and `docs/renaming.md` is accurate: `tests/unit/test_docs.py` enforces it, and `HANDOFF.md` has its entry.
+- [ ] Tagged `v0.1.0`: left to the orchestrator, who tags the integration branch after the final code review (PR #20 takes it to `main`).
+
+Deviations and why:
+
+- No dogfood on real footage and no finals for `first-test`: spec #1 (deviation "Phase 13") has the creator's morning run take its place, so `raw/` is left empty.
+- No tag from this ticket: the orchestrator tags after the final review.
+- The empty-`raw/` fix lands in 0.1.0 (CHANGELOG updated under 0.1.0), since that version is not tagged yet.
+
+Open issues:
+
+- `uv tool install` reuses its cached wheel when the version is unchanged, so reinstalling a newer checkout of 0.1.0 needs `--reinstall-package reelcut`. Noted in `HANDOFF.md`.
+- `reelcut doctor --fix` (ticket #18's open issue) is still not built.
+- A failed ingest on an empty `raw/` shows `ingest failed` in `status` until takes arrive; the `next:` line still says to copy clips in.

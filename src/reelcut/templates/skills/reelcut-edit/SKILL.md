@@ -8,7 +8,7 @@ description: End-to-end workflow for editing raw talking-head footage into short
 Run every command from the workspace root. Each command prints the paths it wrote; add `--json` when you want to parse the result. Exit codes: 0 OK, 1 a fixable EDL or input error (read the message and its hint, fix, rerun), 2 a missing dependency (run `reelcut doctor` and tell the user what it reports), 3 an internal error (report it to the user with the message).
 
 ## 0. Orient
-- `reelcut status <slug>`. If the project does not exist, create it with `reelcut new <slug> --from <paths>`.
+- `reelcut status <slug>`. If the project does not exist, create it with `reelcut new <slug> --from <paths>`. If it reports 0 clips in `raw/`, ask the user to copy their takes into `projects/<slug>/raw/` and wait; files added there later are picked up by `reelcut ingest <slug>`.
 - Read `projects/<slug>/notes.md` if it exists, and the effective config (`reelcut config show <slug>`).
 - Note the user's requests: target length, formats, tone, must-keep lines, CTA.
 

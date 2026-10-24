@@ -256,6 +256,21 @@ def test_unreadable_files_are_skipped_with_a_warning(workspace: Path, take: Path
     assert any("notes.txt" in w for w in state["stages"]["ingest"]["warnings"])
 
 
+def test_an_empty_raw_folder_is_a_user_error_naming_the_folder(
+    workspace: Path, tmp_path: Path
+) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    project = new_project(workspace, empty)
+
+    result = invoke("ingest", "demo", "--json")
+
+    assert result.exit_code == 1
+    error = json.loads(result.stdout)
+    assert str(project / "raw") in error["error"]
+    assert "ingest demo" in error["hint"]
+
+
 def test_ingest_refuses_to_start_when_disk_is_low(
     workspace: Path, take: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
