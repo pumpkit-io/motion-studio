@@ -95,9 +95,10 @@ def main(
 
 
 def _register() -> None:
-    from reelcut.cli import config, doctor, workspace
+    from reelcut.cli import agents, config, doctor, workspace
 
     workspace.register(app)
+    app.add_typer(agents.app, name="agents")
     app.add_typer(config.app, name="config")
     doctor.register(app)
 
