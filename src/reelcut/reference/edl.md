@@ -39,7 +39,7 @@
     { "type": "title", "text": "3 hours → 10 minutes", "start": "c1.w101", "end": "c1.w110" },
     { "type": "emphasis", "words": ["c1.w103", "c1.w106"] }
   ],
-  "captions": { "enabled": true, "style": "pop" },
+  "captions": { "enabled": true, "style": "clean" },
   "music": { "mode": "generate", "prompt": "minimal electronic, warm synths, confident, instrumental", "bpm": 104, "seed": 7, "gain_db": -20 },
   "rationale": "Hook = the strongest pain point; dropped the abandoned first take; CTA from the cleaner c2 retake."
 }
@@ -60,7 +60,7 @@
 | `drop_ranges` | `[]` | `{clip, start, end}` in source seconds, for audio no word points at (the `⟂` unaligned voice in packed.md). |
 | `keep_words` | `[]` | Word IDs kept although the policy drops them as fillers. `drop_words` wins over `keep_words`. |
 | `events` | `[]` | Zooms, pushes, B-roll, images, titles and emphasis, below. |
-| `captions` | config `[captions]` | `enabled`, `style` (`pop`, `clean`, `karaoke`), `max_words_per_page`, `uppercase`, `hide_during_broll` (true hides captions while a full-frame B-roll clip or image is on screen; default false). |
+| `captions` | config `[captions]` | `enabled`, `style` (`clean` by default; `pop` and `karaoke` animate the words and are explicit overrides), `max_words_per_page`, `uppercase`, `hide_during_broll` (true hides captions while a full-frame B-roll clip or image is on screen; default false). |
 | `music` | config `[music]` | The music bed, below. |
 | `rationale` | `""` | One to three sentences on why the edit is shaped this way. Always fill it. |
 

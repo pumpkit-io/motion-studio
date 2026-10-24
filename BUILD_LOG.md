@@ -646,3 +646,24 @@ Open issues:
 
 - The global `reelcut` tool is not reinstalled from this branch; that is for whoever merges it (`uv tool install --editable . --reinstall-package reelcut` from the main checkout). A non-editable install of 0.1.0 also keeps the renderer cached under `renderer/0.1.0`, which predates P2 and P5, so it needs `rm -rf ~/Library/Caches/reelcut/renderer/0.1.0` and `reelcut setup` (a checkout with `renderer/node_modules` uses its own renderer and is not affected).
 - HEIC from a real iPhone and the Linux `heif-convert` path are unverified (P1).
+
+## Classic caption look by default (ticket #22)
+
+New workspaces caption in the `clean` caption style, set in TikTok Sans 700, white and in sentence case, with a thinner outline.
+
+- Config: `[captions]` defaults to `style = "clean"` and `font = "TikTok Sans"` in `config.py` and the workspace `reelcut.toml` template; the brand library README names TikTok Sans as the default. `config.schema.json` regenerated with `just schema`; the timeline and EDL schemas carry no font default, so they did not change.
+- Fonts: `render/compose.py` treats `TikTok Sans` and `Inter` as bundled names, matched case-insensitively. The props gain `bundled_font` (the family to load, null when a brand font file is linked) next to `font_file`. A brand font in the library still wins; an unknown name falls back to TikTok Sans with the one-line warning, recorded in `state.json`.
+- Renderer: `lib/fonts.ts` loads TikTok Sans at 700 and Inter at 800 (latin and latin-ext woff2 from Fontsource, same unicode ranges). `LoadedFont` carries its weight, and captions and titles draw and measure with it. A brand font file loads as before and is drawn at 800. The caption stroke is 5% of the font size instead of 10%; the shadow is unchanged.
+- `@fontsource/tiktok-sans` 5.3.0 (OFL-1.1) added. npm 11.6.0's `npm install` dropped every other platform's optional packages (rolldown and lightningcss bindings, fsevents) from the lockfile, so only the new package's entries were kept in `package-lock.json`; `npm ci` installs from it.
+- The EDL reference example shows `"style": "clean"`, and its captions row says `pop` and `karaoke` are explicit overrides.
+
+Existing workspaces keep `style = "pop"` and `font = "Inter"` in their `reelcut.toml` and render as before, apart from the thinner outline, which applies to every caption style. To adopt the new look, edit these two lines under `[captions]`:
+
+```toml
+style = "clean"
+font = "TikTok Sans"
+```
+
+Checked: `just lint` and `just test` pass. `pytest -m renderer` ran the three real-Remotion tests in `test_renderer_cli.py` (Inter fixture, now with `bundled_font`), which pass; the fixture-based ones skip without `just fixtures`. A 9x16 still with TikTok Sans over pale, bright footage rendered through the real renderer.
+
+Open: the stroke width. With `paint-order: stroke fill` only the outer half of the 5% stroke shows, so the visible edge is thin; on very pale footage the soft shadow does most of the work. Confirm on real bright footage before settling on 5%.
