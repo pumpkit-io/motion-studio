@@ -85,6 +85,7 @@ def props(tmp_path: Path, fmt: str) -> Path:
         "regions": {"c1": {"x": 0, "y": 0, **SOURCE}},
         "video": "assembled.mp4",
         "font_file": None,
+        "bundled_font": "Inter",
         "logo_file": None,
     }
     path.write_text(json.dumps(data))

@@ -1,6 +1,6 @@
 import { interpolate, Sequence, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { readableOn } from "../lib/colour";
-import { FONT_WEIGHT, type LoadedFont } from "../lib/fonts";
+import type { LoadedFont } from "../lib/fonts";
 import { safeBox, TEXT_WIDTH } from "../lib/safezones";
 import type { FormatSpec, TimelineBrand, TimelineEvent, TimelineTitle } from "../lib/timeline";
 
@@ -58,7 +58,7 @@ const TitleCard: React.FC<{ title: TimelineTitle; format: FormatSpec; brand: Tim
           backgroundColor: brand.primary,
           color: readableOn(brand.primary),
           fontFamily: font.family,
-          fontWeight: FONT_WEIGHT,
+          fontWeight: font.weight,
           fontSize: unit * 0.062,
           lineHeight: 1.12,
           letterSpacing: "-0.02em",
