@@ -125,3 +125,32 @@ All four require or recommend `name` and `description` frontmatter in `SKILL.md`
 | pydantic | 2.14.1 | `json_schema_serialization_defaults_required` with `model_json_schema(mode="serialization")` marks defaulted timeline fields required |
 
 npm 11.6.0 drops every platform-specific optional package (`@rolldown/binding-*`, `lightningcss-*`, `fsevents`) from `package-lock.json` whenever it rewrites the lock, after which vitest cannot find its native binding (npm/cli#4828). The entries were merged back from the previous lock and `npm ci` verified. Re-check the lock diff after any renderer dependency change.
+
+## Renderer composition (ticket #12, 2026-10-24)
+
+| Package | Version | Licence | Why |
+|---|---|---|---|
+| @remotion/layout-utils | 4.0.538 | MIT | `measureText({ text, fontFamily, fontSize, fontWeight })` for the caption width cap |
+| @remotion/fonts | 4.0.538 | MIT | `loadFont({ family, url, weight, unicodeRange })`; calls `delayRender` until the font is in `document.fonts` |
+| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so the default font needs no network |
+
+Remotion APIs checked against the installed 4.0.538 type definitions:
+
+- `@remotion/captions`: `Caption = { text, startMs, endMs, timestampMs, confidence, pageBreakAfter? }`; `createTikTokStyleCaptions({ captions, combineTokensWithinMilliseconds, breakOnSilenceAfterMilliseconds? })` returns `{ pages: TikTokPage[] }` with `{ text, startMs, durationMs, tokens: { text, fromMs, toMs }[] }`. A caption's `pageBreakAfter: true` closes the page; with `combineTokensWithinMilliseconds: Infinity` that is the only break.
+- `remotion`: `<OffthreadVideo>` takes `trimBefore` (frames; `startFrom` is deprecated as of this version), `muted`, `style`. `CalculateMetadataFunction<Props>` receives `{ props, defaultProps, abortSignal, compositionId, isRendering }` and may return `width`, `height`, `fps`, `durationInFrames`.
+
+Remotion CLI flags (`npx remotion render --help` and `npx remotion still --help`, @remotion/cli 4.0.538), each used in `tests/integration/test_renderer_cli.py`:
+
+| Flag | Value used | Checked |
+|---|---|---|
+| `render <entry> <composition> <output>` | `src/index.ts Reel <out.mp4>` | positional form in `remotion --help` |
+| `--props` | path to a JSON file | accepts a file path (the render test passes one) |
+| `--public-dir` | the build's public directory | `staticFile()` paths resolve inside it |
+| `--concurrency` | 4 | |
+| `--codec` | `h264` | |
+| `--crf` | 16 | |
+| `--scale` | 0.5 (preview) or 1 | 16x9 at 0.5 renders 960x540 |
+| `--log` | `error` | |
+| `still ... --frame=<n>` | stills for visual checks | `remotion still --help` |
+
+The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/node_modules/.remotion/`; `npx remotion browser ensure` does that ahead of time.
