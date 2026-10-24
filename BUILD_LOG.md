@@ -437,6 +437,38 @@ Open issues:
 - The look counter is read and written without the project lock, so two `look` calls at the same instant could count once; it is only a warning threshold.
 - In a long dense range, word labels can stack several rows deep; the look skill already steers agents to ranges under 20 s.
 
+## Phase 9: check (ticket #15)
+
+Built:
+
+- `reelcut check <slug> [--preview|--final] [--json]` (`reelcut.check.check_project`). It refuses (exit 1, hint `render`) unless the matching render stage is `done`, and checks every format that render wrote (read from the stage's recorded outputs). Writes `check/report.md`, `check/report.json` (the `--json` payload) and `check/cuts.png`; exits 1 when anything blocks, with `ok: false` and `verdict: "blocked"` in the JSON.
+- Re-transcribe and diff (`reelcut.check.diff`): `build/voice_<first format>.wav` (the voice stem before music, the same for every format) is resampled to `check/voice_16k.wav` and transcribed with `reelcut.asr.transcribe_clips` (same backend and model as analyze, in its subprocess under the heavy-model lock) in the timeline language. `difflib.SequenceMatcher` aligns case-folded, punctuation-free tokens; a missing or replaced word whose span is within 300 ms of a cut is a blocking `clipped_cut`, otherwise an `asr_noise` note. The fix names the policy pad on the side of the cut the word is on, with its current value, and the source neighbour to keep: remove it from `drop_words`, add a filler to `keep_words`, set the segment's `to`/`from` to it, or raise `max_pause_ms` when the cut is inside a segment.
+- Cut stills (`reelcut.check.stills`, drawn with ticket #9's sheet helpers and font): one cell per cut with `cut k  t s`, the frame 0.2 s before and after (red line between) from the first rendered format, and the two words either side of the cut.
+- One ffmpeg pass per rendered file: `ebur128` (integrated, true peak, LRA; warning beyond ±1 LU or 0.5 dB over the true-peak limit, as mastering is automatic), `blackdetect` (≥ 0.5 s, blocking) and `freezedetect` (≥ 2 s, warning); stretches mostly inside an image event are ignored.
+- Duration over `max_duration_s` (EDL, else config) blocks, naming the longest middle segments. Caption density: peak words starting in any 2 s window of output time, warning over 4.5 words/s. Event overlaps re-checked from the timeline: full-frame overlays overlapping block, a title over full-frame B-roll and an event past the end warn.
+- State: a passing preview check marks stage `check` done; a final check uses record `check.final`. A blocked check marks the record failed with the verdict.
+- Removed `check` from `PENDING` in `tests/unit/test_agents.py`; it accepts `--json`.
+
+Checked (acceptance):
+
+- Zero padding produces a blocking clipped cut: `tests/integration/test_check_fixtures.py` (slow, mac, models, renderer; mlx-whisper) sets `policy` pads to 0 on the EN fixture, renders a 9x16 preview and checks: exit 1 with `clipped 'videos.' (c1.w17) at cut 2 (4.07 s): heard as 'video.' → raise policy.pad_out_ms (now 0) or set segment c1-s1's `to` to c1.w18 ('The')`. The default pads (80/120 ms) on the same footage re-hear all 31 words.
+- An EDL longer than `max_duration_s` blocks: the same integration file (`max_duration_s: 5`) and `test_an_edl_longer_than_max_duration_blocks` in CI.
+- A good fixture render passes with exit 0: EN and IT drafts with default policy, 9x16 previews; 31 of 31 words re-heard (EN), -13.9 LUFS / -1.5 dBTP; the only finding is a caption-density warning (about 5 words/s for 2 s: macOS `say` speaks fast once pauses are tightened).
+- `check/cuts.png` shows every cut with its index. Visual check, opening the PNGs from the fixture runs: EN and IT each show 4 cells in one row, labelled `cut 1  2.03s` to `cut 4  8.57s` (IT `cut 1  2.00s` to `cut 4  8.27s`), each a before/after pair split by a red line with the burned-in captions legible ("to the channel." | "Today, I want"), the alternating jump-cut punch visible as a size change of the face between the two frames, and the words either side underneath with accents intact ("la cosa più"). CI test asserts one cell per cut in the sheet's size and the `cuts_s` list.
+- CI tests (`tests/unit/test_check_cli.py`, stand-in Remotion and ASR worker on ticket #13's `demo` project): pass with exit 0; a word lost before a cut blocks with a `pad_out_ms` fix and `c1.w7`; a word lost after a cut points at `pad_in_ms` and the earlier word; a misheard word far from a cut is a note; over-length blocks; the ASR job is 16 kHz mono in the timeline language; loudness per rendered format; a black picture blocks and a flat grey (frozen) picture warns; check before render is exit 1; a passing check marks the stage done.
+
+Deviations and why:
+
+- Words are re-transcribed once per render, from the first format's voice stem: every format's stem is the same audio (ticket #13), so transcribing each would only cost model time.
+- Loudness and true peak off target are warnings, not blocking: the review skill says to re-render and report them as a bug, since the EDL cannot fix them. Frozen pictures warn rather than block, since a locked-off talking head can legitimately fall under the freeze threshold; black frames block.
+- Caption density is measured over a 2 s sliding window of word starts, not per caption page: page-based counts swung with a single short word and do not match how the renderer pages captions.
+- `BUILD_LOG.md` on `feat/reelcut-v0.1.0` had committed merge-conflict markers between the #13 and #9 sections; removed them, keeping both sections.
+
+Open issues:
+
+- `render` fingerprints `media/manifest.json`, not the mezzanine files, so replacing a mezzanine in place does not make the render stale (the black/frozen CI test touches the manifest to force it).
+- The clip window (300 ms) can flag ASR noise on a word next to a cut as a clipped cut; the fix is still harmless (more padding).
+
 ## Phase 8: music (ticket #14)
 
 Built:

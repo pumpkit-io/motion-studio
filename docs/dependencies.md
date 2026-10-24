@@ -204,6 +204,19 @@ The face detector guide offers three BlazeFace models: short range, full range a
 | Font subset | `pyftsubset DejaVuSans.ttf --unicodes=U+0020-007E,U+00A0-024F,U+2010-2027,U+2030-203A,U+20AC,U+2212 --layout-features='*'` (fontTools 4.67.0, pulled in by matplotlib; not a runtime dependency of reelcut); 81,272 bytes, SHA-256 `ce1367a05a187fbd021ce52d4b6c207845bc68cb5c88e921b76b4eb1e0be11db` | `TTFont(...).getBestCmap()` covers àèéìòù and the ellipsis |
 | Frame seeking | `ffmpeg -ss <t> -i <mezzanine> -frames:v 1` (input seek, one decode per frame) through `reelcut.media.ffmpeg.read_frames` | Fixture sheets show the expected timestamps |
 
+
+## Check (ticket #15, 2026-10-24)
+
+ffmpeg filter options, checked with `ffmpeg -h filter=<name>` on 9.0.1; the CI tests run them on Ubuntu's 6.x:
+
+| Filter | Options used |
+|---|---|
+| `ebur128` | `peak=true` (true peak), `framelog=verbose` (keeps the per-frame lines out of stderr so the detector lines and the summary fit the runner's 500-line buffer); integrated `I:`, `LRA:` and `Peak:` read from the `Summary:` block |
+| `blackdetect` | `d=0.5` (default 2), `pix_th=0.10`; logs `black_start: black_end: black_duration:` |
+| `freezedetect` | `n=-60dB`, `d=2`; logs `lavfi.freezedetect.freeze_start` and `freeze_end` (no end when the freeze reaches the end of the file) |
+
+Re-transcription uses `reelcut.asr.transcribe_clips` (ticket #7): the same backend and model as analyze, in its subprocess under the heavy-model lock, on `build/voice_<fmt>.wav` resampled to 16 kHz mono. Alignment uses the standard library's `difflib.SequenceMatcher(autojunk=False)` on case-folded tokens with punctuation removed.
+
 ## Music (ticket #14, 2026-10-24)
 
 | Item | Value | How checked |
