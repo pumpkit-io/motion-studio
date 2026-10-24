@@ -61,6 +61,37 @@ def test_changed_input_makes_stage_stale(project: ProjectPaths) -> None:
     assert not stage_is_fresh(project, "ingest", [project.raw])
 
 
+def test_a_changed_input_of_the_same_size_makes_stage_stale(project: ProjectPaths) -> None:
+    clip = project.raw / "a.mov"
+    clip.write_text("take one", encoding="utf-8")
+    mark_done(project, "ingest", [project.raw], outputs=[])
+    bump(clip, "take two")
+    assert not stage_is_fresh(project, "ingest", [project.raw])
+
+
+def test_touching_an_input_without_changing_it_keeps_the_stage_fresh(
+    project: ProjectPaths,
+) -> None:
+    clip = project.raw / "a.mov"
+    clip.write_text("take", encoding="utf-8")
+    mark_done(project, "ingest", [project.raw], outputs=[])
+    bump(clip, "take")
+    assert stage_is_fresh(project, "ingest", [project.raw])
+
+
+def test_an_unchanged_size_and_mtime_reuse_the_recorded_content_hash(
+    project: ProjectPaths,
+) -> None:
+    # The fast path: a file whose size and mtime hold is not read again, so `status` stays fast.
+    clip = project.raw / "a.mov"
+    clip.write_text("take one", encoding="utf-8")
+    mark_done(project, "ingest", [project.raw], outputs=[])
+    stat = clip.stat()
+    clip.write_text("take two", encoding="utf-8")
+    os.utime(clip, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert stage_is_fresh(project, "ingest", [project.raw])
+
+
 def test_added_file_in_an_input_directory_makes_stage_stale(project: ProjectPaths) -> None:
     (project.raw / "a.mov").write_text("take", encoding="utf-8")
     mark_done(project, "ingest", [project.raw], outputs=[])

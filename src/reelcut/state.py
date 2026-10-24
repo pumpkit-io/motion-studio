@@ -1,8 +1,9 @@
 """Per-stage state.json, input hashing, freshness checks and locks.
 
 A stage is fresh when its last run finished, its inputs and parameters hash the same as then,
-and every output it recorded still exists. Inputs are fingerprinted by path, size and mtime,
-not content, so `status` stays instant on multi-gigabyte footage.
+and every output it recorded still exists. Inputs are fingerprinted by path and content hash.
+The content hash is cached in `.hashes.json` against each file's size and mtime, so a file
+whose size and mtime hold is not read again and `status` stays instant on large footage.
 """
 
 import fcntl
@@ -265,21 +266,57 @@ def _params_hash(params: Mapping[str, Any] | None) -> str:
 
 def _input_hash(project: ProjectPaths, inputs: Iterable[Path], params_hash: str) -> str:
     digest = hashlib.sha256(params_hash.encode())
+    cache = _HashCache(project.hash_cache)
     for path in sorted(inputs, key=lambda p: _relative(project, p)):
-        for line in _fingerprint(project, path):
+        for line in _fingerprint(project, path, cache):
             digest.update(line.encode())
             digest.update(b"\n")
+    cache.save()
     return digest.hexdigest()
 
 
-def _fingerprint(project: ProjectPaths, path: Path) -> Iterator[str]:
+def _fingerprint(project: ProjectPaths, path: Path, cache: "_HashCache") -> Iterator[str]:
     if path.is_dir():
         files = sorted(p for p in path.rglob("*") if p.is_file() and not p.name.startswith("."))
         yield f"dir {_relative(project, path)} {len(files)}"
         for file in files:
-            yield from _fingerprint(project, file)
+            yield from _fingerprint(project, file, cache)
     elif path.is_file():
-        stat = path.stat()
-        yield f"file {_relative(project, path)} {stat.st_size} {stat.st_mtime_ns}"
+        yield f"file {_relative(project, path)} {cache.digest(path)}"
     else:
         yield f"missing {_relative(project, path)}"
+
+
+class _HashCache:
+    """Content hashes keyed by absolute path, trusted while the file's size and mtime hold."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.dirty = False
+        self.entries: dict[str, list[Any]] = {}
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return
+        if isinstance(loaded, dict):
+            self.entries = loaded  # pyright: ignore[reportUnknownMemberType]
+
+    def digest(self, file: Path) -> str:
+        key = str(file.resolve())
+        stat = file.stat()
+        entry = self.entries.get(key)
+        if entry is not None and entry[:2] == [stat.st_size, stat.st_mtime_ns]:
+            return str(entry[2])
+        with open(file, "rb") as handle:
+            value = hashlib.file_digest(handle, "sha256").hexdigest()
+        self.entries[key] = [stat.st_size, stat.st_mtime_ns, value]
+        self.dirty = True
+        return value
+
+    def save(self) -> None:
+        if not self.dirty or not self.path.parent.is_dir():
+            return
+        tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(self.entries), encoding="utf-8")
+        os.replace(tmp, self.path)
+        self.dirty = False

@@ -220,9 +220,6 @@ def replace_picture(project: Path, colour: str) -> None:
             "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", mezzanine,
         ]
     )  # fmt: skip
-    # Render fingerprints the manifest, not the mezzanine, so touch it to force a re-render.
-    manifest = project / "media" / "manifest.json"
-    manifest.write_text(manifest.read_text(encoding="utf-8") + " ", encoding="utf-8")
 
 
 def test_black_frames_block_and_a_frozen_picture_warns(demo: Path, asr: Path) -> None:

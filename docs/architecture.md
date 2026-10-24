@@ -97,7 +97,7 @@ The renderer is a Remotion 4 project with one composition, `Reel`. `render` writ
 
 ## Stage state
 
-Each stage records its inputs' fingerprints (path, size and modification time), its parameters and its outputs in `state.json`. A stage whose inputs and parameters are unchanged reports `unchanged` and does nothing. Stages list upstream outputs as inputs, so a re-ingest makes analysis stale, a re-validate makes the render stale, and `status` names the next command. Fallbacks are recorded as warnings on the stage.
+Each stage records its inputs' fingerprints (path and SHA-256 of the content), its parameters and its outputs in `state.json`. Content hashes are cached in the project's `.hashes.json` against each file's size and modification time, so only files whose size or time changed are read again and `status` stays fast. Render lists the mezzanines, voice files and overlay assets it reads among its inputs, so replacing one in place re-renders. A stage whose inputs and parameters are unchanged reports `unchanged` and does nothing. Stages list upstream outputs as inputs, so a re-ingest makes analysis stale, a re-validate makes the render stale, and `status` names the next command. Fallbacks are recorded as warnings on the stage.
 
 ## Testing seams
 

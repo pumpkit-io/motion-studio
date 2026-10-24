@@ -301,6 +301,25 @@ def test_a_second_render_with_nothing_changed_is_a_no_op(demo: Path, fake_render
     assert [o["format"] for o in again["outputs"]] == ["9x16", "16x9"]
 
 
+def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(
+    demo: Path, fake_renderer: Path
+) -> None:
+    render("--preview", "--format", "9x16")
+    mezzanine = demo / "media" / "c1.mp4"
+    run_ffmpeg(
+        [
+            "-y", "-f", "lavfi", "-i", f"color=c=red:size=360x640:rate={FPS}",
+            "-t", str(C1.clip.duration_s), "-c:v", "libx264", "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p", mezzanine,
+        ]
+    )  # fmt: skip
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
+
+
 def test_an_edited_edl_is_validated_and_rendered_again(demo: Path, fake_renderer: Path) -> None:
     render("--preview", "--format", "9x16")
     write_edl(demo, segments=[{"id": "intro", "from": "c1.s0", "to": "c1.s0"}])

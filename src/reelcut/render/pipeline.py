@@ -9,8 +9,9 @@ from reelcut import APP_NAME
 from reelcut.config import Brand as BrandConfig
 from reelcut.config import load_config
 from reelcut.edl import Timeline
+from reelcut.edl.models import TimelineBroll, TimelineImage
 from reelcut.errors import ReelcutError, UserError
-from reelcut.ingest import MANIFEST, load_manifest
+from reelcut.ingest import MANIFEST, ClipMedia, load_manifest
 from reelcut.paths import ProjectPaths, project_paths
 from reelcut.plan import load_edl, timeline_path, validate_project
 from reelcut.render.assemble import assemble, count_frames, video_size
@@ -118,7 +119,10 @@ def render_project(
         music_file = _music_file(project, timeline)
         brand = find_brand(timeline, workspace, BrandConfig().logo)
         manifest = project.media / MANIFEST
-        inputs = [timeline_path(project), manifest]
+        clips = {c.id: c for c in load_manifest(project).clips}
+        a_roll = _a_roll_media(project, timeline, clips)
+        assemble_inputs = [timeline_path(project), manifest, *a_roll]
+        inputs = [*assemble_inputs, *_overlay_media(project, timeline)]
         inputs += [p for p in (music_file, brand.font, brand.logo) if p is not None]
         params = {
             "recipe": RECIPE,
@@ -141,12 +145,10 @@ def render_project(
             for message in brand.warnings:
                 record_warning(project, stage, message)
                 warn(message)
-            assemble_inputs = [timeline_path(project), manifest]
             if not stage_is_fresh(
                 project, ASSEMBLE_RECORD, assemble_inputs, params={"recipe": RECIPE}
             ):
                 step("assembling the A-roll cuts")
-                clips = {c.id: c for c in load_manifest(project).clips}
                 assemble(timeline, clips, project.root, project.build)
                 mark_done(
                     project,
@@ -206,6 +208,23 @@ def _formats(timeline: Timeline, requested: Sequence[str]) -> list[str]:
             hint='add it to "formats" in edl.json and run `plan validate`',
         )
     return list(dict.fromkeys(requested))
+
+
+def _a_roll_media(
+    project: ProjectPaths, timeline: Timeline, clips: dict[str, ClipMedia]
+) -> list[Path]:
+    """The mezzanines and voice files the runs cut from, so replacing one re-renders."""
+    found: list[Path] = []
+    for clip_id in dict.fromkeys(run.clip for run in timeline.runs):
+        media = clips.get(clip_id)
+        if media is not None:
+            found += [project.root / p for p in (media.mezzanine, media.audio) if p]
+    return found
+
+
+def _overlay_media(project: ProjectPaths, timeline: Timeline) -> list[Path]:
+    srcs = [e.src for e in timeline.events if isinstance(e, TimelineBroll | TimelineImage)]
+    return [project.root / src for src in dict.fromkeys(srcs)]
 
 
 def _music_file(project: ProjectPaths, timeline: Timeline) -> Path | None:
