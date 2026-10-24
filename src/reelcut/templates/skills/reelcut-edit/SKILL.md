@@ -5,7 +5,7 @@ description: End-to-end workflow for editing raw talking-head footage into short
 
 # Editing a video with reelcut
 
-Run every command from the workspace root. Each command prints the paths it wrote; add `--json` when you want to parse the result. Exit codes: 0 OK, 1 a fixable EDL or input error (read the message and its hint, fix, rerun), 2 a missing dependency (run `reelcut doctor` and tell the user what it reports), 3 an internal error (report it to the user with the message).
+Run every command from the workspace root. Each command prints the paths it wrote; add `--json` when you want to parse the result. Exit codes: 0 OK, 1 a fixable EDL or input error (read the message and its hint, fix, rerun), 2 a missing dependency (run `reelcut doctor`; when it lists a missing model or the renderer, `reelcut doctor --fix` downloads it, otherwise tell the user what it reports), 3 an internal error (report it to the user with the message).
 
 ## 0. Orient
 - `reelcut status <slug>`. If the project does not exist, create it with `reelcut new <slug> --from <paths>`. If it reports 0 clips in `raw/`, ask the user to copy their takes into `projects/<slug>/raw/` and wait; files added there later are picked up by `reelcut ingest <slug>`.

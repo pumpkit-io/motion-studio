@@ -70,10 +70,13 @@ Exits 2 when something required is missing; warnings alone exit 0.
 $ reelcut doctor [OPTIONS]
 ```
 
+* `--fix`: Download what `setup` installs when it is missing, then check again.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`REELCUT_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it.
+Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`REELCUT_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos.
+
+`--fix` runs the installs the build guide calls safe: when the renderer, the speech or face models or DeepFilterNet are missing, it runs the same downloads as plain `setup`, then prints the checks again. It never runs brew, apt or npm for system tools such as ffmpeg and node, and never fetches ACE-Step (`setup --music`); their fixes stay on their lines. With `--json` the result also carries `fixed` (what it installed) and `fix_error`.
 
 ## Workspaces and projects
 

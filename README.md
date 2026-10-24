@@ -95,7 +95,7 @@ Music from your own library is yours to license: reelcut refuses library tracks 
 
 ## Troubleshooting
 
-- Start with `reelcut doctor`. It names every missing tool, filter, model or setting with a fix, and exits 2 when something required is missing.
+- Start with `reelcut doctor`. It names every missing tool, filter, model or setting with a fix, and exits 2 when something required is missing. `reelcut doctor --fix` downloads the missing models and renderer the way `reelcut setup` does and checks again; system tools such as ffmpeg and node stay yours to install.
 - Exit codes: 1 means a fixable EDL or input problem (the message says what to change), 2 a missing dependency (run `reelcut setup` or follow the hint), 3 an internal error (rerun with `REELCUT_DEBUG=1` for the traceback and report it).
 - `reelcut status <slug>` shows which stages are done or stale and the next command, if an edit was interrupted.
 - "not enough free disk": free space or set `REELCUT_MIN_FREE_GB` lower, at your own risk.
