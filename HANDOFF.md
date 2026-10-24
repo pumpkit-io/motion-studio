@@ -31,7 +31,7 @@ The global `reelcut` command is v0.1.0, installed from the integration branch.
 
 ## Tomorrow morning
 
-1. Copy 2 to 5 talking-head takes into `~/Videos/reels/projects/first-test/raw/`, optionally with an image or a B-roll clip. Copy rather than move: reelcut never modifies `raw/`, but your originals are safer where they are. Convert iPhone HEIC photos to JPEG or PNG first (see the limitations).
+1. Copy 2 to 5 talking-head takes into `~/Videos/reels/projects/first-test/raw/`, optionally with an image or a B-roll clip. Copy rather than move: reelcut never modifies `raw/`, but your originals are safer where they are. iPhone HEIC photos can go in as they are: ingest converts them to PNG with `sips`.
 2. Open a terminal, `cd ~/Videos/reels`, and start your agent there (`claude` for Claude Code).
 3. Ask: "Edit first-test into a 45-second Reel and an X version."
 4. Wait. The agent ingests, analyses, plans, generates music, renders a preview, checks it, fixes what the check flags and renders the finals. Expect a few minutes for ingest and analysis, about 4 minutes for music (mostly the model loading), and render time that grows with the length of the Reel.
@@ -65,20 +65,21 @@ Other fixture runs:
 
 From the open issues in BUILD_LOG.md that still apply:
 
-- `reelcut doctor --fix` (user story 6) was not built. `doctor` prints the fix for each failing item instead.
-- HEIC/HEIF photos are not read; ingest fails with a hint to convert them.
+- `reelcut doctor --fix` downloads missing models and the renderer, but does not install system tools (ffmpeg, node) or ACE-Step; their fixes are printed.
+- HEIC orientation was checked only on files `sips` made from rotated JPEGs, not on photos from an iPhone. Look at the first one you ingest. On Linux, HEIC needs libheif's `heif-convert`, which was not run during the build.
 - Clips are classified as A-roll only when they show a face. A screen recording with a voice-over becomes B-roll and needs `role = "aroll"` under its clip in `project.toml`.
 - The static-stretch threshold was tuned on synthetic footage; real phone noise on a locked-off shot may hide static stretches. Worth looking at in the first run.
-- A-roll clips of different aspect ratios are letterboxed to the first clip's size, and their reframing is off.
-- Captions stay on screen during full-frame B-roll; there is no setting to hide them yet.
+- A-roll clips of different shapes are each framed from their own picture, but each run still gets one face position (the median), so a speaker who moves a lot within one run is not followed.
+- Captions stay on screen during full-frame B-roll unless `hide_during_broll = true` is set under `[captions]` (or in the EDL's `captions`).
 - Glyphs outside Inter's Latin sets (for example "→" in a title) fall back to a system font.
 - Ingest rewrites `project.toml` when it adds clips, which drops comments you wrote in it (values are kept).
-- Freshness checks compare file size and modification time, not content. An edited file with the same size and time is not noticed; `reelcut clean <slug> --all` starts the project over without touching `raw/`.
+- Freshness checks hash file content, but trust the cached hash while a file's size and modification time are unchanged. A file edited in place that keeps both is not noticed; `reelcut clean <slug> --all` starts the project over without touching `raw/`.
+- Progress bars track ffmpeg encodes only. Remotion renders and ACE-Step show a spinner with the elapsed time, since neither reports progress to reelcut.
 - On long takes Whisper occasionally attaches the first word of the next take to an abandoned one. The check stage re-transcribes the render and flags it.
 - The check can report ASR noise right next to a cut as a clipped word. Its fix (more padding) is harmless.
 - The two talking fixtures are about 23 s long, so nothing in the build measured a multi-minute shoot end to end. The 5-minute concatenation was checked only for the size of `packed.md` (about 2,040 tokens).
 - Agents other than Claude Code were not run against a workspace. Gemini CLI has been succeeded by Antigravity CLI, and its use of `.agents/skills/` comes from third-party guides. Cursor sees each skill twice.
-- Upgrading: `uv tool install` reuses its cached wheel when the version number is unchanged. To install a newer checkout with the same version, add `--reinstall-package reelcut`, then run `reelcut agents sync` in the workspace.
+- Upgrading: `uv tool install` reuses its cached wheel when the version number is unchanged. To install a newer checkout with the same version, add `--reinstall-package reelcut`, then run `reelcut agents sync` in the workspace. The renderer is cached per version too: after a same-version upgrade, delete `~/Library/Caches/reelcut/renderer/0.1.0` and run `reelcut setup` so the cache gets the new composition.
 
 Blocked items: none. No ticket recorded an acceptance criterion as blocked in BUILD_LOG.md. The one adapted item is the guide's Phase 13 dogfood on real footage, which spec #1 replaces with this hand-off and your morning run.
 

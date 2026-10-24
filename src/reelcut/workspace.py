@@ -16,6 +16,7 @@ from reelcut.config import load_config
 from reelcut.errors import UserError
 from reelcut.paths import WORKSPACE_FILE, ProjectPaths, project_paths
 from reelcut.state import STAGES, State, load_state, project_lock, save_state, stage_status
+from reelcut.target import RenderTarget
 
 PLACEHOLDER = ".gitkeep"
 
@@ -156,9 +157,9 @@ def _next_command(project: ProjectPaths, stage: str) -> str:
         "analyze": f"analyze {slug}",
         "plan": f"plan validate {slug}" if project.edl.exists() else f"plan draft {slug}",
         "music": f"music {slug}",
-        "preview": f"render {slug} --preview",
-        "check": f"check {slug} --preview",
-        "final": f"render {slug} --final",
+        RenderTarget.PREVIEW.stage: f"render {slug} {RenderTarget.PREVIEW.flag}",
+        RenderTarget.PREVIEW.check_record: f"check {slug} {RenderTarget.PREVIEW.flag}",
+        RenderTarget.FINAL.stage: f"render {slug} {RenderTarget.FINAL.flag}",
     }
     return f"{APP_NAME} {commands[stage]}"
 

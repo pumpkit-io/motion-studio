@@ -1,11 +1,16 @@
-"""Check the machine for every tool, filter, model and resource reelcut needs."""
+"""Check the machine for every tool, filter, model and resource reelcut needs.
+
+`fix_machine` runs the installs the guide calls safe (the cache downloads `setup` does) and
+checks again. System tools such as ffmpeg and node are left to the user: their fix is printed.
+"""
 
 import importlib.util
 import os
 import re
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass
+from collections.abc import Callable
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,12 +18,14 @@ from reelcut import APP_NAME
 from reelcut.asr import DEFAULT_MODELS, default_backend, hf_cache, model_path
 from reelcut.asr.vad import SILERO_VERSION, vad_model_path
 from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
-from reelcut.errors import DependencyError
+from reelcut.errors import DependencyError, ReelcutError
 from reelcut.media.ffmpeg import ffmpeg_caps
+from reelcut.media.normalise import HEIF_HINT, heif_decoder
 from reelcut.music.acestep import env_root
 from reelcut.music.acestep import installed as acestep_installed
 from reelcut.paths import cache_dir
 from reelcut.render.renderer import cached_renderer, is_installed, remotion_version
+from reelcut.setup import Item, run_setup
 from reelcut.state import free_disk_gb, min_free_gb
 from reelcut.vision import mediapipe_model_path, yunet_model_path
 
@@ -34,6 +41,9 @@ REQUIRED_FILTERS = (
 )
 # HDR tone-mapping per ADR 0003: scale_vt on macOS, zscale where present, else colorspace.
 OPTIONAL_FILTERS = ("zscale", "scale_vt", "libplacebo")
+
+# Checks that a plain `setup` turns ok: cache downloads only, no system package managers.
+SETUP_FIXES = frozenset({"vad model", "asr model", "face model", "renderer", "deepfilternet"})
 
 MIN_NODE_MAJOR = 20
 LOW_RAM_GB = 16
@@ -71,6 +81,34 @@ class Report:
         }
 
 
+@dataclass(frozen=True)
+class FixReport:
+    report: Report
+    installed: list[Item] = field(default_factory=lambda: list[Item]())
+    error: str | None = None
+    ran_setup: bool = False
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            **self.report.to_json(),
+            "fixed": [asdict(i) for i in self.installed if i.status == "installed"],
+            "fix_error": self.error,
+        }
+
+
+def fix_machine(workdir: Path, on_step: Callable[[str], None] | None = None) -> FixReport:
+    """Run `setup`'s downloads when a check they cover is not ok, then check again."""
+    before = run_doctor(workdir)
+    if not any(c.name in SETUP_FIXES and c.status != "ok" for c in before.checks):
+        return FixReport(before)
+    try:
+        installed = run_setup(workdir=workdir, on_step=on_step).items
+        error = None
+    except ReelcutError as exc:
+        installed, error = [], exc.message
+    return FixReport(run_doctor(workdir), installed, error, ran_setup=True)
+
+
 def run_doctor(workdir: Path) -> Report:
     checks, ffmpeg = _ffmpeg_checks()
     checks += _node_checks()
@@ -78,6 +116,7 @@ def run_doctor(workdir: Path) -> Report:
     checks += _speech_model_checks()
     checks.append(_face_model_check())
     checks += _cache_checks()
+    checks.append(_heif_check())
     disk_check, disk = _disk_check(workdir)
     checks.append(disk_check)
     ram = _ram_gb()
@@ -259,6 +298,15 @@ def _cache_checks() -> list[Check]:
             None if deep_filter else f"{setup}, or put deep-filter {DEEP_FILTER_VERSION} on PATH",
         ),
     ]
+
+
+def _heif_check() -> Check:
+    decoder = heif_decoder()
+    if decoder:
+        return Check("heic decoder", "ok", False, decoder)
+    return Check(
+        "heic decoder", "warn", False, "none; ingest skips HEIC and HEIF photos", HEIF_HINT
+    )
 
 
 def _disk_check(workdir: Path) -> tuple[Check, dict[str, Any]]:

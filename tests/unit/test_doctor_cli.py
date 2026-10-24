@@ -216,3 +216,72 @@ def test_doctor_reports_the_acestep_env_and_its_weights_licence_once_setup_finis
     assert "setup --music" in check(half_done, "ace-step env")["fix"]
     assert check(done, "ace-step env")["status"] == "ok"
     assert "licence mit" in check(done, "ace-step env")["detail"]
+
+
+def fake_setup(monkeypatch: pytest.MonkeyPatch, cache: Path) -> list[dict[str, Any]]:
+    """Stand in for `setup`'s downloads: it lays down the DeepFilterNet binary and logs the call."""
+    from reelcut.setup import Item, SetupReport
+
+    calls: list[dict[str, Any]] = []
+
+    def run_setup(**kwargs: Any) -> SetupReport:
+        calls.append(kwargs)
+        binary = cache / "bin" / "deep-filter"
+        binary.parent.mkdir(parents=True, exist_ok=True)
+        binary.write_text("", encoding="utf-8")
+        return SetupReport([Item("deepfilternet", "installed", str(binary))])
+
+    monkeypatch.setattr("reelcut.doctor.run_setup", run_setup)
+    return calls
+
+
+def test_doctor_fix_runs_the_setup_downloads_then_checks_again(
+    fake_tools: FakeTools, isolated_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    calls = fake_setup(monkeypatch, isolated_cache)
+
+    result = runner.invoke(app, ["doctor", "--fix", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert [c.get("music", False) for c in calls] == [False]
+    assert check(payload, "deepfilternet")["status"] == "ok"
+    assert payload["fixed"] == [
+        {
+            "name": "deepfilternet",
+            "status": "installed",
+            "path": str(isolated_cache / "bin" / "deep-filter"),
+            "licence": None,
+        }
+    ]
+
+
+def test_doctor_fix_does_nothing_when_setup_has_nothing_to_add(
+    fake_tools: FakeTools, isolated_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    calls = fake_setup(monkeypatch, isolated_cache)
+    monkeypatch.setattr("reelcut.doctor.SETUP_FIXES", frozenset())
+
+    result = runner.invoke(app, ["doctor", "--fix"])
+
+    assert result.exit_code == 0, result.output
+    assert calls == []
+    assert "nothing to install" in result.output
+
+
+def test_doctor_fix_leaves_system_tools_to_the_user(
+    fake_tools: FakeTools, isolated_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_setup(monkeypatch, isolated_cache)
+
+    result = runner.invoke(app, ["doctor", "--fix", "--json"])
+
+    assert result.exit_code == 2
+    node = check(json.loads(result.output), "node")
+    assert node["status"] == "missing"
+    assert "brew install node" in node["fix"]

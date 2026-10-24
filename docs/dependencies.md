@@ -239,3 +239,11 @@ Re-transcription uses `reelcut.asr.transcribe_clips` (ticket #7): the same backe
 | Python licence survey | `uv export --no-dev --extra cpu --extra mac --no-hashes --frozen` for the package list, `importlib.metadata` for each licence | 90 packages; two platform-only ones (`colorama`, `httpx2-jsfetch`) checked on PyPI |
 | npm licence survey | each `package.json` under the installed renderer's `node_modules` | 285 packages |
 | Version | 0.1.0 in `pyproject.toml` and `uv.lock` | `reelcut --version` prints `reelcut 0.1.0`; the renderer installs into `<cache>/renderer/0.1.0` |
+
+## Code review fixes (2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| sips | sips-316 on macOS 27.0.1: `sips -s format png <in.heic> --out <out.png>` writes the raw pixels with the EXIF orientation tag kept | `sips --version`; converted a JPEG with orientation 6 to HEIC and back, read the PNG with Pillow |
+| heif-convert | `heif-convert <in> <out>` (libheif example tool) | Not verified: Homebrew libheif 1.23.1 on the build machine fails to load `libx265.216.dylib` |
+| Rich | 15.0.0: `Progress(SpinnerColumn(), TextColumn(), BarColumn(), TaskProgressColumn(), TimeElapsedColumn(), console=, transient=True)`, `add_task(description, total=None)`, `update(task, completed=, total=)`, `remove_task`, `progress.console.print` | Imported from the installed package; rendered under `script` in a pseudo-terminal |

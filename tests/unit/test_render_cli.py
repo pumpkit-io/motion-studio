@@ -301,6 +301,25 @@ def test_a_second_render_with_nothing_changed_is_a_no_op(demo: Path, fake_render
     assert [o["format"] for o in again["outputs"]] == ["9x16", "16x9"]
 
 
+def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(
+    demo: Path, fake_renderer: Path
+) -> None:
+    render("--preview", "--format", "9x16")
+    mezzanine = demo / "media" / "c1.mp4"
+    run_ffmpeg(
+        [
+            "-y", "-f", "lavfi", "-i", f"color=c=red:size=360x640:rate={FPS}",
+            "-t", str(C1.clip.duration_s), "-c:v", "libx264", "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p", mezzanine,
+        ]
+    )  # fmt: skip
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
+
+
 def test_an_edited_edl_is_validated_and_rendered_again(demo: Path, fake_renderer: Path) -> None:
     render("--preview", "--format", "9x16")
     write_edl(demo, segments=[{"id": "intro", "from": "c1.s0", "to": "c1.s0"}])
@@ -400,3 +419,48 @@ def test_brand_font_and_logo_are_linked_into_the_public_dir(
     assert (public / props["font_file"]).read_bytes() == b"font bytes"
     assert (public / props["logo_file"]).read_bytes() == b"png bytes"
     assert props["timeline"]["captions"]["font"].isalnum()
+
+
+def test_a_landscape_take_beside_a_portrait_one_keeps_its_own_full_frame(
+    demo: Path, fake_renderer: Path
+) -> None:
+    c2 = clip("c2", "A wide shot of the desk and the room.")
+    media = demo / "media"
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", f"testsrc2=size=640x360:rate={FPS}",
+            "-t", str(c2.clip.duration_s), "-c:v", "libx264", "-preset", "ultrafast",
+            "-pix_fmt", "yuv420p", "-an", media / "c2.mp4",
+        ]
+    )  # fmt: skip
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000",
+            "-t", str(c2.clip.duration_s), "-ac", "1", "-c:a", "pcm_s16le", media / "c2.wav",
+        ]
+    )  # fmt: skip
+    manifest = json.loads((media / "manifest.json").read_text(encoding="utf-8"))
+    wide = {**manifest["clips"][0], "id": "c2", "mezzanine": "media/c2.mp4"}
+    wide.update(audio="media/c2.wav", width=640, height=360, duration_s=c2.clip.duration_s)
+    manifest["clips"].append(wide)
+    (media / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    write_analyses(demo, [C1, c2])
+    write_edl(
+        demo,
+        segments=[
+            {"id": "intro", "from": "c1.s0", "to": "c1.s0"},
+            {"id": "wide", "from": "c2.s0", "to": "c2.s0"},
+        ],
+    )
+
+    render("--preview", "--format", "9x16")
+
+    # The canvas holds both takes unscaled; each run is framed from its own region of it.
+    props = calls(fake_renderer)[0]["props"]
+    assert props["source"] == {"width": 640, "height": 640}
+    assert props["regions"] == {
+        "c1": {"x": 140, "y": 0, "width": 360, "height": 640},
+        "c2": {"x": 0, "y": 140, "width": 640, "height": 360},
+    }
+    assembled = video_stream(demo / "build" / "assembled.mp4")
+    assert (assembled["width"], assembled["height"]) == (640, 640)

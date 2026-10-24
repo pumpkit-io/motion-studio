@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { TimelineWord } from "./timeline";
-import { pageCaptions, type PagingOptions } from "./captions";
+import type { TimelineEvent, TimelineWord } from "./timeline";
+import { captionsHidden, pageCaptions, type PagingOptions } from "./captions";
 
 /** Words 300 ms long with 50 ms gaps, starting at 0. */
 function words(text: string, emphasis: string[] = []): TimelineWord[] {
@@ -100,5 +100,35 @@ describe("pageCaptions", () => {
 
   it("returns no pages without words", () => {
     expect(pageCaptions([], options)).toEqual([]);
+  });
+});
+
+describe("captionsHidden", () => {
+  const broll = (mode: "full" | "pip"): TimelineEvent => ({
+    type: "broll",
+    asset: "b1",
+    src: "media/b1.mp4",
+    start: 30,
+    end: 60,
+    asset_in_s: 0,
+    mode,
+  });
+  const image: TimelineEvent = { type: "image", asset: "i1", src: "media/i1.png", start: 90, end: 120, mode: "full", motion: "none" };
+
+  it("keeps captions over full-frame B-roll by default", () => {
+    expect(captionsHidden(false, [broll("full")], 40)).toBe(false);
+  });
+
+  it("hides them only while a full-frame B-roll clip or image is on screen, when configured", () => {
+    const events = [broll("full"), image];
+    expect(captionsHidden(true, events, 29)).toBe(false);
+    expect(captionsHidden(true, events, 30)).toBe(true);
+    expect(captionsHidden(true, events, 59)).toBe(true);
+    expect(captionsHidden(true, events, 60)).toBe(false);
+    expect(captionsHidden(true, events, 100)).toBe(true);
+  });
+
+  it("keeps them over a picture-in-picture card", () => {
+    expect(captionsHidden(true, [broll("pip")], 40)).toBe(false);
   });
 });

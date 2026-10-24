@@ -95,3 +95,22 @@ def test_crisper_is_valid_in_config_but_not_implemented_at_runtime(workspace: Pa
     with pytest.raises(DependencyError, match=r"not implemented in v0\.1\.0") as excinfo:
         config.ensure_supported()
     assert excinfo.value.exit_code == 2
+
+
+def test_short_hex_colours_are_normalised(workspace: Path) -> None:
+    write(
+        workspace / "reelcut.toml",
+        '[brand]\nprimary = "#1a2"\naccent = "ffd400"\n[captions]\ntext_color = "#fff"\n',
+    )
+    config = load_config(workspace)
+    assert config.brand.primary == "#11AA22"
+    assert config.brand.accent == "#FFD400"
+    assert config.captions.text_color == "#FFFFFF"
+
+
+@pytest.mark.parametrize("value", ["red", "#12345", "#GGGGGG", "rgb(0,0,0)", ""])
+def test_a_colour_that_is_not_hex_is_a_user_error(workspace: Path, value: str) -> None:
+    write(workspace / "reelcut.toml", f'[brand]\nprimary = "{value}"\n')
+    with pytest.raises(UserError, match=r"brand\.primary.*#RRGGBB") as excinfo:
+        load_config(workspace)
+    assert excinfo.value.exit_code == 1

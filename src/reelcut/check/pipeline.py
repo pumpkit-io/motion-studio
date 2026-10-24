@@ -11,9 +11,9 @@ from reelcut.analysis.models import ClipAnalysis, Word
 from reelcut.asr import SpeechJob, resolve_backend, transcribe_clips
 from reelcut.check.diff import CLIP_WINDOW_MS, Miss, WordDiff, diff_words
 from reelcut.check.measure import Measurement, Stretch, measure
-from reelcut.check.report import Finding, markdown, verdict
+from reelcut.check.report import Finding, Severity, markdown, verdict
 from reelcut.check.stills import Cut, cuts_sheet
-from reelcut.config import Config, Edit, Master, load_config
+from reelcut.config import Config, Edit, load_config
 from reelcut.edl import Edl, Timeline
 from reelcut.edl.models import TimelineBroll, TimelineImage
 from reelcut.errors import ReelcutError, UserError
@@ -29,12 +29,15 @@ from reelcut.state import (
     project_lock,
     stage_status,
 )
+from reelcut.target import RenderTarget
 
 # Guide §8 phase 9: more words per second than this on screen is hard to read.
 MAX_WORDS_PER_S = 4.5
 DENSITY_WINDOW_MS = 2000
 LOUDNESS_TOLERANCE_LU = 1.0
+# A preview only warns past this; a final blocks anything over the limit once rounded to 0.1 dB.
 TRUE_PEAK_TOLERANCE_DB = 0.5
+FINAL_TRUE_PEAK_TOLERANCE_DB = 0.05
 # A detected stretch mostly inside an image segment is the still image, not a defect.
 INTENTIONAL_SHARE = 0.5
 
@@ -71,45 +74,39 @@ class CheckReport:
         }
 
 
-def check_record(final: bool) -> str:
-    """The state.json record: `check` for previews (a pipeline stage), `check.final` for finals."""
-    return "check.final" if final else "check"
-
-
 def check_project(
     workspace: Path,
     slug: str,
     *,
-    final: bool,
+    target: RenderTarget,
     on_step: Callable[[str], None] | None = None,
     on_warning: Callable[[str], None] | None = None,
 ) -> CheckReport:
     step = on_step or (lambda _msg: None)
     warn = on_warning or (lambda _msg: None)
     project = project_paths(workspace, slug).require()
-    stage = "final" if final else "preview"
-    flag = f"--{stage}"
+    stage = target.stage
     status = stage_status(project, stage)
     if status != "done":
         state = {"pending": "not rendered yet", "stale": "out of date", "failed": "failed"}
         raise UserError(
             f"the {stage} render is {state[status]}",
-            hint=f"run `{APP_NAME} render {slug} {flag}` first",
+            hint=f"run `{APP_NAME} render {slug} {target.flag}` first",
         )
-    record = check_record(final)
+    record = target.check_record
     with project_lock(project):
         timeline = Timeline.model_validate_json(timeline_path(project).read_text(encoding="utf-8"))
         outputs = set(load_state(project).stages[stage].outputs)
         formats = [
             f.name
             for f in timeline.formats
-            if str(output_path(project, final, f.name).relative_to(project.root)) in outputs
+            if str(output_path(project, target, f.name).relative_to(project.root)) in outputs
         ]
         edl = load_edl(project)
         config = load_config(workspace, slug, edl_policy=edl.policy.model_dump(exclude_none=True))
         config.ensure_supported()
         try:
-            report = _check(project, timeline, edl, config, formats, final, step, warn)
+            report = _check(project, timeline, edl, config, formats, target, step, warn)
         except ReelcutError as exc:
             mark_failed(project, record, exc.message)
             raise
@@ -117,7 +114,7 @@ def check_project(
             mark_failed(project, record, verdict(report.findings))
         else:
             inputs = [timeline_path(project)]
-            inputs += [output_path(project, final, fmt) for fmt in formats]
+            inputs += [output_path(project, target, fmt) for fmt in formats]
             mark_done(
                 project,
                 record,
@@ -133,11 +130,11 @@ def _check(
     edl: Edl,
     config: Config,
     formats: list[str],
-    final: bool,
+    target: RenderTarget,
     step: Callable[[str], None],
     warn: Callable[[str], None],
 ) -> CheckReport:
-    stage = "final" if final else "preview"
+    stage = target.stage
     fps = timeline.fps
     cuts_ms = [round(run.out_in * 1000 / fps) for run in timeline.runs[1:]]
     project.check.mkdir(parents=True, exist_ok=True)
@@ -155,9 +152,9 @@ def _check(
     measured: dict[str, Measurement] = {}
     for fmt in formats:
         step(f"measuring {fmt}")
-        m = measure(output_path(project, final, fmt))
+        m = measure(output_path(project, target, fmt))
         measured[fmt] = m
-        findings += _media_findings(fmt, m, config.master, images)
+        findings += _media_findings(fmt, m, config, edl, target, project.slug, images)
     first = measured[formats[0]]
     max_duration = edl.max_duration_s or config.defaults.max_duration_s
     metrics["duration_s"] = round(first.duration_s, 3)
@@ -174,7 +171,7 @@ def _check(
     findings += _event_findings(timeline)
 
     step("drawing the cut stills")
-    video = output_path(project, final, formats[0])
+    video = output_path(project, target, formats[0])
     sheet = cuts_sheet(
         video,
         video_size(video),
@@ -319,27 +316,38 @@ def _segment_edge(timeline: Timeline, index: int, *, last: bool) -> bool:
 
 
 def _media_findings(
-    fmt: str, m: Measurement, master: Master, images: list[tuple[float, float]]
+    fmt: str,
+    m: Measurement,
+    config: Config,
+    edl: Edl,
+    target: RenderTarget,
+    slug: str,
+    images: list[tuple[float, float]],
 ) -> list[Finding]:
     found: list[Finding] = []
-    bug = "re-render; if it persists, report it as a reelcut bug (mastering is automatic)"
+    master = config.master
+    final = target is RenderTarget.FINAL
+    # Off-target audio may not ship (guide §5.1); a preview is a draft, so it only warns.
+    severity: Severity = "blocking" if final else "warning"
+    peak_tolerance = FINAL_TRUE_PEAK_TOLERANCE_DB if final else TRUE_PEAK_TOLERANCE_DB
+    fix = _loudness_fix(config, edl, target, slug)
     if abs(m.integrated_lufs - master.integrated_lufs) > LOUDNESS_TOLERANCE_LU:
         found.append(
             Finding(
-                "warning",
+                severity,
                 "loudness",
                 f"{fmt}: integrated loudness {m.integrated_lufs:.1f} LUFS, "
-                f"target {master.integrated_lufs:.1f}",
-                bug,
+                f"target {master.integrated_lufs:.1f} ± {LOUDNESS_TOLERANCE_LU:g}",
+                fix,
             )
         )
-    if m.true_peak_db > master.true_peak_db + TRUE_PEAK_TOLERANCE_DB:
+    if m.true_peak_db > master.true_peak_db + peak_tolerance:
         found.append(
             Finding(
-                "warning",
+                severity,
                 "true_peak",
                 f"{fmt}: true peak {m.true_peak_db:.1f} dBTP, limit {master.true_peak_db:.1f}",
-                bug,
+                fix,
             )
         )
     fix = "check the B-roll's asset_in_s and duration, and the segments around it"
@@ -364,6 +372,16 @@ def _media_findings(
                 )
             )
     return found
+
+
+def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+    """Mastering is automatic, so the EDL lever is the music bed's level."""
+    rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
+    bug = "if it persists, report it as a reelcut bug"
+    if (edl.music.mode or config.music.mode) == "none":
+        return f"{rerender}; {bug}"
+    gain = edl.music.gain_db if edl.music.gain_db is not None else config.music.gain_db
+    return f"lower music.gain_db in edl.json (now {gain:g}) and {rerender}; {bug}"
 
 
 def _intentional(stretch: Stretch, images: list[tuple[float, float]]) -> bool:

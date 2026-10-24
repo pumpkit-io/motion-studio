@@ -12,6 +12,9 @@ export function safeBox(format: FormatSpec): Box {
   };
 }
 
+/** Share of the safe width a caption line or title card may fill: room for the word pop and stroke. */
+export const TEXT_WIDTH = 0.88;
+
 export type LogoBox = { top: number; right: number; height: number };
 
 const LOGO_HEIGHT = 0.07;

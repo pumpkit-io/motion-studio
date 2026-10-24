@@ -1,13 +1,12 @@
 """The resolver (guide §6.5): a pure function from analysis, EDL and config to a timeline."""
 
-from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import median
 from typing import Any
 
 from reelcut import lang
-from reelcut.analysis import ClipAnalysis
+from reelcut.analysis import ClipAnalysis, project_language
 from reelcut.config import Config, Edit
 from reelcut.edl.events import OutputMap, resolve_events
 from reelcut.edl.issues import Issue, Problems
@@ -69,8 +68,8 @@ def resolve(
     dropped = index.word_list(edl.drop_words, "drop_words", problems)
     keep = index.word_list(edl.keep_words, "keep_words", problems)
     index.check_ranges(edl.drop_ranges, problems)
-    language = edl.language or _project_language(config, index)
-    if language is not None and language not in lang.available_languages():
+    language = edl.language or project_language(clips, config.defaults.language)
+    if language not in lang.available_languages():
         problems.error(
             "unknown_language",
             f"language {language} has no data file; available: "
@@ -184,19 +183,6 @@ def _index_of(word_id: str) -> int:
     return int(word_id.rsplit(".w", 1)[1])
 
 
-def _project_language(config: Config, index: RefIndex) -> str | None:
-    """The configured language, or else the one most A-roll words were spoken in."""
-    if config.defaults.language != "auto":
-        return config.defaults.language
-    words: Counter[str] = Counter()
-    for analysis in index.aroll():
-        if analysis.language is not None:
-            words[analysis.language.code] += len(analysis.words)
-    if not words:
-        return None
-    return min(words, key=lambda code: (-words[code], code))
-
-
 def _punch_scales(runs: Sequence[SourceRun], policy: Edit) -> list[float]:
     """Alternate 1.0 and the punch scale at each jump cut; a cut to another clip resets it."""
     scales: list[float] = []
@@ -219,15 +205,14 @@ def _framing(analysis: ClipAnalysis, start: float, end: float) -> dict[str, Any]
     return {"crop": crop, "face": True}
 
 
-def _captions(config: Config, edl: Edl, language: str | None) -> TimelineCaptions:
+def _captions(config: Config, edl: Edl, language: str) -> TimelineCaptions:
     settings: dict[str, Any] = {
         **config.captions.model_dump(),
         **edl.captions.model_dump(exclude_none=True),
     }
-    if language is not None:
-        rules = lang.load_language(language).captions
-        settings["max_chars_per_page"] = rules.max_chars_per_page
-        settings["keep_with_next"] = rules.keep_with_next
+    rules = lang.load_language(language).captions
+    settings["max_chars_per_page"] = rules.max_chars_per_page
+    settings["keep_with_next"] = rules.keep_with_next
     return TimelineCaptions.model_validate(settings)
 
 

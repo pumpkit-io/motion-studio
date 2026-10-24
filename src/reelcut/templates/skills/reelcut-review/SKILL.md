@@ -10,7 +10,7 @@ description: How to read reelcut check reports and turn user feedback on a previ
 ## Reading check/report.md
 - **Clipped cut**: a word near a cut went missing. Extend the segment's `to` by one word, raise `pad_out_ms` (or `pad_in_ms`) in the EDL `policy`, or remove the offending ID from `drop_words`.
 - **Over length**: remove the weakest supporting segment; keep the hook and payoff.
-- **Loudness off target**: mastering is automatic. If it persists after a re-render, report it to the user as a reelcut bug.
+- **Loudness or true peak off target**: blocking on `--final`, a warning on a preview. Mastering is automatic, so lower `music.gain_db` when there is a bed and re-render. If it persists, report it to the user as a reelcut bug.
 - **Black or frozen frames**: check the B-roll `asset_in_s` and the event durations against the asset's length.
 - **Caption density**: too many words per second on screen. Slow the pace (raise `max_pause_ms`) or cut words.
 - View `check/cuts.png` once per loop. Look for faces cut off, captions colliding with titles, and awkward mouth-open frames at cuts (shift the cut by one word).
@@ -25,5 +25,6 @@ description: How to read reelcut check reports and turn user feedback on a previ
 | "music too loud" | Lower music `gain_db` by 3–4 dB |
 | "different music" | New `seed` (same vibe) or new `prompt` |
 | "remove X" | Find the utterance in packed.md, then split the segment around it or leave it out |
+| "no captions over the B-roll" | Set `"captions": {"hide_during_broll": true}` (full-frame B-roll and images only) |
 
 Record the feedback and how you applied it in `notes.md` so it carries over to the next video.

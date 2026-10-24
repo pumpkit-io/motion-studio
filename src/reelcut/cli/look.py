@@ -5,7 +5,7 @@ from typing import Annotated
 
 import typer
 
-from reelcut.cli._output import JsonOption, emit
+from reelcut.cli._output import JsonOption, emit, path_line
 from reelcut.cli.workspace import Slug
 from reelcut.look import DEFAULT_FRAMES, LookReport, look_asset, look_range
 from reelcut.paths import find_workspace
@@ -45,7 +45,7 @@ def _print(report: LookReport, as_json: bool) -> None:
     lines = [report.description]
     if report.look_count is not None:
         lines.append(f"look budget: {report.look_count} of {report.look_budget} sheets used")
-    lines.append(f"sheet: {report.sheet}")
+    lines.append(path_line(report.sheet))
     emit(as_json, report.to_json(), lines)
 
 

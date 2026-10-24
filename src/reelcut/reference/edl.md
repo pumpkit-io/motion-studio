@@ -60,7 +60,7 @@
 | `drop_ranges` | `[]` | `{clip, start, end}` in source seconds, for audio no word points at (the `⟂` unaligned voice in packed.md). |
 | `keep_words` | `[]` | Word IDs kept although the policy drops them as fillers. `drop_words` wins over `keep_words`. |
 | `events` | `[]` | Zooms, pushes, B-roll, images, titles and emphasis, below. |
-| `captions` | config `[captions]` | `enabled`, `style` (`pop`, `clean`, `karaoke`), `max_words_per_page`, `uppercase`. |
+| `captions` | config `[captions]` | `enabled`, `style` (`pop`, `clean`, `karaoke`), `max_words_per_page`, `uppercase`, `hide_during_broll` (true hides captions while a full-frame B-roll clip or image is on screen; default false). |
 | `music` | config `[music]` | The music bed, below. |
 | `rationale` | `""` | One to three sentences on why the edit is shaped this way. Always fill it. |
 

@@ -102,6 +102,10 @@ class ProjectPaths:
         return self.root / ".lock"
 
     @property
+    def hash_cache(self) -> Path:
+        return self.root / ".hashes.json"
+
+    @property
     def directories(self) -> tuple[Path, ...]:
         return (
             self.raw,

@@ -95,13 +95,13 @@ Music from your own library is yours to license: reelcut refuses library tracks 
 
 ## Troubleshooting
 
-- Start with `reelcut doctor`. It names every missing tool, filter, model or setting with a fix, and exits 2 when something required is missing.
+- Start with `reelcut doctor`. It names every missing tool, filter, model or setting with a fix, and exits 2 when something required is missing. `reelcut doctor --fix` downloads the missing models and renderer the way `reelcut setup` does and checks again; system tools such as ffmpeg and node stay yours to install.
 - Exit codes: 1 means a fixable EDL or input problem (the message says what to change), 2 a missing dependency (run `reelcut setup` or follow the hint), 3 an internal error (rerun with `REELCUT_DEBUG=1` for the traceback and report it).
 - `reelcut status <slug>` shows which stages are done or stale and the next command, if an edit was interrupted.
 - "not enough free disk": free space or set `REELCUT_MIN_FREE_GB` lower, at your own risk.
 - The first music generation spends most of its time loading ACE-Step's weights (about 4 minutes on an M3 Pro); re-running `reelcut music` with unchanged settings does nothing.
 - A one-line `warning:` means reelcut used a fallback (YuNet instead of MediaPipe, `arnndn` instead of DeepFilterNet, `colorspace` instead of VideoToolbox for HDR, Inter instead of a missing brand font). It is also recorded in the project's `state.json`.
-- HEIC photos are not supported yet; export them as JPEG.
+- HEIC and HEIF photos are decoded with `sips` on macOS, or with libheif's `heif-convert` on Linux. Without either, ingest skips them with a warning and goes on with the other files.
 - Codex outside a Git repository only reads `AGENTS.md` and skills in the directory it starts in, so open it in the workspace root.
 
 ## Roadmap and development

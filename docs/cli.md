@@ -4,11 +4,12 @@ Every command and option of `reelcut` 0.1.0. The option lists were generated wit
 
 ## Conventions
 
-- Every leaf command takes `--json` and then prints one JSON object with `ok` at the top level. Human output stays around 30 lines and prints every path it writes.
+- Every leaf command takes `--json` and then prints one JSON object with `ok` at the top level. Human output stays around 30 lines and names every path it writes on its own line, as `wrote <path> (detail)`, or `unchanged <path>` when a rerun left the file alone.
 - Exit codes: `0` OK, `1` fixable EDL or user error, `2` missing dependency (run `reelcut doctor`), `3` internal error. With `--json`, an error prints `{"ok": false, "error", "hint", "exit_code"}`.
 - Commands other than `init`, `setup`, `doctor` and `docs` look for `reelcut.toml` in the current directory and its parents, so run them inside a workspace.
 - `<slug>` is a project name under `projects/`: lowercase letters, digits and hyphens.
 - Clip IDs are `c1` (A-roll), `b1` (B-roll) and `i1` (image); utterance IDs `c1.s4` and word IDs `c1.w52`. See `GLOSSARY.md`.
+- Long steps report progress on stderr. In a terminal (stdout and stderr both TTYs, no `--json`) that is a Rich progress line per step: a bar for ingest encodes and the A-roll assembly, a spinner with the elapsed time for Remotion, music and the rest. Elsewhere each step is one `<step> ...` line, and `--json` prints none.
 - A fallback (YuNet for faces, `arnndn` for denoising, `colorspace` for HDR, a missing brand font) prints one `warning:` line on stderr and is recorded in the stage's `warnings` in `state.json`.
 
 The usual order for one video:
@@ -70,10 +71,13 @@ Exits 2 when something required is missing; warnings alone exit 0.
 $ reelcut doctor [OPTIONS]
 ```
 
+* `--fix`: Download what `setup` installs when it is missing, then check again.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`REELCUT_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it.
+Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`REELCUT_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos.
+
+`--fix` runs the installs the build guide calls safe: when the renderer, the speech or face models or DeepFilterNet are missing, it runs the same downloads as plain `setup`, then prints the checks again. It never runs brew, apt or npm for system tools such as ffmpeg and node, and never fetches ACE-Step (`setup --music`); their fixes stay on their lines. With `--json` the result also carries `fixed` (what it installed) and `fix_error`.
 
 ## Workspaces and projects
 
@@ -189,7 +193,7 @@ $ reelcut ingest [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image, and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
+Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image (HEIC and HEIF become PNG, decoded with `sips` on macOS or `heif-convert` from libheif elsewhere; with neither installed they are skipped with a warning), and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
 
 ## `reelcut analyze`
 
@@ -334,8 +338,8 @@ $ reelcut render [OPTIONS] {slug}
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `--preview`: Half resolution into preview/ (the default).
-* `--final`: Full resolution into final/.
+* `--preview`: The half-resolution preview in preview/ (the default).
+* `--final`: The full-resolution final in final/.
 * `--format <str>`: Render only this format (repeatable); default all.
 * `--concurrency <int>`: Frames Remotion renders in parallel.  [default: 4]
 * `--json`: Print machine-readable JSON.
@@ -357,12 +361,12 @@ $ reelcut check [OPTIONS] {slug}
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `--preview`: Check the preview render (the default).
-* `--final`: Check the final render.
+* `--preview`: The half-resolution preview in preview/ (the default).
+* `--final`: The full-resolution final in final/.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`. Warnings: `loudness`, `true_peak`, `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
+Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`, and on `--final` also `loudness` (integrated loudness more than 1 LU off `[master] integrated_lufs`) and `true_peak` (above `[master] true_peak_db`). Warnings: `loudness` and `true_peak` on a preview (true peak only from 0.5 dB over), `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
 
 ## Environment variables
 

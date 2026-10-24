@@ -95,6 +95,19 @@
           "default": null,
           "title": "Enabled"
         },
+        "hide_during_broll": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hide captions while a full-frame B-roll clip or image is on screen.",
+          "title": "Hide During Broll"
+        },
         "max_words_per_page": {
           "anyOf": [
             {

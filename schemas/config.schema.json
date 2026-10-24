@@ -36,6 +36,7 @@
       "properties": {
         "accent": {
           "default": "#FFD400",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Accent",
           "type": "string"
         },
@@ -46,6 +47,7 @@
         },
         "primary": {
           "default": "#111111",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Primary",
           "type": "string"
         }
@@ -66,8 +68,15 @@
           "title": "Font",
           "type": "string"
         },
+        "hide_during_broll": {
+          "default": false,
+          "description": "Hide captions while a full-frame B-roll clip or image is on screen.",
+          "title": "Hide During Broll",
+          "type": "boolean"
+        },
         "highlight_color": {
           "default": "#FFD400",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Highlight Color",
           "type": "string"
         },
@@ -79,6 +88,7 @@
         },
         "stroke_color": {
           "default": "#000000",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Stroke Color",
           "type": "string"
         },
@@ -94,6 +104,7 @@
         },
         "text_color": {
           "default": "#FFFFFF",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Text Color",
           "type": "string"
         },

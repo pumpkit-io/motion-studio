@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from reelcut.config import Format
+from reelcut.config import Format, HexColor
 from reelcut.edl.issues import EdlError, Issue
 
 
@@ -131,6 +131,10 @@ class EdlCaptions(_Model):
     style: Literal["pop", "clean", "karaoke"] | None = None
     max_words_per_page: int | None = Field(default=None, ge=1)
     uppercase: bool | None = None
+    hide_during_broll: bool | None = Field(
+        default=None,
+        description="Hide captions while a full-frame B-roll clip or image is on screen.",
+    )
 
 
 class EdlMusic(_Model):
@@ -229,8 +233,8 @@ class Run(_Out):
 
 
 class TimelineBrand(_Out):
-    primary: str
-    accent: str
+    primary: HexColor
+    accent: HexColor
     logo: str = Field(description="Relative to the workspace.")
 
 
@@ -296,9 +300,12 @@ class TimelineCaptions(_Out):
     font: str
     max_words_per_page: int
     uppercase: bool
-    highlight_color: str
-    text_color: str
-    stroke_color: str
+    hide_during_broll: bool = Field(
+        description="Hide captions while a full-frame B-roll clip or image is on screen."
+    )
+    highlight_color: HexColor
+    text_color: HexColor
+    stroke_color: HexColor
     max_chars_per_page: int | None = Field(
         default=None, description="From the language's caption rules."
     )

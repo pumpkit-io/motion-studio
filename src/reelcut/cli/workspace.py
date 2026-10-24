@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from reelcut import APP_NAME
-from reelcut.cli._output import JsonOption, emit
+from reelcut.cli._output import JsonOption, emit, path_line
 from reelcut.errors import UserError
 from reelcut.paths import find_workspace, project_paths
 from reelcut.workspace import clean_project, init_workspace, new_project, project_status
@@ -26,7 +26,7 @@ def init(
         {"workspace": str(root), "written": [str(p) for p in written]},
         [
             f"workspace {root}",
-            *(f"  wrote {p}" for p in written),
+            *(path_line(p) for p in written),
             f"next: cd {root} and run `{APP_NAME} new <slug> --from <files>`",
         ],
     )
@@ -56,7 +56,7 @@ def new(
         {"project": str(project.root), "raw": [str(p) for p in raw]},
         [
             f"project {project.root}",
-            *(f"  raw {p}" for p in raw),
+            *(path_line(p, "linked into raw/") for p in raw),
             f"next: {hint}",
         ],
     )

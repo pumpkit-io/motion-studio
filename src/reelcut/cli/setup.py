@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from reelcut import APP_NAME
-from reelcut.cli._output import JsonOption, emit
+from reelcut.cli._output import JsonOption, Reporter, emit
 from reelcut.setup import run_setup
 
 
@@ -20,17 +20,13 @@ def setup(
     as_json: JsonOption = False,
 ) -> None:
     """Download the speech, voice-activity and denoiser models and the renderer, for offline use."""
-
-    def step(message: str) -> None:
-        if not as_json:
-            typer.echo(f"{message} ...", err=True)
-
-    report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=step)
+    with Reporter(as_json) as reporter:
+        report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step)
     lines: list[str] = []
     for item in report.items:
-        lines.append(f"{item.status:<9} {item.name}: {item.path}")
+        lines.append(f"{item.status} {item.path} ({item.name})")
         if item.licence:
-            lines.append(f"          weights licence: {item.licence}")
+            lines.append(f"  weights licence: {item.licence}")
     lines.append(f"next: `{APP_NAME} doctor`")
     emit(as_json, report.to_json(), lines)
 

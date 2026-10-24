@@ -6,6 +6,7 @@ import { reelMetadata, type ReelProps } from "./props";
 const defaultProps: ReelProps = {
   format: "9x16",
   source: { width: 1080, height: 1920 },
+  regions: {},
   video: "assembled.mp4",
   font_file: null,
   logo_file: null,
@@ -27,6 +28,7 @@ const defaultProps: ReelProps = {
       max_chars_per_page: null,
       keep_with_next: [],
       uppercase: false,
+      hide_during_broll: false,
       highlight_color: "#FFD400",
       text_color: "#FFFFFF",
       stroke_color: "#000000",

@@ -3,6 +3,9 @@
 import io
 import os
 import platform
+import shutil
+import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -78,7 +81,13 @@ def _even(value: float) -> int:
 
 
 def make_mezzanine(
-    source: Path, dest: Path, info: Probe, *, fps: int, caps: FFmpegCaps
+    source: Path,
+    dest: Path,
+    info: Probe,
+    *,
+    fps: int,
+    caps: FFmpegCaps,
+    progress: Callable[[float], None] | None = None,
 ) -> Mezzanine:
     """Write `dest` at `fps` CFR with rotation applied and HDR tone-mapped to BT.709.
 
@@ -88,7 +97,7 @@ def make_mezzanine(
     width, height = output_size(info.width, info.height)
     base = [f"fps={fps}", f"scale={width}:{height}:flags=lanczos", "setsar=1"]
     if info.hdr is None:
-        _encode(source, dest, [*base, "format=yuv420p"], fps, caps, info.has_audio)
+        _encode(source, dest, [*base, "format=yuv420p"], fps, caps, info.has_audio, progress)
         return Mezzanine(dest, width, height, None, ())
     methods = tonemap_methods(caps)
     warnings: list[str] = []
@@ -100,7 +109,7 @@ def make_mezzanine(
     for index, method in enumerate(methods):
         chain = {"scale_vt": SCALE_VT_CHAIN, "zscale": ZSCALE_CHAIN}.get(method, COLORSPACE_CHAIN)
         try:
-            _encode(source, dest, [*base, chain], fps, caps, info.has_audio, hw=method)
+            _encode(source, dest, [*base, chain], fps, caps, info.has_audio, progress, hw=method)
         except FFmpegError as exc:
             if index == len(methods) - 1:
                 raise
@@ -126,6 +135,7 @@ def _encode(
     fps: int,
     caps: FFmpegCaps,
     has_audio: bool,
+    progress: Callable[[float], None] | None,
     *,
     hw: Tonemap | None = None,
 ) -> None:
@@ -141,14 +151,68 @@ def _encode(
         args += ["-map", "0:a:0", "-c:a", "aac", "-b:a", "192k"]
     tmp = dest.with_name(f".{dest.name}")
     args += ["-map_metadata", "-1", "-movflags", "+faststart", tmp]
-    run_ffmpeg(args)
+    run_ffmpeg(args, progress=progress)
     tmp.replace(dest)
 
 
-def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
-    """Apply EXIF orientation, fit within 4096 px and convert to sRGB; PNG keeps alpha."""
+HEIF_EXTENSIONS = frozenset({".heic", ".heif"})
+HEIF_HINT = (
+    "install libheif's heif-convert (`brew install libheif`, `apt install libheif-examples`)"
+)
+HEIF_TIMEOUT_S = 120
+
+
+def heif_decoder() -> str | None:
+    """The tool that turns HEIC/HEIF into PNG here: macOS's sips, else libheif's heif-convert.
+
+    Pillow cannot read HEIF, and the pillow-heif wheels bundle the GPL x265 encoder.
+    """
+    if platform.system() == "Darwin" and shutil.which("sips"):
+        return "sips"
+    if shutil.which("heif-convert"):
+        return "heif-convert"
+    return None
+
+
+def decode_heif(source: Path, dest: Path) -> None:
+    """Write `source` as the PNG `dest`."""
+    decoder = heif_decoder()
+    if decoder is None:
+        raise DependencyError(f"nothing on this machine can decode {source.name}", hint=HEIF_HINT)
+    if decoder == "sips":
+        argv = ["sips", "-s", "format", "png", str(source), "--out", str(dest)]
+    else:
+        argv = ["heif-convert", str(source), str(dest)]
     try:
-        with Image.open(source) as opened:
+        result = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=HEIF_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise UserError(f"{decoder} timed out decoding {source.name}") from exc
+    if result.returncode != 0 or not dest.is_file():
+        tail = (result.stderr or result.stdout).strip().splitlines()[-1:] or [""]
+        raise UserError(
+            f"cannot decode {source.name} with {decoder}: {tail[0]}",
+            hint="export it as JPEG and put that in raw/ instead",
+        )
+
+
+def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
+    """Apply EXIF orientation, fit within 4096 px and convert to sRGB; PNG keeps alpha.
+
+    HEIC and HEIF are decoded to PNG first; sips keeps the orientation as an EXIF tag on raw pixels.
+    """
+    decoded: Path | None = None
+    if source.suffix.lower() in HEIF_EXTENSIONS:
+        decoded = dest_stem.with_name(f".{dest_stem.name}.decoded.png")
+        decode_heif(source, decoded)
+    try:
+        with Image.open(decoded or source) as opened:
             image = ImageOps.exif_transpose(opened)
             icc = opened.info.get("icc_profile")
             fmt = opened.format
@@ -157,6 +221,9 @@ def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
             f"cannot read image {source.name}: {exc}",
             hint="convert it to JPEG or PNG and put that in raw/ instead",
         ) from exc
+    finally:
+        if decoded is not None:
+            decoded.unlink(missing_ok=True)
     if icc:
         image = _to_srgb(image, icc)
     has_alpha = image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info
