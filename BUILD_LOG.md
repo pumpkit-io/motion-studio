@@ -647,6 +647,12 @@ Open issues:
 - The global `reelcut` tool is not reinstalled from this branch; that is for whoever merges it (`uv tool install --editable . --reinstall-package reelcut` from the main checkout). A non-editable install of 0.1.0 also keeps the renderer cached under `renderer/0.1.0`, which predates P2 and P5, so it needs `rm -rf ~/Library/Caches/reelcut/renderer/0.1.0` and `reelcut setup` (a checkout with `renderer/node_modules` uses its own renderer and is not affected).
 - HEIC from a real iPhone and the Linux `heif-convert` path are unverified (P1).
 
+## Classic captions: two-word soft minimum (#23)
+
+- `pageCaptions` records whether each caption page closed at a hard break (sentence end, long silence, last word) or at a cap. A one-word page then joins the previous page across a cap, else the next; when the merged page breaks a cap it is split into two pages of at least two words, as even as possible (larger first page on a tie), never ending the first on a keep-with-next word. If no split fits, the lone word stays.
+- Deviation from the spec: greedy paging closes a page at a cap only when the next word does not fit, so a lone word can never join a neighbour across a cap without a rebalance, and never join the next page at all (the lone word plus the next word already failed the cap). Merging never crosses a sentence end or a long silence, so "joins the next page after a silence or sentence end" can only show up as "stays off the previous page"; the tests assert that. The start and end of the words count as hard breaks, so `Ciao. Come stai oggi?` keeps `Ciao.` alone.
+- Two existing tests changed input so they no longer end on a lone word: the word-cap test (eight words) and the timing test (five words).
+
 ## Classic caption look by default (ticket #22)
 
 New workspaces caption in the `clean` caption style, set in TikTok Sans 700, white and in sentence case, with a thinner outline.
