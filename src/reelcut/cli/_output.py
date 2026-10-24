@@ -46,6 +46,12 @@ def emit(as_json: bool, payload: dict[str, Any], lines: Iterable[str], *, ok: bo
             typer.echo(line)
 
 
+def path_line(path: object, detail: str = "", written: bool = True) -> str:
+    """Every command names its files the same way: `wrote <path> (detail)`, or `unchanged`."""
+    verb = "wrote" if written else "unchanged"
+    return f"{verb} {path} ({detail})" if detail else f"{verb} {path}"
+
+
 def emit_error(as_json: bool, error: ReelcutError) -> None:
     if as_json:
         body = {

@@ -4,7 +4,7 @@ Every command and option of `reelcut` 0.1.0. The option lists were generated wit
 
 ## Conventions
 
-- Every leaf command takes `--json` and then prints one JSON object with `ok` at the top level. Human output stays around 30 lines and prints every path it writes.
+- Every leaf command takes `--json` and then prints one JSON object with `ok` at the top level. Human output stays around 30 lines and names every path it writes on its own line, as `wrote <path> (detail)`, or `unchanged <path>` when a rerun left the file alone.
 - Exit codes: `0` OK, `1` fixable EDL or user error, `2` missing dependency (run `reelcut doctor`), `3` internal error. With `--json`, an error prints `{"ok": false, "error", "hint", "exit_code"}`.
 - Commands other than `init`, `setup`, `doctor` and `docs` look for `reelcut.toml` in the current directory and its parents, so run them inside a workspace.
 - `<slug>` is a project name under `projects/`: lowercase letters, digits and hyphens.
@@ -334,8 +334,8 @@ $ reelcut render [OPTIONS] {slug}
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `--preview`: Half resolution into preview/ (the default).
-* `--final`: Full resolution into final/.
+* `--preview`: The half-resolution preview in preview/ (the default).
+* `--final`: The full-resolution final in final/.
 * `--format <str>`: Render only this format (repeatable); default all.
 * `--concurrency <int>`: Frames Remotion renders in parallel.  [default: 4]
 * `--json`: Print machine-readable JSON.
@@ -357,8 +357,8 @@ $ reelcut check [OPTIONS] {slug}
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `--preview`: Check the preview render (the default).
-* `--final`: Check the final render.
+* `--preview`: The half-resolution preview in preview/ (the default).
+* `--final`: The full-resolution final in final/.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 

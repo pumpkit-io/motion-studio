@@ -5,7 +5,15 @@ from typing import Annotated
 import typer
 
 from reelcut import APP_NAME
-from reelcut.cli._output import FinalOption, JsonOption, PreviewOption, Reporter, emit, pick_target
+from reelcut.cli._output import (
+    FinalOption,
+    JsonOption,
+    PreviewOption,
+    Reporter,
+    emit,
+    path_line,
+    pick_target,
+)
 from reelcut.cli.workspace import Slug
 from reelcut.paths import find_workspace
 from reelcut.render import DEFAULT_CONCURRENCY, render_project
@@ -38,8 +46,9 @@ def render(
     )
     lines = [f"{slug}: {report.stage} is up to date"] if report.noop else []
     for out in report.outputs:
-        lines.append(f"wrote {out.path} ({out.width}x{out.height}, {out.frames / out.fps:.2f} s)")
-        lines.append(f"      voice {out.voice}")
+        size = f"{out.format} {out.width}x{out.height}, {out.frames / out.fps:.2f} s"
+        lines.append(path_line(out.path, size, written=not report.noop))
+        lines.append(path_line(out.voice, "voice stem", written=not report.noop))
     lines.append(f"next: `{APP_NAME} check {slug} {target.flag}`")
     emit(as_json, report.to_json(), lines)
 

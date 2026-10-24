@@ -24,9 +24,9 @@ def setup(
     report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step)
     lines: list[str] = []
     for item in report.items:
-        lines.append(f"{item.status:<9} {item.name}: {item.path}")
+        lines.append(f"{item.status} {item.path} ({item.name})")
         if item.licence:
-            lines.append(f"          weights licence: {item.licence}")
+            lines.append(f"  weights licence: {item.licence}")
     lines.append(f"next: `{APP_NAME} doctor`")
     emit(as_json, report.to_json(), lines)
 

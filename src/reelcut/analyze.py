@@ -68,6 +68,7 @@ class AnalyzeReport:
     packed: Path
     retakes: Path
     assets: Path
+    sheets: list[Path] = field(default_factory=lambda: list[Path]())
     backend: str | None = None
     model: str | None = None
     worker_pid: int | None = None
@@ -103,6 +104,7 @@ class AnalyzeReport:
             "packed_tokens": self.packed_tokens,
             "retakes": str(self.retakes),
             "assets": str(self.assets),
+            "sheets": [str(p) for p in self.sheets],
             "asr": {
                 "backend": self.backend,
                 "model": self.model,
@@ -256,6 +258,7 @@ def _report(
     retakes_path = project.analysis / RETAKES
     packed_path = project.analysis / PACKED
     assets_path = project.analysis / ASSETS
+    sheets_written: list[Path] = []
     if not noop:
         retakes_path.write_text(retakes.model_dump_json(indent=2) + "\n", encoding="utf-8")
         packed_path.write_text(
@@ -276,7 +279,7 @@ def _report(
         for a in analyses:
             sheet = project.asset_sheet(a.clip.id)
             if _is_asset(a) and (a.clip.id in analysed or not sheet.exists()):
-                write_asset_sheet(project, clips[a.clip.id], a)
+                sheets_written.append(write_asset_sheet(project, clips[a.clip.id], a))
     roles = {c.id: c.role for c in media}
     return AnalyzeReport(
         project=project,
@@ -299,6 +302,7 @@ def _report(
         packed=packed_path,
         retakes=retakes_path,
         assets=assets_path,
+        sheets=sheets_written,
         noop=noop,
     )
 

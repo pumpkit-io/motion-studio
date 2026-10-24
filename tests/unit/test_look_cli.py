@@ -98,7 +98,7 @@ def test_past_the_look_budget_look_warns_and_still_draws_the_sheet(project: Path
     assert result.exit_code == 0, result.output
     [warning] = [line for line in result.stderr.splitlines() if "look budget" in line]
     assert warning.startswith("warning: look budget exceeded (2 of 1 sheets)")
-    assert Path(result.stdout.splitlines()[-1].removeprefix("sheet: ")).is_file()
+    assert Path(result.stdout.splitlines()[-1].removeprefix("wrote ")).is_file()
     state = json.loads((project / "state.json").read_text(encoding="utf-8"))
     assert state["look_count"] == 2
 
