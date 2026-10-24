@@ -43,6 +43,12 @@ print(json.dumps({"pid": os.getpid(), "peak_rss_mb": 1.0, "results": results}))
 """
 
 
+@pytest.fixture(autouse=True)
+def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
+    # CI runners have less free disk than the 20 GB render guard.
+    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+
+
 @pytest.fixture
 def asr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Where to write the words the stand-in worker hears; its requests go to `<this>.log`."""
