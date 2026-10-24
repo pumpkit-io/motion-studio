@@ -98,6 +98,7 @@ def _register() -> None:
     from reelcut.cli import (
         agents,
         analyze,
+        check,
         config,
         docs,
         doctor,
@@ -120,6 +121,7 @@ def _register() -> None:
     app.add_typer(agents.app, name="agents")
     app.add_typer(config.app, name="config")
     render.register(app)
+    check.register(app)
     doctor.register(app)
     setup.register(app)
 

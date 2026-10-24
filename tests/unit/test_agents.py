@@ -119,7 +119,6 @@ def test_agents_sync_outside_a_workspace_is_a_user_error(
 # registered it is checked against the real CLI instead; delete its entry when you build it.
 PENDING: dict[tuple[str, ...], tuple[int, set[str]]] = {
     ("music",): (14, set()),
-    ("check",): (15, {"--preview", "--final"}),
 }
 
 INLINE = re.compile(r"`(reelcut [^`]+)`")

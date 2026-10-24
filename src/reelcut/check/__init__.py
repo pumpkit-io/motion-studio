@@ -1,1 +1,5 @@
-"""QA: re-transcribe diff, cut stills, loudness, black and freeze detection, report."""
+"""QA for a render: re-transcribe and diff, cut stills, loudness, black and frozen frames."""
+
+from reelcut.check.pipeline import CheckReport, check_project, check_record
+
+__all__ = ["CheckReport", "check_project", "check_record"]
