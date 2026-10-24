@@ -26,6 +26,7 @@ from reelcut.state import (
     stage_is_fresh,
     stage_status,
 )
+from reelcut.target import RenderTarget
 
 DEFAULT_CONCURRENCY = 4
 # Bump when the assemble, compose or mix recipe changes, so earlier renders go stale.
@@ -74,8 +75,8 @@ class RenderReport:
         }
 
 
-def output_path(project: ProjectPaths, final: bool, fmt: str) -> Path:
-    if final:
+def output_path(project: ProjectPaths, target: RenderTarget, fmt: str) -> Path:
+    if target is RenderTarget.FINAL:
         return project.final / f"{project.slug}_{fmt}.mp4"
     return project.preview / f"{fmt}.mp4"
 
@@ -88,7 +89,7 @@ def render_project(
     workspace: Path,
     slug: str,
     *,
-    final: bool,
+    target: RenderTarget,
     formats: Sequence[str] = (),
     concurrency: int = DEFAULT_CONCURRENCY,
     on_step: Callable[[str], None] | None = None,
@@ -104,7 +105,7 @@ def render_project(
         step("validating edl.json")
         validate_project(workspace, slug)
     renderer = find_renderer()
-    stage = "final" if final else "preview"
+    stage = target.stage
 
     with project_lock(project):
         timeline = Timeline.model_validate_json(timeline_path(project).read_text(encoding="utf-8"))
@@ -127,7 +128,7 @@ def render_project(
             "remotion": remotion_version(renderer),
         }
         outputs = {
-            fmt: (output_path(project, final, fmt), voice_path(project, fmt)) for fmt in chosen
+            fmt: (output_path(project, target, fmt), voice_path(project, fmt)) for fmt in chosen
         }
         assembled = project.build / "assembled.mp4"
         cuts = [round(run.out_in / timeline.fps, 3) for run in timeline.runs[1:]]
@@ -165,7 +166,7 @@ def render_project(
                     data,
                     project.build,
                     public,
-                    preview=not final,
+                    preview=target is RenderTarget.PREVIEW,
                     concurrency=concurrency,
                 )
                 step(f"mixing and mastering {fmt}")

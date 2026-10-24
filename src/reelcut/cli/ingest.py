@@ -3,7 +3,7 @@
 import typer
 
 from reelcut import APP_NAME
-from reelcut.cli._output import JsonOption, emit
+from reelcut.cli._output import JsonOption, Reporter, emit
 from reelcut.cli.workspace import Slug
 from reelcut.ingest import ingest_project
 from reelcut.paths import find_workspace
@@ -11,12 +11,8 @@ from reelcut.paths import find_workspace
 
 def ingest(slug: Slug, as_json: JsonOption = False) -> None:
     """Give each raw file a clip ID, normalise it to a CFR SDR mezzanine and clean its audio."""
-
-    def warn(message: str) -> None:
-        if not as_json:
-            typer.echo(f"warning: {message}", err=True)
-
-    report = ingest_project(find_workspace(), slug, on_warning=warn)
+    reporter = Reporter(as_json)
+    report = ingest_project(find_workspace(), slug, on_warning=reporter.warn)
     root = report.project.root
     lines = [f"{slug}: nothing changed since the last ingest"] if report.noop else []
     for clip in report.clips[:12]:

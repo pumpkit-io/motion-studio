@@ -29,6 +29,7 @@ from reelcut.state import (
     project_lock,
     stage_status,
 )
+from reelcut.target import RenderTarget
 
 # Guide §8 phase 9: more words per second than this on screen is hard to read.
 MAX_WORDS_PER_S = 4.5
@@ -71,45 +72,39 @@ class CheckReport:
         }
 
 
-def check_record(final: bool) -> str:
-    """The state.json record: `check` for previews (a pipeline stage), `check.final` for finals."""
-    return "check.final" if final else "check"
-
-
 def check_project(
     workspace: Path,
     slug: str,
     *,
-    final: bool,
+    target: RenderTarget,
     on_step: Callable[[str], None] | None = None,
     on_warning: Callable[[str], None] | None = None,
 ) -> CheckReport:
     step = on_step or (lambda _msg: None)
     warn = on_warning or (lambda _msg: None)
     project = project_paths(workspace, slug).require()
-    stage = "final" if final else "preview"
-    flag = f"--{stage}"
+    stage = target.stage
     status = stage_status(project, stage)
     if status != "done":
         state = {"pending": "not rendered yet", "stale": "out of date", "failed": "failed"}
         raise UserError(
             f"the {stage} render is {state[status]}",
-            hint=f"run `{APP_NAME} render {slug} {flag}` first",
+            hint=f"run `{APP_NAME} render {slug} {target.flag}` first",
         )
-    record = check_record(final)
+    record = target.check_record
     with project_lock(project):
         timeline = Timeline.model_validate_json(timeline_path(project).read_text(encoding="utf-8"))
         outputs = set(load_state(project).stages[stage].outputs)
         formats = [
             f.name
             for f in timeline.formats
-            if str(output_path(project, final, f.name).relative_to(project.root)) in outputs
+            if str(output_path(project, target, f.name).relative_to(project.root)) in outputs
         ]
         edl = load_edl(project)
         config = load_config(workspace, slug, edl_policy=edl.policy.model_dump(exclude_none=True))
         config.ensure_supported()
         try:
-            report = _check(project, timeline, edl, config, formats, final, step, warn)
+            report = _check(project, timeline, edl, config, formats, target, step, warn)
         except ReelcutError as exc:
             mark_failed(project, record, exc.message)
             raise
@@ -117,7 +112,7 @@ def check_project(
             mark_failed(project, record, verdict(report.findings))
         else:
             inputs = [timeline_path(project)]
-            inputs += [output_path(project, final, fmt) for fmt in formats]
+            inputs += [output_path(project, target, fmt) for fmt in formats]
             mark_done(
                 project,
                 record,
@@ -133,11 +128,11 @@ def _check(
     edl: Edl,
     config: Config,
     formats: list[str],
-    final: bool,
+    target: RenderTarget,
     step: Callable[[str], None],
     warn: Callable[[str], None],
 ) -> CheckReport:
-    stage = "final" if final else "preview"
+    stage = target.stage
     fps = timeline.fps
     cuts_ms = [round(run.out_in * 1000 / fps) for run in timeline.runs[1:]]
     project.check.mkdir(parents=True, exist_ok=True)
@@ -155,7 +150,7 @@ def _check(
     measured: dict[str, Measurement] = {}
     for fmt in formats:
         step(f"measuring {fmt}")
-        m = measure(output_path(project, final, fmt))
+        m = measure(output_path(project, target, fmt))
         measured[fmt] = m
         findings += _media_findings(fmt, m, config.master, images)
     first = measured[formats[0]]
@@ -174,7 +169,7 @@ def _check(
     findings += _event_findings(timeline)
 
     step("drawing the cut stills")
-    video = output_path(project, final, formats[0])
+    video = output_path(project, target, formats[0])
     sheet = cuts_sheet(
         video,
         video_size(video),

@@ -6,7 +6,7 @@ import typer
 
 from reelcut import APP_NAME
 from reelcut.analyze import analyze_project
-from reelcut.cli._output import JsonOption, emit
+from reelcut.cli._output import JsonOption, Reporter, emit
 from reelcut.cli.workspace import Slug
 from reelcut.paths import find_workspace
 
@@ -21,12 +21,8 @@ def analyze(
     as_json: JsonOption = False,
 ) -> None:
     """Transcribe speech, find shots, static stretches and faces, and write the indexes."""
-
-    def warn(message: str) -> None:
-        if not as_json:
-            typer.echo(f"warning: {message}", err=True)
-
-    report = analyze_project(find_workspace(), slug, clip=clip, on_warning=warn)
+    reporter = Reporter(as_json)
+    report = analyze_project(find_workspace(), slug, clip=clip, on_warning=reporter.warn)
     lines = [f"{slug}: nothing changed since the last analyze"] if report.noop else []
     for c in report.clips[:MAX_CLIP_LINES]:
         heard = f"{c.language} ({c.confidence:.2f})" if c.language else "no speech"

@@ -6,6 +6,7 @@ import typer
 
 from reelcut.cli._output import JsonOption, emit
 from reelcut.doctor import run_doctor
+from reelcut.errors import DependencyError
 
 LABELS = {"ok": "ok     ", "warn": "warn   ", "missing": "MISSING"}
 
@@ -27,7 +28,7 @@ def doctor(as_json: JsonOption = False) -> None:
     ok = payload.pop("ok")
     emit(as_json, payload, lines, ok=ok)
     if not ok:
-        raise typer.Exit(2)
+        raise typer.Exit(DependencyError.exit_code)
 
 
 def register(app: typer.Typer) -> None:

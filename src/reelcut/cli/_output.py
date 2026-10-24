@@ -1,4 +1,4 @@
-"""Shared CLI conventions: the `--json` option and how results and errors are printed."""
+"""Shared CLI conventions: the `--json` and target options, and how output is printed."""
 
 import json
 from collections.abc import Iterable
@@ -6,9 +6,35 @@ from typing import Annotated, Any
 
 import typer
 
-from reelcut.errors import ReelcutError
+from reelcut.errors import ReelcutError, UserError
+from reelcut.target import RenderTarget
 
 JsonOption = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
+PreviewOption = Annotated[
+    bool, typer.Option("--preview", help="The half-resolution preview in preview/ (the default).")
+]
+FinalOption = Annotated[bool, typer.Option("--final", help="The full-resolution final in final/.")]
+
+
+def pick_target(*, preview: bool, final: bool) -> RenderTarget:
+    if preview and final:
+        raise UserError("pass --preview or --final, not both")
+    return RenderTarget.from_flags(final=final)
+
+
+class Reporter:
+    """Progress and warnings on stderr while a command runs; silent under `--json`."""
+
+    def __init__(self, as_json: bool) -> None:
+        self.quiet = as_json
+
+    def step(self, message: str) -> None:
+        if not self.quiet:
+            typer.echo(f"{message} ...", err=True)
+
+    def warn(self, message: str) -> None:
+        if not self.quiet:
+            typer.echo(f"warning: {message}", err=True)
 
 
 def emit(as_json: bool, payload: dict[str, Any], lines: Iterable[str], *, ok: bool = True) -> None:
