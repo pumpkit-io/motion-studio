@@ -26,7 +26,11 @@ def setup(
             typer.echo(f"{message} ...", err=True)
 
     report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=step)
-    lines = [f"{item.status:<9} {item.name}: {item.path}" for item in report.items]
+    lines: list[str] = []
+    for item in report.items:
+        lines.append(f"{item.status:<9} {item.name}: {item.path}")
+        if item.licence:
+            lines.append(f"          weights licence: {item.licence}")
     lines.append(f"next: `{APP_NAME} doctor`")
     emit(as_json, report.to_json(), lines)
 

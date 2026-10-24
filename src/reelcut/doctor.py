@@ -15,7 +15,9 @@ from reelcut.asr.vad import SILERO_VERSION, vad_model_path
 from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
 from reelcut.errors import DependencyError
 from reelcut.media.ffmpeg import ffmpeg_caps
-from reelcut.paths import cache_dir, envs_dir
+from reelcut.music.acestep import env_root
+from reelcut.music.acestep import installed as acestep_installed
+from reelcut.paths import cache_dir
 from reelcut.render.renderer import cached_renderer, is_installed, remotion_version
 from reelcut.state import free_disk_gb, min_free_gb
 from reelcut.vision import mediapipe_model_path, yunet_model_path
@@ -230,7 +232,7 @@ def _cache_checks() -> list[Check]:
     renderer = cached_renderer()
     installed = is_installed(renderer)
     remotion = remotion_version(renderer) if installed else None
-    ace = envs_dir() / "ace-step"
+    ace = acestep_installed()
     deep_filter = deep_filter_binary()
     return [
         Check(
@@ -242,10 +244,12 @@ def _cache_checks() -> list[Check]:
         ),
         Check(
             "ace-step env",
-            "ok" if ace.is_dir() else "warn",
+            "ok" if ace else "warn",
             False,
-            str(ace),
-            None if ace.is_dir() else setup_music,
+            f"{env_root()}, weights {ace.weights}, licence {ace.licence or 'UNVERIFIED'}"
+            if ace
+            else f"{env_root()} not set up; music falls back to library or none",
+            None if ace else setup_music,
         ),
         Check(
             "deepfilternet",
