@@ -361,6 +361,7 @@ Open issues:
 
 - `reelcut.workspace.read_edl_policy` (for `config show`) still reads `policy` loosely rather than through `parse_edl`.
 
+<<<<<<< HEAD
 ## Phase 7: render, assemble, compose and mix (ticket #13)
 
 Built:
@@ -405,3 +406,35 @@ Open issues:
 - Mixed-aspect A-roll (see above) is not handled beyond letterboxing.
 - The renderer is installed from the checkout that ran `setup`; a later `setup` from another checkout reports it `present` without refreshing it. Delete `<cache>/renderer/<version>` to reinstall.
 - Captions still show during full B-roll (guide default; not configurable yet).
+=======
+## Phase 5: look, look-asset and asset contact sheets (ticket #9)
+
+Built:
+
+- `reelcut look <slug> <clip> <t0> <t1> [--frames 8] [--out PATH] [--json]` (`reelcut.look.look_range`). Times are source seconds. Frames are taken at the centres of `--frames` equal slices of the range (1 to 24), each decoded with an input seek (`-ss` before `-i`) at 320 px tall. The sheet is 1600 px wide: a header (clip, file, range, first and last word ID), the frames in a centred grid with a timestamp under each and the nearest face sample (within 0.25 s) drawn as a cyan box, then a waveform of the range from the 16 kHz WAV with VAD regions shaded green, pauses hatched, frame times as blue lines, a time axis, and the words placed by start time in as many rows as needed so labels never overlap (hard fillers red, soft fillers orange, a bar under the waveform for each word's span), and a legend. Default output `contact/<clip>_<t0>-<t1>.png`. Prints a one-line description (words, fillers, frames with a face), the budget count and the path.
+- Look budget: every `look` adds one to `look_count` in `state.json`. Past `edit.look_budget` it prints `warning: look budget exceeded (N of B sheets); ...` (stderr, and in `warnings` under `--json`) and still writes the sheet, exit 0. A range past the clip end is clamped with a warning; ranges over 20 s get a warning, as the look skill says.
+- `reelcut look-asset <slug> <asset-id> [--json]` (`reelcut.look.look_asset`) redraws `contact/<id>.png` for a B-roll clip (6 frames across the clip) or image (the image up to 720 px tall, no timestamp). It does not count against the budget: describing each asset once is part of every edit, and analyze has already drawn the same sheet.
+- `analyze` writes `contact/<id>.png` (`ProjectPaths.asset_sheet`, the path #8's `assets.md` already links) for every clip whose final role is broll or image, when the clip was analysed in that run or its sheet is missing. The sheets are outputs of the `analyze` stage, so deleting one makes the next analyze redraw it.
+- Drawing is in `reelcut.look.sheet` (pure Pillow over decoded frames); media reading and the budget are in `reelcut.look`.
+- Removed `look` and `look-asset` from `PENDING` in `tests/unit/test_agents.py`; both accept `--json`.
+
+Checked (acceptance):
+
+- Smoke tests (`tests/unit/test_look_cli.py`, CI): on an ingested and analysed tiny project, the `look` sheet is 800 to 1600 px wide, at least 400 px tall and not blank (pixel standard deviation > 20); a second `look` with `look_budget = 1` warns `look budget exceeded (2 of 1 sheets)`, exits 0 and writes the sheet, and `state.json` has `look_count` 2; every `contact sheet:` link in `assets.md` (`contact/b1.png`, `contact/i1.png`) exists and is at most 1600 px wide; a deleted asset sheet comes back on the next analyze; `look-asset` redraws it without counting; a wrong clip, an A-roll `look-asset`, an image `look`, an empty range, a range past the end and `--frames 0` each exit 1 with a hint.
+- Visual check, by opening the PNGs from real ingest and analyze (mlx-whisper, BlazeFace) of the fixtures:
+  - IT fixture, `look it c1 3.5 11`: every word label is legible at 18 px; "ehm," is red and the rest black; the cyan face box sits on the face in all 8 frames; the 1.3 s pause after "video." and the gap before "La cosa" are hatched and the VAD regions shaded. On the first try "più" and "è..." drew as boxes: Pillow's bundled font (Aileron) has no Latin-1 accents, so the sheet now uses a vendored Latin cut of DejaVu Sans; redrawn, both read correctly.
+  - EN fixture, the whole 22.8 s clip at 12 frames: two rows of 8 and 4 frames; labels stack into up to five rows where speech is dense and stay legible; "um," is red; the static 3 s tail shows as hatched pause.
+  - Soft fillers: on the tiny test project's sheet a sentence-initial "So" (a start-only soft filler) is orange next to the red "um". The fixtures have no soft filler.
+  - `contact/b1.png` (testsrc2 B-roll, 6 frames in a 2x3 grid, 1178 px wide) and `contact/i1.png` (the Mandelbrot image, 992 px wide) are clear, with header and timestamps legible.
+
+Deviations and why:
+
+- `look-asset` does not count against `look_budget` (guide §7 says only `look` does; see above).
+- Sheets for a range are always 1600 px wide, even for a few portrait frames, so word labels have room; asset sheets are as wide as their frames.
+- Vendored font (`src/reelcut/look/fonts/`, 81 KB, licence alongside and in THIRD_PARTY.md), for the reason above.
+
+Open issues:
+
+- The look counter is read and written without the project lock, so two `look` calls at the same instant could count once; it is only a warning threshold.
+- In a long dense range, word labels can stack several rows deep; the look skill already steers agents to ranges under 20 s.
+>>>>>>> origin/feat/reelcut-v0.1.0

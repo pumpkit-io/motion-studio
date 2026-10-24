@@ -1,9 +1,9 @@
 """The analyze stage: speech, language, transcript and visual analysis per clip, then the indexes.
 
-Writes `analysis/<clip>.json`, `analysis/retakes.json`, `analysis/packed.md` and
-`analysis/assets.md`, and finalises each clip's role in project.toml. Each clip has its own
-state record (`analyze.<id>`), so only clips whose media or settings changed go back through
-the speech-to-text and face workers.
+Writes `analysis/<clip>.json`, `analysis/retakes.json`, `analysis/packed.md`,
+`analysis/assets.md` and each asset's `contact/<id>.png`, and finalises each clip's role in
+project.toml. Each clip has its own state record (`analyze.<id>`), so only clips whose media
+or settings changed go back through the speech-to-text and face workers.
 """
 
 import hashlib
@@ -31,6 +31,7 @@ from reelcut.asr import SpeechJob, SpeechResult, model_ref, resolve_backend, tra
 from reelcut.config import load_config
 from reelcut.errors import UserError
 from reelcut.ingest import ClipMedia, load_clips, load_manifest, record_auto_role
+from reelcut.look import write_asset_sheet
 from reelcut.paths import ProjectPaths, project_paths
 from reelcut.state import mark_done, mark_failed, project_lock, record_warning, stage_is_fresh
 from reelcut.vision import FaceJob, FaceResult, detect_faces
@@ -227,7 +228,11 @@ def _analyze(
             project,
             STAGE,
             stage_inputs,
-            outputs=[*outputs, *(analysis_path(project, c.id) for c in media)],
+            outputs=[
+                *outputs,
+                *(analysis_path(project, c.id) for c in media),
+                *(project.asset_sheet(a.clip.id) for a in analyses if _is_asset(a)),
+            ],
             params=params,
         )
     if run is not None:
@@ -267,6 +272,11 @@ def _report(
             ),
             encoding="utf-8",
         )
+        clips = {c.id: c for c in media}
+        for a in analyses:
+            sheet = project.asset_sheet(a.clip.id)
+            if _is_asset(a) and (a.clip.id in analysed or not sheet.exists()):
+                write_asset_sheet(project, clips[a.clip.id], a)
     roles = {c.id: c.role for c in media}
     return AnalyzeReport(
         project=project,
@@ -291,6 +301,10 @@ def _report(
         assets=assets_path,
         noop=noop,
     )
+
+
+def _is_asset(analysis: ClipAnalysis) -> bool:
+    return analysis.clip.role in ("broll", "image")
 
 
 def _clip_params(clip: ClipMedia, params: dict[str, Any]) -> dict[str, Any]:

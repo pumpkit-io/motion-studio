@@ -10,6 +10,12 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 | React, React DOM | 19.2.3 | MIT | |
 | Inter font via `@fontsource/inter` | 5.3.0 | SIL Open Font License 1.1 | Verified from `node_modules/@fontsource/inter/LICENSE` on 2026-10-24. Bundled into every render as the default caption and title font. |
 
+## Contact sheets
+
+| Component | Version | Licence | Notes |
+|---|---|---|---|
+| DejaVu Sans, cut to Latin (`src/reelcut/look/fonts/DejaVuSans-Latin.ttf`) | 2.35 | Bitstream Vera licence (DejaVu changes public domain) | Verified 2026-10-24 from `LICENSE` in dejavu-fonts/dejavu-fonts, vendored next to the font as `LICENSE-DejaVu.txt`. Subset with fontTools `pyftsubset` from the `DejaVuSans.ttf` that matplotlib 3.11.2 ships (SHA-256 `3fdf69ca...0d22`); the licence allows modified copies whose names do not contain "Bitstream" or "Vera". Used for contact-sheet labels. |
+
 ## Python core
 
 | Package | Version | Licence (PyPI metadata) |
