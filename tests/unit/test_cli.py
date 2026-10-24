@@ -14,4 +14,4 @@ def test_help_names_the_app_and_exits_zero() -> None:
 def test_version_flag_prints_name_and_version() -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert result.output.strip() == "reelcut 0.1.0.dev0"
+    assert result.output.strip() == "reelcut 0.1.0"

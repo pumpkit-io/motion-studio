@@ -12,7 +12,7 @@ from reelcut.edl import Timeline
 from reelcut.errors import ReelcutError, UserError
 from reelcut.ingest import MANIFEST, load_manifest
 from reelcut.paths import ProjectPaths, project_paths
-from reelcut.plan import timeline_path, validate_project
+from reelcut.plan import load_edl, timeline_path, validate_project
 from reelcut.render.assemble import assemble, count_frames, video_size
 from reelcut.render.compose import compose, find_brand, prepare_public, props
 from reelcut.render.mix import mix
@@ -109,6 +109,10 @@ def render_project(
     with project_lock(project):
         timeline = Timeline.model_validate_json(timeline_path(project).read_text(encoding="utf-8"))
         config = load_config(workspace, slug)
+        music = config.music
+        gain_db = load_edl(project).music.gain_db
+        if gain_db is not None:
+            music = music.model_copy(update={"gain_db": gain_db})
         chosen = _formats(timeline, formats)
         music_file = _music_file(project, timeline)
         brand = find_brand(timeline, workspace, BrandConfig().logo)
@@ -118,7 +122,7 @@ def render_project(
         params = {
             "recipe": RECIPE,
             "formats": chosen,
-            "music": config.music.model_dump(),
+            "music": music.model_dump(),
             "master": config.master.model_dump(),
             "remotion": remotion_version(renderer),
         }
@@ -172,7 +176,7 @@ def render_project(
                     voice,
                     duration_s=timeline.duration_frames / timeline.fps,
                     music_file=music_file,
-                    music=config.music,
+                    music=music,
                     master=config.master,
                     scratch=project.build,
                 )

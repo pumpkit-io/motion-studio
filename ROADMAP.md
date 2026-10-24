@@ -15,7 +15,7 @@ Ideas beyond v0.1.0, in no particular order.
 ## Speech-to-text backends
 
 - `parakeet-mlx` (Parakeet TDT 0.6B v3, English and Italian) as an optional Apple Silicon backend.
-- CrisperWhisper as an optional verbatim, filler-aware backend. Its model card licence is believed to be non-commercial (CC BY-NC 4.0), so it must stay off by default with a warning. v0.1.0 accepts `fillers_backend = "crisper"` in config and fails with "not implemented in v0.1.0".
+- CrisperWhisper as an optional verbatim, filler-aware backend. Its model card licence is CC BY-NC 4.0 (non-commercial; checked 2026-10-24 at `nyralabs/CrisperWhisper`), so it must stay off by default with a warning. v0.1.0 accepts `fillers_backend = "crisper"` in config and fails with "not implemented in v0.1.0".
 
 ## Packaging and interfaces
 

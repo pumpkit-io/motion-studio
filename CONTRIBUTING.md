@@ -22,4 +22,4 @@ just test
 
 ## Adding a language
 
-Add one data file under `src/reelcut/lang/`. See `docs/adding-a-language.md` once it exists.
+Add one data file under `src/reelcut/lang/`. See [docs/adding-a-language.md](docs/adding-a-language.md).

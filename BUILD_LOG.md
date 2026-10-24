@@ -544,3 +544,33 @@ Open issues:
 
 - No earlier ticket's code needed a fix: the first full run passed.
 - The fixtures are ~23 s, so these timings say little about a 5-minute shoot; music time is dominated by the model load, which does not scale with length, while analyze and render do.
+
+## Phase 12, documentation and open-source readiness (ticket #18)
+
+Built:
+
+- README per guide Phase 12: pitch, pipeline diagram, requirements, quickstart from a clone (`uv tool install --python 3.12 '.[mac]'`, `setup`, optional `setup --music`, `doctor`, `init`, `new`, then ask the agent), supported agents, configuration, licences (Remotion terms, ACE-Step weights, CrisperWhisper), security and privacy (no uploads, no telemetry, skills run shell commands), troubleshooting, and the roadmap link.
+- `docs/cli.md`: the option lists generated with `uv run typer reelcut.cli utils docs --name reelcut`, then grouped by stage, with the conventions (exit codes, `--json`), examples, what each command writes, and the environment variables. `docs/architecture.md`: principles, pipeline, module map, the resolver, contracts, processes and memory, rendering, stage state, test seams. `docs/adding-a-language.md`: an `es.toml` walk-through (the file in it loads with `load_language`). `docs/renaming.md`: a checklist built from `git grep -n reelcut` and `git ls-files`, grouped by what kind of change each file needs. `docs/edl.md` was already complete (its test checks every field and issue code); no change.
+- `THIRD_PARTY.md` rewritten with a link for every entry: Remotion and the npm tree (285 packages, licence counts), the 16 direct Python dependencies and all 74 others in the runtime closure with their metadata licence, development tools, every model and its pinned revision, the ACE-Step environment (125 packages, four looked at by hand), and system tools.
+- `tests/unit/test_docs.py` (CI): every CLI command and `--option` has its section in `docs/cli.md`; every tracked file that names the product (by content, case-insensitive, or by path) is covered by an entry in `docs/renaming.md`, and no entry is stale.
+- Version 0.1.0 in `pyproject.toml` and `uv.lock`; CHANGELOG entry `0.1.0 - 2026-10-24`. The tag is left for the release step (#19).
+- Developer `AGENTS.md`: `just edl-coverage` and `just e2e` in the commands, CI's four steps, and rule 14 (new commands, options, EDL fields and product-name files need their doc entries; tests enforce it). CONTRIBUTING links the language guide.
+- Fix: `render` mixed the bed at `config.music.gain_db` and ignored the EDL's `music.gain_db`, so the review skill's "music too loud → lower `gain_db`" did nothing. Render now applies the EDL value (and keys freshness on it). Test: `test_the_edl_music_gain_overrides_the_config_level`.
+
+Checked (acceptance):
+
+- Fresh clone and README quickstart on this Mac (M3 Pro, 18 GB, macOS 27.0.1), in an empty scratch directory with uv's tool dirs pointed there so the global `reelcut` was untouched: `git clone --branch ticket/18-docs` (main has no code yet), `uv tool install --python 3.12 '.[mac]'` (2 s, warm uv cache), `reelcut --version` → `reelcut 0.1.0`, `reelcut setup` and `setup --music` (everything `present`: the shared cache already held the models and ACE-Step, and a first `setup` from a clone 20 minutes earlier had installed the 0.1.0 renderer in 26 s), `reelcut doctor` all ok, `reelcut init`, `reelcut new my-video --from <dir with en_talking.mov, broll.mp4, image.png>`. Then Claude Code, headless (`claude -p "Edit my-video into a 45-second Reel and an X version." --dangerously-skip-permissions`) in the workspace, with nothing but the workspace files to go on. In 7 min 4 s it ran the whole workflow and delivered `final/my-video_9x16.mp4` (1080x1920) and `final/my-video_16x9.mp4` (1920x1080): it cut the greeting, the "um" and the abandoned take, kept the complete retake with a snap zoom and a title, left out the test-pattern B-roll and the fractal image as unrelated, generated an ACE-Step bed, and said the footage holds only ~13 s of speech so both videos are 7 s rather than 45 s. `reelcut check my-video --final` afterwards: pass, 25 of 25 words re-heard, −13.8 LUFS / −2.6 dBTP in both formats, one caption-density warning (5.0 words/s). `reelcut status`: every stage done. Opened stills: 9x16 at 4.5 s shows the zoomed presenter photo with the title fading out and the caption "is to keep" with "keep" in yellow; 16x9 at 1 s shows the portrait source on a blurred fill with the caption "to show you".
+- Remotion terms: remotion.dev/license redirects to `LICENSE.md` on remotion-dev/remotion main, byte-identical to the pinned 4.0.538's file; summarised in README and THIRD_PARTY.md.
+- `docs/renaming.md` matches `git grep -n reelcut`: enforced by `tests/unit/test_docs.py`, and each entry's description was written from the matching lines.
+- `just lint`, `just test`, `just schema-check`, `just edl-coverage` (99.89%) pass locally; CI green on the branch.
+
+Deviations and why:
+
+- The quickstart installs from a clone, not `uv tool install reelcut`: reelcut is not on PyPI and the repository is private. A stranger with access follows the same steps.
+- Not a cold machine: the shared cache already held the models and ACE-Step, so setup's download times come from earlier tickets (renderer 14.5 min, ACE-Step 19 min) and are quoted in docs as such.
+- No `v0.1.0` tag here; the spec tags after all tickets are done.
+
+Open issues:
+
+- `reelcut doctor --fix` (user story 6) was never built; doctor prints a fix per item instead. The README does not promise `--fix`.
+- CrisperWhisper's licence is now confirmed CC BY-NC 4.0 (the repository moved to `nyralabs/CrisperWhisper`); ROADMAP.md updated.

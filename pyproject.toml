@@ -1,6 +1,6 @@
 [project]
 name = "reelcut"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Agent-driven video editing harness: turns talking-head footage into finished short videos."
 readme = "README.md"
 license = "MIT"
