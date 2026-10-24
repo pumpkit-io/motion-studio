@@ -19,7 +19,9 @@ from reelcut.asr.vad import SILERO_VERSION, install_vad_model, vad_model_path
 from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary, install_deep_filter
 from reelcut.config import load_config
 from reelcut.errors import DependencyError, UserError
-from reelcut.paths import find_workspace
+from reelcut.music import acestep
+from reelcut.paths import cache_dir, find_workspace
+from reelcut.state import ensure_free_disk
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,7 @@ class Item:
     name: str
     status: Literal["installed", "present"]
     path: str
+    licence: str | None = None
 
 
 @dataclass(frozen=True)
@@ -48,11 +51,6 @@ def run_setup(
         raise DependencyError(
             "the crisper fillers backend is not implemented in v0.1.0",
             hint='keep asr.fillers_backend = "prompted"',
-        )
-    if music:
-        raise DependencyError(
-            "`setup --music` (the ACE-Step environment) is not available in this build yet",
-            hint='set music.mode = "library" or "none" in reelcut.toml meanwhile',
         )
     step = on_step or (lambda _msg: None)
     items: list[Item] = []
@@ -79,7 +77,22 @@ def run_setup(
     else:
         step(f"downloading {ref.repo} for {backend} (about 1.6 GB)")
         items.append(Item(f"{backend} {ref.repo}", "installed", str(install_model(ref))))
+    if music:
+        items.append(_install_music(step))
     return SetupReport(items)
+
+
+def _install_music(step: Callable[[str], None]) -> Item:
+    if acestep.installed() is None:
+        ensure_free_disk(cache_dir())
+    record, fetched = acestep.install(step)
+    # Licence of the exact weights downloaded; UNVERIFIED when they declare none.
+    return Item(
+        f"ace-step {record.weights}",
+        "installed" if fetched else "present",
+        str(acestep.env_root()),
+        record.licence or "UNVERIFIED",
+    )
 
 
 def _asr_settings(workdir: Path) -> tuple[Any, str]:

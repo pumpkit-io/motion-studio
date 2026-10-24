@@ -167,3 +167,30 @@ def test_doctor_finds_the_speech_models_in_the_cache(
     assert check(payload, "vad model")["status"] == "ok"
     assert check(payload, "asr model")["status"] == "ok"
     assert str(snapshot) in check(payload, "asr model")["detail"]
+
+
+def test_doctor_reports_the_acestep_env_and_its_weights_licence_once_setup_finished(
+    fake_tools: FakeTools, isolated_cache: Path
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    env = isolated_cache / "envs" / "ace-step"
+    (env / "src").mkdir(parents=True)
+    _, half_done = doctor_json()
+    (env / "install.json").write_text(
+        json.dumps(
+            {
+                "source": "ace-step/ACE-Step-1.5@abc",
+                "weights": "ACE-Step/Ace-Step1.5@def",
+                "dit": "acestep-v15-turbo",
+                "licence": "mit",
+                "licence_source": "README.md front matter",
+            }
+        ),
+        encoding="utf-8",
+    )
+    _, done = doctor_json()
+    assert check(half_done, "ace-step env")["status"] == "warn"
+    assert "setup --music" in check(half_done, "ace-step env")["fix"]
+    assert check(done, "ace-step env")["status"] == "ok"
+    assert "licence mit" in check(done, "ace-step env")["detail"]

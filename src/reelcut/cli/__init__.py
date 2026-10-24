@@ -102,6 +102,7 @@ def _register() -> None:
         docs,
         doctor,
         ingest,
+        music,
         plan,
         setup,
         words,
@@ -113,6 +114,7 @@ def _register() -> None:
     analyze.register(app)
     words.register(app)
     app.add_typer(plan.app, name="plan")
+    music.register(app)
     app.add_typer(docs.app, name="docs")
     app.add_typer(agents.app, name="agents")
     app.add_typer(config.app, name="config")
