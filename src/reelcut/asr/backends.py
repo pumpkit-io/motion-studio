@@ -145,7 +145,7 @@ class FasterWhisper:
     name = "faster-whisper"
 
     def __init__(self, model_dir: str) -> None:
-        from faster_whisper import WhisperModel
+        from faster_whisper import WhisperModel  # pyright: ignore[reportMissingImports]
 
         self._model = WhisperModel(model_dir, device="cpu", compute_type="int8")
 
