@@ -31,6 +31,11 @@ BROLL_SIZE = (1920, 1080)
 BROLL_SECONDS = 6
 TINY_SIZE = (360, 640)
 TINY_SECONDS = 2
+# The presenter holds still through the silent tail, so analyze reports it as static (>= 2 s).
+TAIL_MS = 3000
+FACE_PHOTO = FIXTURES / "faces" / "neil_armstrong_960.jpg"
+# A 500 px square around the face in the photo, shown 720 px wide: a phone-selfie face size.
+FACE_CROP = "crop=500:500:350:100,scale=720:720"
 
 # `say` pads each line with near-silence; trim to this level, keeping 10 ms so attacks survive.
 TRIM_THRESHOLD = 40
@@ -90,7 +95,7 @@ EN = TalkingClip(
         Say("The most important thing to remember is to keep every sentence short."),
         Silence(1500, "between_utterances"),
         Say("Thanks for watching, and see you next time."),
-        Silence(1000, "tail"),
+        Silence(TAIL_MS, "tail"),
     ),
     retake=(2, 3),
 )
@@ -115,7 +120,7 @@ IT = TalkingClip(
         Say("La cosa più importante da ricordare è tenere ogni frase breve."),
         Silence(1500, "between_utterances"),
         Say("Grazie per la visione, e alla prossima."),
-        Silence(1000, "tail"),
+        Silence(TAIL_MS, "tail"),
     ),
     retake=(2, 3),
 )
@@ -231,20 +236,12 @@ def build_talking_audio(clip: TalkingClip, work: Path) -> tuple[Path, dict[str, 
     return wav, truth
 
 
-def presenter_video(seconds: float, out: Path, work: Path) -> None:
-    """A skin-toned head that drifts over a static body, so the clip is never a static stretch."""
+def presenter_video(seconds: float, still_from: float, out: Path, work: Path) -> None:
+    """A real face that drifts over a static body until `still_from`, then holds still."""
     head = work / "head.png"
-    ffmpeg(
-        "-f",
-        "lavfi",
-        "-i",
-        "color=c=0xe0ac69:s=480x480,format=yuva420p,"
-        "geq=lum='lum(X,Y)':cb='cb(X,Y)':cr='cr(X,Y)':a='if(lte(hypot(X-240,Y-240),240),255,0)'",
-        "-frames:v",
-        "1",
-        str(head),
-    )
+    ffmpeg("-i", str(FACE_PHOTO), "-vf", FACE_CROP, "-frames:v", "1", str(head))
     width, height = TALKING_SIZE
+    t = f"min(t,{still_from:.3f})"
     ffmpeg(
         "-f",
         "lavfi",
@@ -258,7 +255,7 @@ def presenter_video(seconds: float, out: Path, work: Path) -> None:
         str(head),
         "-filter_complex",
         "[0]drawbox=x=190:y=1180:w=700:h=740:color=0x3b3b58:t=fill[bg];"
-        "[bg][1]overlay=x='300+80*sin(2*PI*t/4)':y='620+40*sin(2*PI*t/3)':shortest=1,"
+        f"[bg][1]overlay=x='180+60*sin(2*PI*{t}/4)':y='500+40*sin(2*PI*{t}/3)':shortest=1,"
         "format=yuv420p",
         "-c:v",
         "libx264",
@@ -279,7 +276,7 @@ def make_talking_clip(clip: TalkingClip, media: Path, work: Path) -> dict[str, A
     wav, truth = build_talking_audio(clip, work)
     seconds = truth["duration_ms"] / 1000
     cfr = work / f"{clip.name}_cfr.mov"
-    presenter_video(seconds, cfr, work)
+    presenter_video(seconds, truth["silences"][-1]["start_ms"] / 1000, cfr, work)
     # Remux: the video stream is copied and only its timestamps change.
     ffmpeg(
         "-i",

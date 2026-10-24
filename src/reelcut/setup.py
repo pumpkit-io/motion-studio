@@ -20,8 +20,9 @@ from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary, insta
 from reelcut.config import load_config
 from reelcut.errors import DependencyError, UserError
 from reelcut.music import acestep
-from reelcut.paths import cache_dir, find_workspace
+from reelcut.paths import cache_dir, find_workspace, models_dir
 from reelcut.state import ensure_free_disk
+from reelcut.vision import MEDIAPIPE_MODEL, YUNET_MODEL, install_face_model
 
 
 @dataclass(frozen=True)
@@ -67,6 +68,14 @@ def run_setup(
     else:
         step(f"downloading Silero VAD {SILERO_VERSION}")
         items.append(Item(f"silero-vad {SILERO_VERSION}", "installed", str(install_vad_model())))
+
+    for face_model in (MEDIAPIPE_MODEL, YUNET_MODEL):
+        path = models_dir() / face_model.name
+        if path.is_file():
+            items.append(Item(face_model.name, "present", str(path)))
+        else:
+            step(f"downloading {face_model.name}")
+            items.append(Item(face_model.name, "installed", str(install_face_model(face_model))))
 
     backend, configured_model = _asr_settings(workdir or Path.cwd())
     ref = model_ref(backend, configured_model)

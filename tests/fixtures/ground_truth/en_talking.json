@@ -3,7 +3,7 @@
   "clip": "en_talking.mov",
   "language": "en",
   "voice": "Samantha",
-  "duration_ms": 20833,
+  "duration_ms": 22833,
   "video": {
     "width": 1080,
     "height": 1920,
@@ -88,7 +88,7 @@
     },
     {
       "start_ms": 19828,
-      "end_ms": 20833,
+      "end_ms": 22833,
       "context": "tail"
     }
   ],

@@ -169,6 +169,28 @@ def test_doctor_finds_the_speech_models_in_the_cache(
     assert str(snapshot) in check(payload, "asr model")["detail"]
 
 
+def test_doctor_warns_until_setup_has_downloaded_the_face_models(
+    fake_tools: FakeTools, isolated_cache: Path
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    code, payload = doctor_json()
+    assert code == 0
+    assert check(payload, "face model")["status"] == "warn"
+    assert "setup" in check(payload, "face model")["fix"]
+
+    models = isolated_cache / "models"
+    models.mkdir(parents=True)
+    (models / "face_detection_yunet_2023mar.onnx").write_bytes(b"onnx")
+    _, payload = doctor_json()
+    assert check(payload, "face model")["status"] == "warn"
+    assert "YuNet fallback only" in check(payload, "face model")["detail"]
+
+    (models / "blaze_face_full_range-float16-1.tflite").write_bytes(b"tflite")
+    _, payload = doctor_json()
+    assert check(payload, "face model")["status"] == "ok"
+
+
 def test_doctor_reports_the_acestep_env_and_its_weights_licence_once_setup_finished(
     fake_tools: FakeTools, isolated_cache: Path
 ) -> None:

@@ -299,6 +299,41 @@ Open issues:
 - On the 5-minute concatenation Whisper sometimes attaches the first word of the next take to the end of the abandoned one ("... remember is The"); the retake still clusters, but the draft would keep a stray word. Check (#15) re-transcribes and will flag it.
 - `project.toml` is an input of the analyze stage, so role finalisation (#8) writing it marks analyze stale once; the next run is then a repack, not a re-transcription (per-clip records stay fresh).
 
+## Phase 4, visual: shots, static stretches, faces, roles and the asset catalogue (ticket #8)
+
+Built:
+
+- `reelcut analyze` now also fills `shots`, `static` and `faces` in each `analysis/<clip>.json`, finalises roles, and writes `analysis/assets.md`. The per-clip state record covers the mezzanine as well as the 16 kHz WAV, and the analyze recipe is 2, so existing projects re-analyse once.
+- Shots: PySceneDetect `ContentDetector` (default threshold 27) through a `SceneManager` with `auto_downscale`, on the mezzanine (`reelcut.vision.motion.find_shots`). A clip without cuts is one shot.
+- Static: ffmpeg decodes grey frames at 2 fps, 320 px wide (`reelcut.media.ffmpeg.read_frames`, a new streaming raw-frame reader), and OpenCV `absdiff` gives the mean difference between neighbours. `reelcut.analysis.find_static` (pure) keeps runs below 1.5 (of 255), removes VAD speech from them, and keeps pieces of 2 s or more; the last sampled frame stands for the rest of the clip.
+- Faces: MediaPipe Tasks `FaceDetector` with the BlazeFace full-range model at 2 fps on frames scaled to 640 px on the long side, largest face per frame, boxes normalised to the frame. It runs in `python -m reelcut.vision.worker` while the parent holds `heavy_model_lock("faces")`, one process for all clips. YuNet (`cv2.FaceDetectorYN`) takes over when the MediaPipe model is missing or MediaPipe fails to load; analyze then prints `warning: face detection fell back to YuNet: <reason>` and records it in `stages.analyze.warnings` of `state.json`. `REELCUT_FACE_WORKER` replaces the worker; the unit tests use an autouse stand-in that reports a face in every sampled frame.
+- Roles: `reelcut.analysis.finalise_role` (pure): images stay images; a video is A-roll when VAD speech covers more than 30% of it and a face is in more than 50% of the sampled frames, otherwise B-roll. analyze stores it with `ingest.record_auto_role`, only when it changed, so a creator's `role` override in `project.toml` wins and the file is not rewritten on every run.
+- `assets.md` (`reelcut.analysis.pack_assets`): one section per B-roll clip and image with ID, file name, source path, duration (or "still image"), resolution, shot count, the contact sheet path `contact/<id>.png` and a blank `description:` line. Descriptions the agent writes are read back before every repack and kept. The sheets themselves come with the look ticket (#9); the path is fixed now (`ProjectPaths.asset_sheet`).
+- `reelcut setup` downloads both face models (SHA-256 checked); `doctor` has a `face model` check that warns when only YuNet, or nothing, is in the cache.
+- Fixtures: the talking clips' presenter is now the public-domain Armstrong photo (cropped to the face, 720 px wide on the 1080x1920 frame) instead of a skin-coloured disc, and it holds still through a silent tail that is now 3 s instead of 1 s. The ground truth JSON is regenerated; the fixture test expects the 3 s tail.
+
+Pinned: `blaze_face_full_range.tflite` float16 version 1 (Apache-2.0, from its model card) and OpenCV Zoo `face_detection_yunet_2023mar.onnx` at commit `48b10fa5` (MIT). APIs and URLs in `docs/dependencies.md`, licences in `THIRD_PARTY.md`.
+
+Checked (acceptance):
+
+- Face photo (`tests/integration/test_faces.py`, `models`): MediaPipe finds one face in `neil_armstrong_960.jpg` at centre (0.61, 0.28), width 0.18, score 0.88; with only the YuNet model in a cache, `detect_faces` reports `yunet` with the reason "the MediaPipe face model is not in the cache" and finds the same face within 0.06.
+- Static tail (`test_analyze_fixtures.py`, both backends): each talking fixture has exactly one static stretch, starting within 0.6 s of the 3 s silent tail and ending at the clip end (EN: 20.0 to 22.83 s), and `packed.md` lists it under "Static / no-speech stretches".
+- Roles: the B-roll fixture is `broll`, the image `image`, and the three talking clips `aroll`, both in the `--json` output and as `auto_role` in `project.toml`; a face is found in every sampled frame of the talking clips.
+- `assets.md` on the fixtures lists `b1 · broll.mp4` (6.0s, 1920x1080, 1 shot) and `i1 · image.png` (still image, 1600x1200, 1 shot), each with its contact sheet path and a blank description, and no talking clip.
+- YuNet fallback warning: the CI test with the stand-in worker reporting YuNet checks the `warning:` line on stderr and the entry in `state.json`.
+- Timing: analysing the EN fixture, the B-roll and the image takes about 9 s on the build machine with mlx-whisper, face pass and shot detection included.
+
+Deviations and why:
+
+- BlazeFace full range instead of the guide's unnamed BlazeFace variant (usually short range): on a 1080x1920 frame short range missed the face below about 15% of the frame width, and full range found it at 6%. Phone footage shot from a tripod has faces that small.
+- A video with speech but no face is B-roll, as the rule says. The fixtures therefore needed a real face; screen recordings with a voice-over will be classified B-roll and need a `role = "aroll"` override in `project.toml`.
+- The contact sheet linked from `assets.md` does not exist until #9 writes it.
+
+Open issues:
+
+- The static threshold (1.5 of 255 at 2 fps) is tuned on synthetic footage; real phone noise on a locked-off shot may sit above it, so static stretches in real footage may be missed. Check it in the morning test.
+- Face samples are absent for frames without a face, so `face_sample_count` (from the duration) and the worker's ffmpeg `fps=2` frame count can differ by one frame; the ratio is only used against the 50% threshold.
+
 ## Phase 6, CLI: plan draft, plan validate, words, docs edl (ticket #11)
 
 Built:
@@ -325,6 +360,37 @@ Deviations and why:
 Open issues:
 
 - `reelcut.workspace.read_edl_policy` (for `config show`) still reads `policy` loosely rather than through `parse_edl`.
+
+## Phase 5: look, look-asset and asset contact sheets (ticket #9)
+
+Built:
+
+- `reelcut look <slug> <clip> <t0> <t1> [--frames 8] [--out PATH] [--json]` (`reelcut.look.look_range`). Times are source seconds. Frames are taken at the centres of `--frames` equal slices of the range (1 to 24), each decoded with an input seek (`-ss` before `-i`) at 320 px tall. The sheet is 1600 px wide: a header (clip, file, range, first and last word ID), the frames in a centred grid with a timestamp under each and the nearest face sample (within 0.25 s) drawn as a cyan box, then a waveform of the range from the 16 kHz WAV with VAD regions shaded green, pauses hatched, frame times as blue lines, a time axis, and the words placed by start time in as many rows as needed so labels never overlap (hard fillers red, soft fillers orange, a bar under the waveform for each word's span), and a legend. Default output `contact/<clip>_<t0>-<t1>.png`. Prints a one-line description (words, fillers, frames with a face), the budget count and the path.
+- Look budget: every `look` adds one to `look_count` in `state.json`. Past `edit.look_budget` it prints `warning: look budget exceeded (N of B sheets); ...` (stderr, and in `warnings` under `--json`) and still writes the sheet, exit 0. A range past the clip end is clamped with a warning; ranges over 20 s get a warning, as the look skill says.
+- `reelcut look-asset <slug> <asset-id> [--json]` (`reelcut.look.look_asset`) redraws `contact/<id>.png` for a B-roll clip (6 frames across the clip) or image (the image up to 720 px tall, no timestamp). It does not count against the budget: describing each asset once is part of every edit, and analyze has already drawn the same sheet.
+- `analyze` writes `contact/<id>.png` (`ProjectPaths.asset_sheet`, the path #8's `assets.md` already links) for every clip whose final role is broll or image, when the clip was analysed in that run or its sheet is missing. The sheets are outputs of the `analyze` stage, so deleting one makes the next analyze redraw it.
+- Drawing is in `reelcut.look.sheet` (pure Pillow over decoded frames); media reading and the budget are in `reelcut.look`.
+- Removed `look` and `look-asset` from `PENDING` in `tests/unit/test_agents.py`; both accept `--json`.
+
+Checked (acceptance):
+
+- Smoke tests (`tests/unit/test_look_cli.py`, CI): on an ingested and analysed tiny project, the `look` sheet is 800 to 1600 px wide, at least 400 px tall and not blank (pixel standard deviation > 20); a second `look` with `look_budget = 1` warns `look budget exceeded (2 of 1 sheets)`, exits 0 and writes the sheet, and `state.json` has `look_count` 2; every `contact sheet:` link in `assets.md` (`contact/b1.png`, `contact/i1.png`) exists and is at most 1600 px wide; a deleted asset sheet comes back on the next analyze; `look-asset` redraws it without counting; a wrong clip, an A-roll `look-asset`, an image `look`, an empty range, a range past the end and `--frames 0` each exit 1 with a hint.
+- Visual check, by opening the PNGs from real ingest and analyze (mlx-whisper, BlazeFace) of the fixtures:
+  - IT fixture, `look it c1 3.5 11`: every word label is legible at 18 px; "ehm," is red and the rest black; the cyan face box sits on the face in all 8 frames; the 1.3 s pause after "video." and the gap before "La cosa" are hatched and the VAD regions shaded. On the first try "più" and "è..." drew as boxes: Pillow's bundled font (Aileron) has no Latin-1 accents, so the sheet now uses a vendored Latin cut of DejaVu Sans; redrawn, both read correctly.
+  - EN fixture, the whole 22.8 s clip at 12 frames: two rows of 8 and 4 frames; labels stack into up to five rows where speech is dense and stay legible; "um," is red; the static 3 s tail shows as hatched pause.
+  - Soft fillers: on the tiny test project's sheet a sentence-initial "So" (a start-only soft filler) is orange next to the red "um". The fixtures have no soft filler.
+  - `contact/b1.png` (testsrc2 B-roll, 6 frames in a 2x3 grid, 1178 px wide) and `contact/i1.png` (the Mandelbrot image, 992 px wide) are clear, with header and timestamps legible.
+
+Deviations and why:
+
+- `look-asset` does not count against `look_budget` (guide §7 says only `look` does; see above).
+- Sheets for a range are always 1600 px wide, even for a few portrait frames, so word labels have room; asset sheets are as wide as their frames.
+- Vendored font (`src/reelcut/look/fonts/`, 81 KB, licence alongside and in THIRD_PARTY.md), for the reason above.
+
+Open issues:
+
+- The look counter is read and written without the project lock, so two `look` calls at the same instant could count once; it is only a warning threshold.
+- In a long dense range, word labels can stack several rows deep; the look skill already steers agents to ranges under 20 s.
 
 ## Phase 8: music (ticket #14)
 

@@ -114,6 +114,10 @@ class ProjectPaths:
             self.final,
         )
 
+    def asset_sheet(self, clip_id: str) -> Path:
+        """The contact sheet of one B-roll clip or image, which assets.md links to."""
+        return self.contact / f"{clip_id}.png"
+
     def require(self) -> "ProjectPaths":
         """Return self, or fail with a user error when the project does not exist."""
         if not self.project_toml.is_file():

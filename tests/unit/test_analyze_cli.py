@@ -10,6 +10,7 @@ import shutil
 import stat
 import sys
 import textwrap
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -242,3 +243,143 @@ def test_setup_with_crisper_fails_with_exit_2() -> None:
 
     assert result.exit_code == 2
     assert json.loads(result.stdout)["ok"] is False
+
+
+PHOTO = Path(__file__).resolve().parents[1] / "fixtures" / "faces" / "neil_armstrong_960.jpg"
+
+
+def still_video(path: Path, seconds: float = 3.0) -> Path:
+    """A silent clip of one unchanging colour: no speech and no motion."""
+    from reelcut.media.ffmpeg import run_ffmpeg
+
+    source = f"color=c=0x336699:s=320x180:r=30:d={seconds}"
+    run_ffmpeg(["-f", "lavfi", "-i", source, "-c:v", "libx264", "-pix_fmt", "yuv420p", path])
+    return path
+
+
+@pytest.fixture
+def mixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A project with a talking clip (c1), a still B-roll clip (b1) and a photo (i1)."""
+    ws = tmp_path / "reels"
+    assert invoke("init", ws).exit_code == 0
+    monkeypatch.chdir(ws)
+    take = tmp_path / "take.mp4"
+    shutil.copy(TINY, take)
+    result = invoke("new", "demo", "--from", take, still_video(tmp_path / "still.mp4"), PHOTO)
+    assert result.exit_code == 0, result.output
+    result = invoke("ingest", "demo", "--json")
+    assert result.exit_code == 0, result.output
+    return ws / "projects" / "demo"
+
+
+def clip_json(project: Path, clip_id: str) -> dict[str, Any]:
+    return json.loads((project / "analysis" / f"{clip_id}.json").read_text(encoding="utf-8"))
+
+
+def clip_table(project: Path) -> dict[str, Any]:
+    return tomllib.loads((project / "project.toml").read_text(encoding="utf-8"))["clips"]
+
+
+def faces_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, script: dict[str, str]) -> None:
+    path = tmp_path / "faces.json"
+    path.write_text(json.dumps(script), encoding="utf-8")
+    monkeypatch.setenv("FAKE_FACES_SCRIPT", str(path))
+
+
+def test_each_clip_gets_shots_faces_and_its_static_stretches(mixed: Path, worker_log: Path) -> None:
+    analyze()
+
+    c1, b1, i1 = (clip_json(mixed, c) for c in ("c1", "b1", "i1"))
+    assert c1["shots"] == [{"start": 0.0, "end": 2.0}]
+    assert c1["static"] == []
+    assert [s["t"] for s in c1["faces"]["samples"]] == [0.0, 0.5, 1.0, 1.5]
+    assert c1["faces"]["sample_fps"] == 2
+    assert b1["static"] == [{"start": 0.0, "end": 3.0}]
+    assert b1["shots"] == [{"start": 0.0, "end": 3.0}]
+    assert [s["t"] for s in i1["faces"]["samples"]] == [0.0]
+
+
+def test_the_face_pass_runs_once_for_all_clips_under_the_heavy_model_lock(
+    mixed: Path, worker_log: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    log = tmp_path / "faces.log"
+    monkeypatch.setenv("FAKE_FACES_LOG", str(log))
+
+    analyze()
+
+    [request] = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert request["held"] is True
+    assert [(j["id"], j["kind"]) for j in request["jobs"]] == [
+        ("c1", "video"),
+        ("b1", "video"),
+        ("i1", "image"),
+    ]
+
+
+def test_roles_are_finalised_from_speech_and_faces(
+    mixed: Path, worker_log: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    faces_script(tmp_path, monkeypatch, {"c1": "none"})
+
+    out = analyze()
+
+    clips = clip_table(mixed)
+    assert {c: (clips[c]["role"], clips[c]["auto_role"]) for c in clips} == {
+        "c1": ("broll", "broll"),
+        "b1": ("broll", "broll"),
+        "i1": ("image", "image"),
+    }
+    assert {c["id"]: c["role"] for c in out["clips"]} == {
+        "c1": "broll",
+        "b1": "broll",
+        "i1": "image",
+    }
+    assert clip_json(mixed, "c1")["clip"]["role"] == "broll"
+
+
+def test_a_creator_override_wins_over_the_final_role(mixed: Path, worker_log: Path) -> None:
+    toml = mixed / "project.toml"
+    text = toml.read_text(encoding="utf-8")
+    toml.write_text(text.replace('role = "aroll"', 'role = "broll"', 1), encoding="utf-8")
+
+    analyze()
+
+    c1 = clip_table(mixed)["c1"]
+    assert (c1["role"], c1["auto_role"]) == ("broll", "aroll")
+    assert "## c1 ·" in (mixed / "analysis" / "assets.md").read_text(encoding="utf-8")
+
+
+def test_assets_md_lists_b_roll_and_images_and_keeps_written_descriptions(
+    mixed: Path, worker_log: Path
+) -> None:
+    out = analyze()
+
+    assets = mixed / "analysis" / "assets.md"
+    text = assets.read_text(encoding="utf-8")
+    assert out["assets"] == str(assets)
+    assert "## c1 ·" not in text
+    assert "## b1 · still.mp4\n- file: raw/still.mp4 · 3.0s · 320x180 · 1 shot\n" in text
+    assert "- contact sheet: contact/b1.png\n- description:\n" in text
+    assert "## i1 · neil_armstrong_960.jpg\n- file: raw/neil_armstrong_960.jpg · still" in text
+
+    assets.write_text(
+        text.replace("- description:\n", "- description: A blue screen.\n", 1), encoding="utf-8"
+    )
+    analyze("--clip", "b1")
+
+    assert "- description: A blue screen.\n" in assets.read_text(encoding="utf-8")
+
+
+def test_the_yunet_fallback_prints_a_warning_and_is_recorded_in_state(
+    mixed: Path, worker_log: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_FACES_DETECTOR", "yunet")
+
+    result = invoke("analyze", "demo")
+
+    assert result.exit_code == 0, result.output
+    [line] = [x for x in result.stderr.splitlines() if "YuNet" in x]
+    assert line.startswith("warning: ")
+    assert "MediaPipe face model is not in the cache" in line
+    state = json.loads((mixed / "state.json").read_text(encoding="utf-8"))
+    assert any("YuNet" in w for w in state["stages"]["analyze"]["warnings"])

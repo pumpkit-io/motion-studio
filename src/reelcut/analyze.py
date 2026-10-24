@@ -1,8 +1,9 @@
-"""The analyze stage: speech, language and transcript analysis per clip, then the packed index.
+"""The analyze stage: speech, language, transcript and visual analysis per clip, then the indexes.
 
-Writes `analysis/<clip>.json`, `analysis/retakes.json` and `analysis/packed.md`. Each clip has
-its own state record (`analyze.<id>`), so only clips whose audio or settings changed go back
-through the speech-to-text worker.
+Writes `analysis/<clip>.json`, `analysis/retakes.json`, `analysis/packed.md`,
+`analysis/assets.md` and each asset's `contact/<id>.png`, and finalises each clip's role in
+project.toml. Each clip has its own state record (`analyze.<id>`), so only clips whose media
+or settings changed go back through the speech-to-text and face workers.
 """
 
 import hashlib
@@ -16,24 +17,33 @@ from reelcut import APP_NAME, lang
 from reelcut.analysis import (
     ClipAnalysis,
     ClipInfo,
+    Faces,
     analyse_transcript,
+    finalise_role,
     find_retakes,
+    find_static,
+    pack_assets,
     pack_project,
     project_language,
+    read_descriptions,
 )
 from reelcut.asr import SpeechJob, SpeechResult, model_ref, resolve_backend, transcribe_clips
 from reelcut.config import load_config
 from reelcut.errors import UserError
-from reelcut.ingest import ClipMedia, load_clips, load_manifest
+from reelcut.ingest import ClipMedia, load_clips, load_manifest, record_auto_role
+from reelcut.look import write_asset_sheet
 from reelcut.paths import ProjectPaths, project_paths
-from reelcut.state import mark_done, mark_failed, project_lock, stage_is_fresh
+from reelcut.state import mark_done, mark_failed, project_lock, record_warning, stage_is_fresh
+from reelcut.vision import FaceJob, FaceResult, detect_faces
+from reelcut.vision.motion import MOTION_FPS, find_shots, frame_differences
 
 STAGE = "analyze"
 # Bump when the analysis output changes for the same audio, so existing projects re-analyse.
-RECIPE = 1
+RECIPE = 2
 
 RETAKES = "retakes.json"
 PACKED = "packed.md"
+ASSETS = "assets.md"
 
 
 @dataclass
@@ -57,6 +67,7 @@ class AnalyzeReport:
     retake_clusters: int
     packed: Path
     retakes: Path
+    assets: Path
     backend: str | None = None
     model: str | None = None
     worker_pid: int | None = None
@@ -91,6 +102,7 @@ class AnalyzeReport:
             "packed": str(self.packed),
             "packed_tokens": self.packed_tokens,
             "retakes": str(self.retakes),
+            "assets": str(self.assets),
             "asr": {
                 "backend": self.backend,
                 "model": self.model,
@@ -154,7 +166,7 @@ def _analyze(
     manifest_path = project.media / "manifest.json"
     stage_inputs = [manifest_path, project.project_toml]
     project.analysis.mkdir(exist_ok=True)
-    outputs = [project.analysis / PACKED, project.analysis / RETAKES]
+    outputs = [project.analysis / PACKED, project.analysis / RETAKES, project.analysis / ASSETS]
 
     if only is None and stage_is_fresh(project, STAGE, stage_inputs, params=params):
         analyses = [load_analysis(project, c.id) for c in media]
@@ -178,14 +190,20 @@ def _analyze(
         run = transcribe_clips(jobs, backend=backend, model=config.asr.model, on_wait=waiting)
         speech = {r.id: r for r in run.results}
 
+    faces = _faces(project, stale, on_warning=on_warning, warnings=warnings)
     for c in stale:
         analysis = _clip_analysis(project, c, speech.get(c.id))
+        analysis = _with_visuals(project, c, analysis, faces.get(c.id))
         path = analysis_path(project, c.id)
         path.write_text(analysis.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        inputs = [project.root / c.audio_16k] if c.audio_16k else [project.root / c.mezzanine]
         mark_done(
-            project, f"{STAGE}.{c.id}", inputs, outputs=[path], params=_clip_params(c, params)
+            project,
+            f"{STAGE}.{c.id}",
+            _clip_inputs(project, c),
+            outputs=[path],
+            params=_clip_params(c, params),
         )
+    media = _finalise_roles(project, media)
 
     analyses: list[ClipAnalysis] = []
     for c in media:
@@ -193,9 +211,14 @@ def _analyze(
             warnings.append(f"{c.id} is not analysed yet; run `{APP_NAME} analyze {project.slug}`")
             continue
         loaded = load_analysis(project, c.id)
-        analyses.append(
-            loaded.model_copy(update={"clip": loaded.clip.model_copy(update={"role": c.role})})
-        )
+        if loaded.clip.role != c.role:
+            loaded = loaded.model_copy(
+                update={"clip": loaded.clip.model_copy(update={"role": c.role})}
+            )
+            analysis_path(project, c.id).write_text(
+                loaded.model_dump_json(indent=2) + "\n", encoding="utf-8"
+            )
+        analyses.append(loaded)
     for message in warnings:
         on_warning(message)
 
@@ -205,7 +228,11 @@ def _analyze(
             project,
             STAGE,
             stage_inputs,
-            outputs=[*outputs, *(analysis_path(project, c.id) for c in media)],
+            outputs=[
+                *outputs,
+                *(analysis_path(project, c.id) for c in media),
+                *(project.asset_sheet(a.clip.id) for a in analyses if _is_asset(a)),
+            ],
             params=params,
         )
     if run is not None:
@@ -228,11 +255,28 @@ def _report(
     retakes = find_retakes(analyses)
     retakes_path = project.analysis / RETAKES
     packed_path = project.analysis / PACKED
+    assets_path = project.analysis / ASSETS
     if not noop:
         retakes_path.write_text(retakes.model_dump_json(indent=2) + "\n", encoding="utf-8")
         packed_path.write_text(
             pack_project(project_title(project), language, analyses, retakes), encoding="utf-8"
         )
+        old = assets_path.read_text(encoding="utf-8") if assets_path.exists() else ""
+        sheets = {
+            a.clip.id: project.asset_sheet(a.clip.id).relative_to(project.root).as_posix()
+            for a in analyses
+        }
+        assets_path.write_text(
+            pack_assets(
+                project_title(project), analyses, descriptions=read_descriptions(old), sheets=sheets
+            ),
+            encoding="utf-8",
+        )
+        clips = {c.id: c for c in media}
+        for a in analyses:
+            sheet = project.asset_sheet(a.clip.id)
+            if _is_asset(a) and (a.clip.id in analysed or not sheet.exists()):
+                write_asset_sheet(project, clips[a.clip.id], a)
     roles = {c.id: c.role for c in media}
     return AnalyzeReport(
         project=project,
@@ -254,17 +298,90 @@ def _report(
         retake_clusters=len(retakes.clusters),
         packed=packed_path,
         retakes=retakes_path,
+        assets=assets_path,
         noop=noop,
     )
+
+
+def _is_asset(analysis: ClipAnalysis) -> bool:
+    return analysis.clip.role in ("broll", "image")
 
 
 def _clip_params(clip: ClipMedia, params: dict[str, Any]) -> dict[str, Any]:
     return {**params, "kind": clip.kind}
 
 
+def _clip_inputs(project: ProjectPaths, clip: ClipMedia) -> list[Path]:
+    inputs = [project.root / clip.mezzanine]
+    return [*inputs, project.root / clip.audio_16k] if clip.audio_16k else inputs
+
+
 def _clip_fresh(project: ProjectPaths, clip: ClipMedia, params: dict[str, Any]) -> bool:
-    inputs = [project.root / (clip.audio_16k or clip.mezzanine)]
-    return stage_is_fresh(project, f"{STAGE}.{clip.id}", inputs, params=_clip_params(clip, params))
+    return stage_is_fresh(
+        project,
+        f"{STAGE}.{clip.id}",
+        _clip_inputs(project, clip),
+        params=_clip_params(clip, params),
+    )
+
+
+def _faces(
+    project: ProjectPaths,
+    clips: list[ClipMedia],
+    *,
+    on_warning: Callable[[str], None],
+    warnings: list[str],
+) -> dict[str, FaceResult]:
+    if not clips:
+        return {}
+    jobs = [
+        FaceJob(
+            id=c.id,
+            path=project.root / c.mezzanine,
+            kind=c.kind,
+            duration_s=c.duration_s or 0.0,
+            width=c.width,
+            height=c.height,
+        )
+        for c in clips
+    ]
+
+    def waiting(holder: str) -> None:
+        on_warning(f"waiting for the heavy-model lock ({holder})")
+
+    run = detect_faces(jobs, on_wait=waiting)
+    if run.fallback_reason is not None:
+        message = f"face detection fell back to YuNet: {run.fallback_reason}"
+        record_warning(project, STAGE, message)
+        warnings.append(message)
+    return {r.id: r for r in run.results}
+
+
+def _with_visuals(
+    project: ProjectPaths, clip: ClipMedia, analysis: ClipAnalysis, faces: FaceResult | None
+) -> ClipAnalysis:
+    update: dict[str, Any] = {"faces": Faces(samples=faces.samples if faces else [])}
+    if clip.kind == "video" and clip.duration_s:
+        video = project.root / clip.mezzanine
+        diffs = frame_differences(video, clip.width, clip.height)
+        update["static"] = find_static(
+            diffs, MOTION_FPS, vad=analysis.vad, duration_s=clip.duration_s
+        )
+        update["shots"] = find_shots(video, clip.duration_s)
+    return analysis.model_copy(update=update)
+
+
+def _finalise_roles(project: ProjectPaths, media: list[ClipMedia]) -> list[ClipMedia]:
+    """Store each analysed clip's classification; project.toml keeps creator overrides."""
+    entries = load_clips(project)
+    for c in media:
+        path = analysis_path(project, c.id)
+        if not path.exists():
+            continue
+        role = finalise_role(load_analysis(project, c.id), kind=c.kind)
+        if entries[c.id].auto_role != role:
+            entries[c.id] = record_auto_role(project, c.id, role)
+    return [c.model_copy(update={"role": entries[c.id].role}) for c in media]
 
 
 def _job(project: ProjectPaths, clip: ClipMedia, configured: str) -> SpeechJob:

@@ -10,6 +10,12 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 | React, React DOM | 19.2.3 | MIT | |
 | Inter font via `@fontsource/inter` | 5.3.0 | SIL Open Font License 1.1 | Verified from `node_modules/@fontsource/inter/LICENSE` on 2026-10-24. Bundled into every render as the default caption and title font. |
 
+## Contact sheets
+
+| Component | Version | Licence | Notes |
+|---|---|---|---|
+| DejaVu Sans, cut to Latin (`src/reelcut/look/fonts/DejaVuSans-Latin.ttf`) | 2.35 | Bitstream Vera licence (DejaVu changes public domain) | Verified 2026-10-24 from `LICENSE` in dejavu-fonts/dejavu-fonts, vendored next to the font as `LICENSE-DejaVu.txt`. Subset with fontTools `pyftsubset` from the `DejaVuSans.ttf` that matplotlib 3.11.2 ships (SHA-256 `3fdf69ca...0d22`); the licence allows modified copies whose names do not contain "Bitstream" or "Vera". Used for contact-sheet labels. |
+
 ## Python core
 
 | Package | Version | Licence (PyPI metadata) |
@@ -43,7 +49,8 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 | Whisper large-v3-turbo, CTranslate2 conversion `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf` (faster-whisper) | MIT | Verified 2026-10-24 from the repository's `license:mit` tag on Hugging Face. Upstream `openai/whisper-large-v3-turbo` is MIT. Downloaded by `reelcut setup`, not redistributed. |
 | Whisper large-v3-turbo, MLX conversion `mlx-community/whisper-large-v3-turbo` @ `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` (mlx-whisper) | MIT (upstream) | Checked 2026-10-24: the conversion repository states no licence of its own (no tag, no licence in its README); the upstream `openai/whisper-large-v3-turbo` weights it converts are MIT. Downloaded by `reelcut setup`, not redistributed. |
 | Silero VAD `silero_vad.onnx` v6.2.3 | MIT | Verified 2026-10-24 from `LICENSE` at tag v6.2.3 of snakers4/silero-vad. SHA-256 `1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3`. Downloaded by `reelcut setup`, not redistributed. |
-| MediaPipe BlazeFace | Apache-2.0 | UNVERIFIED |
+| MediaPipe BlazeFace full range, `blaze_face_full_range.tflite` float16 version 1 | Apache-2.0 | Verified 2026-10-24 from the official model card ("MediaPipe BlazeFace Model Card (Full Range)", linked from the MediaPipe face detector guide): "Licensed under Apache License, Version 2.0". SHA-256 `3698b18f063835bc609069ef052228fbe86d9c9a6dc8dcb7c7c2d69aed2b181b`. Downloaded by `reelcut setup`, not redistributed. |
+| OpenCV Zoo YuNet `face_detection_yunet_2023mar.onnx` (face-detection fallback) | MIT | Verified 2026-10-24 from `models/face_detection_yunet/LICENSE` and its README at opencv_zoo commit `48b10fa505aeb51fbd127fc60a5c660040e823b7`. SHA-256 `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4`. Downloaded by `reelcut setup`, not redistributed. |
 | ACE-Step 1.5 weights `ACE-Step/Ace-Step1.5` @ `19671f406d603126926c1b7e2adc169acbcade22` (DiT `acestep-v15-turbo`, VAE, text encoder, 5 Hz LM 1.7B) | MIT | Verified 2026-10-24: the repository has no LICENSE file; its model card declares `license: mit` in the front matter and "License: MIT" in the body, and says the generated music may be used commercially. The bundled `Qwen3-Embedding-0.6B` text encoder is Apache-2.0 upstream (`Qwen/Qwen3-Embedding-0.6B`). `reelcut setup --music` reads the licence from the downloaded files, prints it and records it in `<cache>/envs/ace-step/install.json`; every generated `music.json` copies it. Downloaded, not redistributed. |
 | ACE-Step 1.5 source `ace-step/ACE-Step-1.5` @ `ca1e85fe9430179831e6bc6be790c332190a3866` | MIT | Verified 2026-10-24 from `LICENSE` at that commit. Installed by `reelcut setup --music` into its own environment (`uv sync --frozen`), never into reelcut's. |
 | CrisperWhisper | Believed CC BY-NC 4.0 (non-commercial) | Not shipped in v0.1.0; see ROADMAP.md |
