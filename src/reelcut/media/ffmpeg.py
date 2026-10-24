@@ -7,9 +7,12 @@ import subprocess
 import tempfile
 import threading
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+import numpy as np
+import numpy.typing as npt
 
 from reelcut.errors import DependencyError, InternalError
 
@@ -91,6 +94,65 @@ def run_ffmpeg(
     if returncode != 0:
         raise FFmpegError("ffmpeg", argv, returncode, lines)
     return lines
+
+
+def read_frames(
+    input_args: Sequence[Arg],
+    *,
+    width: int,
+    height: int,
+    filters: str,
+    gray: bool = False,
+    timeout_s: float | None = None,
+) -> Iterator[npt.NDArray[np.uint8]]:
+    """Decode frames as arrays of shape (height, width) or (height, width, 3) RGB.
+
+    `filters` must end in a scale to exactly `width` x `height`.
+    """
+    channels = 1 if gray else 3
+    argv = [
+        binary("ffmpeg"),
+        "-hide_banner",
+        "-nostdin",
+        "-loglevel",
+        "error",
+        *_stringify(input_args),
+        "-vf",
+        filters,
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "gray" if gray else "rgb24",
+        "pipe:1",
+    ]
+    size = width * height * channels
+    shape = (height, width) if gray else (height, width, 3)
+    stderr: deque[str] = deque(maxlen=500)
+    with subprocess.Popen(
+        argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    ) as proc:
+        assert proc.stdout is not None and proc.stderr is not None
+        err_pipe = proc.stderr
+        reader = threading.Thread(
+            target=lambda: stderr.extend(
+                line.decode("utf-8", "replace").rstrip("\n") for line in err_pipe
+            ),
+            daemon=True,
+        )
+        reader.start()
+        while True:
+            chunk = proc.stdout.read(size)
+            if len(chunk) < size:
+                break
+            yield np.frombuffer(chunk, dtype=np.uint8).reshape(shape)
+        try:
+            returncode = proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired as exc:
+            proc.kill()
+            raise InternalError(f"ffmpeg timed out after {timeout_s} s") from exc
+        reader.join()
+    if returncode != 0:
+        raise FFmpegError("ffmpeg", argv, returncode, list(stderr))
 
 
 def _progress_seconds(line: str) -> float | None:

@@ -1,4 +1,4 @@
-"""`reelcut analyze`: transcripts, fillers, utterances, retakes and the packed index."""
+"""`reelcut analyze`: transcripts, fillers, retakes, shots, faces, roles and the indexes."""
 
 from typing import Annotated
 
@@ -20,7 +20,7 @@ def analyze(
     ] = None,
     as_json: JsonOption = False,
 ) -> None:
-    """Detect speech and language, transcribe word by word, and write analysis/packed.md."""
+    """Transcribe speech, find shots, static stretches and faces, and write the indexes."""
 
     def warn(message: str) -> None:
         if not as_json:
@@ -42,6 +42,7 @@ def analyze(
     lines.append(f"language {report.language} ({report.language_source})")
     lines.append(f"retakes {report.retake_clusters} clusters: {report.retakes}")
     lines.append(f"packed index (~{report.packed_tokens} tokens): {report.packed}")
+    lines.append(f"asset catalogue: {report.assets}")
     lines.append(f"next: read {report.packed.name}, then `{APP_NAME} plan draft {slug}`")
     emit(as_json, report.to_json(), lines)
 
