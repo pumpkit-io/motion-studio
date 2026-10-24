@@ -11,9 +11,9 @@ from reelcut.analysis.models import ClipAnalysis, Word
 from reelcut.asr import SpeechJob, resolve_backend, transcribe_clips
 from reelcut.check.diff import CLIP_WINDOW_MS, Miss, WordDiff, diff_words
 from reelcut.check.measure import Measurement, Stretch, measure
-from reelcut.check.report import Finding, markdown, verdict
+from reelcut.check.report import Finding, Severity, markdown, verdict
 from reelcut.check.stills import Cut, cuts_sheet
-from reelcut.config import Config, Edit, Master, load_config
+from reelcut.config import Config, Edit, load_config
 from reelcut.edl import Edl, Timeline
 from reelcut.edl.models import TimelineBroll, TimelineImage
 from reelcut.errors import ReelcutError, UserError
@@ -35,7 +35,9 @@ from reelcut.target import RenderTarget
 MAX_WORDS_PER_S = 4.5
 DENSITY_WINDOW_MS = 2000
 LOUDNESS_TOLERANCE_LU = 1.0
+# A preview only warns past this; a final blocks anything over the limit once rounded to 0.1 dB.
 TRUE_PEAK_TOLERANCE_DB = 0.5
+FINAL_TRUE_PEAK_TOLERANCE_DB = 0.05
 # A detected stretch mostly inside an image segment is the still image, not a defect.
 INTENTIONAL_SHARE = 0.5
 
@@ -152,7 +154,7 @@ def _check(
         step(f"measuring {fmt}")
         m = measure(output_path(project, target, fmt))
         measured[fmt] = m
-        findings += _media_findings(fmt, m, config.master, images)
+        findings += _media_findings(fmt, m, config, edl, target, project.slug, images)
     first = measured[formats[0]]
     max_duration = edl.max_duration_s or config.defaults.max_duration_s
     metrics["duration_s"] = round(first.duration_s, 3)
@@ -314,27 +316,38 @@ def _segment_edge(timeline: Timeline, index: int, *, last: bool) -> bool:
 
 
 def _media_findings(
-    fmt: str, m: Measurement, master: Master, images: list[tuple[float, float]]
+    fmt: str,
+    m: Measurement,
+    config: Config,
+    edl: Edl,
+    target: RenderTarget,
+    slug: str,
+    images: list[tuple[float, float]],
 ) -> list[Finding]:
     found: list[Finding] = []
-    bug = "re-render; if it persists, report it as a reelcut bug (mastering is automatic)"
+    master = config.master
+    final = target is RenderTarget.FINAL
+    # Off-target audio may not ship (guide §5.1); a preview is a draft, so it only warns.
+    severity: Severity = "blocking" if final else "warning"
+    peak_tolerance = FINAL_TRUE_PEAK_TOLERANCE_DB if final else TRUE_PEAK_TOLERANCE_DB
+    fix = _loudness_fix(config, edl, target, slug)
     if abs(m.integrated_lufs - master.integrated_lufs) > LOUDNESS_TOLERANCE_LU:
         found.append(
             Finding(
-                "warning",
+                severity,
                 "loudness",
                 f"{fmt}: integrated loudness {m.integrated_lufs:.1f} LUFS, "
-                f"target {master.integrated_lufs:.1f}",
-                bug,
+                f"target {master.integrated_lufs:.1f} ± {LOUDNESS_TOLERANCE_LU:g}",
+                fix,
             )
         )
-    if m.true_peak_db > master.true_peak_db + TRUE_PEAK_TOLERANCE_DB:
+    if m.true_peak_db > master.true_peak_db + peak_tolerance:
         found.append(
             Finding(
-                "warning",
+                severity,
                 "true_peak",
                 f"{fmt}: true peak {m.true_peak_db:.1f} dBTP, limit {master.true_peak_db:.1f}",
-                bug,
+                fix,
             )
         )
     fix = "check the B-roll's asset_in_s and duration, and the segments around it"
@@ -359,6 +372,16 @@ def _media_findings(
                 )
             )
     return found
+
+
+def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+    """Mastering is automatic, so the EDL lever is the music bed's level."""
+    rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
+    bug = "if it persists, report it as a reelcut bug"
+    if (edl.music.mode or config.music.mode) == "none":
+        return f"{rerender}; {bug}"
+    gain = edl.music.gain_db if edl.music.gain_db is not None else config.music.gain_db
+    return f"lower music.gain_db in edl.json (now {gain:g}) and {rerender}; {bug}"
 
 
 def _intentional(stretch: Stretch, images: list[tuple[float, float]]) -> bool:

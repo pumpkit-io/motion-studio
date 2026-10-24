@@ -362,7 +362,7 @@ $ reelcut check [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`. Warnings: `loudness`, `true_peak`, `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
+Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`, and on `--final` also `loudness` (integrated loudness more than 1 LU off `[master] integrated_lufs`) and `true_peak` (above `[master] true_peak_db`). Warnings: `loudness` and `true_peak` on a preview (true peak only from 0.5 dB over), `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
 
 ## Environment variables
 

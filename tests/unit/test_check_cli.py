@@ -262,3 +262,28 @@ def test_a_passing_preview_check_marks_the_check_stage_done(demo: Path, asr: Pat
     state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
     assert state["stages"]["check"]["status"] == "done"
     assert os.path.exists(demo / "check" / "report.json")
+
+
+def test_loudness_off_target_blocks_a_final_but_only_warns_on_a_preview(
+    demo: Path, asr: Path
+) -> None:
+    render("--preview", "--format", "9x16")
+    render("--final", "--format", "9x16")
+    hear(asr, timeline(demo)["words"])
+    # Mastered to -14 LUFS and -1.5 dBTP; check now judges against stricter targets.
+    toml = demo / "project.toml"
+    toml.write_text(
+        toml.read_text(encoding="utf-8")
+        + "\n[master]\nintegrated_lufs = -20\ntrue_peak_db = -20\n",
+        encoding="utf-8",
+    )
+
+    code, body = check("--preview")
+    assert code == 0, body
+    assert {"loudness", "true_peak"} <= set(codes(body, "warning"))
+
+    code, body = check("--final")
+    assert code == 1, body
+    blocking = {i["code"]: i for i in body["issues"] if i["severity"] == "blocking"}
+    assert {"loudness", "true_peak"} <= set(blocking)
+    assert "render demo --final" in blocking["loudness"]["fix"]
