@@ -228,3 +228,14 @@ Re-transcription uses `reelcut.asr.transcribe_clips` (ticket #7): the same backe
 | Duration, BPM, seed | `GenerationParams(duration=<s>, bpm=<int>, seed=<int>)` with `GenerationConfig(batch_size=1, use_random_seed=False, seeds=[seed], audio_format="wav")`; output 48 kHz stereo WAV, normalised to −1 dBFS peak | INFERENCE.md; the generated file |
 | Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so reelcut sends it and runs the VAD check | `grep` of `acestep/` |
 | librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)` | `inspect.signature` on the installed package |
+
+## Documentation and release (ticket #18, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| Remotion licence | remotion.dev/license redirects (307) to `LICENSE.md` on the main branch of remotion-dev/remotion | Fetched; byte-identical to `node_modules/remotion/LICENSE.md` of 4.0.538 in the installed renderer |
+| CrisperWhisper licence | CC BY-NC 4.0; the repository is now `nyralabs/CrisperWhisper` (was `nyrahealth/`) | Hugging Face API: `license:cc-by-nc-4.0` tag and card front matter |
+| Typer docs generator | `uv run typer reelcut.cli utils docs --name reelcut --output <file>` | Ran with typer 0.27.3; produced the base of `docs/cli.md` |
+| Python licence survey | `uv export --no-dev --extra cpu --extra mac --no-hashes --frozen` for the package list, `importlib.metadata` for each licence | 90 packages; two platform-only ones (`colorama`, `httpx2-jsfetch`) checked on PyPI |
+| npm licence survey | each `package.json` under the installed renderer's `node_modules` | 285 packages |
+| Version | 0.1.0 in `pyproject.toml` and `uv.lock` | `reelcut --version` prints `reelcut 0.1.0`; the renderer installs into `<cache>/renderer/0.1.0` |
