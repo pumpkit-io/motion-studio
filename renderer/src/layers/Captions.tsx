@@ -2,8 +2,8 @@ import { measureText } from "@remotion/layout-utils";
 import { useMemo } from "react";
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { pageCaptions, type PageWord } from "../lib/captions";
-import { FONT_WEIGHT } from "../lib/fonts";
-import { safeBox } from "../lib/safezones";
+import { FONT_WEIGHT, type LoadedFont } from "../lib/fonts";
+import { safeBox, TEXT_WIDTH } from "../lib/safezones";
 import type { FormatSpec, TimelineBrand, TimelineCaptions, TimelineWord } from "../lib/timeline";
 
 /** Word pop of the `pop` style: the active word grows to this scale. */
@@ -14,7 +14,7 @@ type Props = {
   settings: TimelineCaptions;
   brand: TimelineBrand;
   format: FormatSpec;
-  font: { family: string; ready: boolean };
+  font: LoadedFont;
 };
 
 /** Word-by-word captions, one line per page, sitting on the bottom edge of the safe area. */
@@ -23,8 +23,7 @@ export const Captions: React.FC<Props> = ({ words, settings, brand, format, font
   const { fps } = useVideoConfig();
   const safe = safeBox(format);
   const fontSize = Math.min(format.width, format.height) * 0.07;
-  // Leaves room for the active word's pop and the stroke.
-  const maxWidth = safe.width * 0.88;
+  const maxWidth = safe.width * TEXT_WIDTH;
 
   const pages = useMemo(() => {
     if (!settings.enabled || !font.ready) return [];
@@ -50,7 +49,6 @@ export const Captions: React.FC<Props> = ({ words, settings, brand, format, font
         position: "absolute",
         left: safe.x,
         width: safe.width,
-        // Bottom of the caption line sits a little above the safe area's bottom edge.
         bottom: format.height - (safe.y + safe.height) + format.height * 0.03,
         display: "flex",
         justifyContent: "center",
