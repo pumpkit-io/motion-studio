@@ -90,8 +90,8 @@ class MlxWhisper:
     name = "mlx-whisper"
 
     def __init__(self, model_dir: str) -> None:
-        import mlx.core as mx
-        from mlx_whisper.transcribe import ModelHolder
+        import mlx.core as mx  # pyright: ignore[reportMissingImports]
+        from mlx_whisper.transcribe import ModelHolder  # pyright: ignore[reportMissingImports]
 
         self._model_dir = model_dir
         self._model: Any = ModelHolder.get_model(model_dir, mx.float16)
@@ -99,8 +99,13 @@ class MlxWhisper:
     def detect_language(
         self, wav16k: Path, regions: Sequence[Span], candidates: Sequence[str]
     ) -> LanguageGuess:
-        import mlx.core as mx
-        from mlx_whisper.audio import N_FRAMES, N_SAMPLES, log_mel_spectrogram, pad_or_trim
+        import mlx.core as mx  # pyright: ignore[reportMissingImports]
+        from mlx_whisper.audio import (  # pyright: ignore[reportMissingImports]
+            N_FRAMES,
+            N_SAMPLES,
+            log_mel_spectrogram,
+            pad_or_trim,
+        )
 
         audio = speech_only(load_samples(wav16k), regions)
         mel = log_mel_spectrogram(audio, n_mels=self._model.dims.n_mels, padding=N_SAMPLES)
@@ -115,7 +120,7 @@ class MlxWhisper:
         initial_prompt: str | None,
         regions: Sequence[Span] | None,
     ) -> list[TranscribedWord]:
-        import mlx_whisper
+        import mlx_whisper  # pyright: ignore[reportMissingImports]
 
         samples = load_samples(wav16k)
         result: dict[str, Any] = mlx_whisper.transcribe(
