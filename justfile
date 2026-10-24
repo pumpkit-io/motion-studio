@@ -46,4 +46,8 @@ schema-check: schema
 fixtures:
     uv run python scripts/make_fixtures.py
 
+# The whole pipeline on the EN and IT fixtures through the CLI (macOS; needs `reelcut setup --music`).
+e2e:
+    uv run pytest tests/e2e -v -s
+
 ci: lint schema-check test edl-coverage
