@@ -29,3 +29,16 @@ def test_setup_leaves_the_denoiser_vad_face_and_speech_models_in_the_cache() -> 
 
     again = json.loads(CliRunner().invoke(app, ["setup", "--json"]).stdout)
     assert {item["status"] for item in again["items"]} == {"present"}
+
+
+@pytest.mark.music
+def test_setup_music_installs_acestep_and_prints_the_weights_licence() -> None:
+    result = CliRunner().invoke(app, ["setup", "--music"])
+
+    assert result.exit_code == 0, result.output
+    assert "weights licence: mit" in result.output
+    data = json.loads(CliRunner().invoke(app, ["setup", "--music", "--json"]).stdout)
+    (ace,) = [item for item in data["items"] if item["name"].startswith("ace-step")]
+    assert ace["status"] == "present"
+    assert ace["licence"] == "mit"
+    assert (Path(ace["path"]) / "install.json").is_file()

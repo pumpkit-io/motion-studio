@@ -468,3 +468,36 @@ Open issues:
 
 - `render` fingerprints `media/manifest.json`, not the mezzanine files, so replacing a mezzanine in place does not make the render stale (the black/frozen CI test touches the manifest to force it).
 - The clip window (300 ms) can flag ASR noise on a word next to a cut as a clipped cut; the fix is still harmless (more padding).
+
+## Phase 8: music (ticket #14)
+
+Built:
+
+- `reelcut setup --music [--json]` (`reelcut.music.acestep.install`): after the usual setup steps, refuses below the free-disk threshold (exit 2) when nothing is installed yet, downloads the ACE-Step 1.5 source tarball at a pinned commit into `<cache>/envs/ace-step/src`, runs `uv sync --frozen` there (ACE-Step's own `.venv`; reelcut's environment is untouched), downloads the pinned weights into `src/checkpoints` with the env's `huggingface_hub`, reads the licence the weights declare and writes `<cache>/envs/ace-step/install.json` last. It prints `weights licence: mit`; `--json` items carry `licence`. Idempotent: a second run reports `present`. Missing `uv` is exit 2.
+- `reelcut music <slug> [--json]` (`reelcut.music.stage.run_music`), under the project lock, resolves the EDL in memory for the duration, then by effective mode (`edl.music.mode`, else `[music] mode`):
+  - `generate`: duration = timeline + 3 s; the worker (`src/reelcut/music/acestep_worker.py`, run with the env's Python and `-I`) loads the turbo DiT without the LM, sends the prompt, BPM, duration, seed and `[Instrumental]` lyrics, and writes a 48 kHz stereo WAV. The client holds `heavy_model_lock("music")`, enforces a timeout (600 s + 10 s per second of music; `REELCUT_MUSIC_TIMEOUT_S` overrides; exit 3 on expiry) and sets HF offline flags so generation never touches the network. Vocal check: Silero VAD on a 16 kHz copy; more than 20% of the length heard as speech rejects the bed and retries with seed + 1, up to three seeds, then exit 1 with a hint. Exit 2 with `setup --music` in the hint when the env is missing.
+  - `library`: reads `library/music/tags.json`; a named `track` without a licence is refused (exit 1); otherwise the licensed entry with the most mood tags shared with the prompt's words wins, ties to the nearest BPM, then the file name. Unlicensed entries are skipped with a warning. The track is converted to `build/music.wav` (48 kHz stereo PCM) and its attribution, if any, goes to `final/<slug>_credits.txt`.
+  - `none`: deletes `build/music.wav` and writes a `music.json` with `mode: "none"` and no beats.
+  - Beats: `librosa.beat.beat_track(units="time", trim=False)` on the bed, kept below the timeline's end, in `music.json.beats` (output seconds), which `plan validate` already reads for snapping.
+  - Stage `music` in `state.json` is keyed on the music parameters (mode, prompt, BPM, seed, duration, model; or the library entry and files), not on `edl.json`, so an EDL edit that keeps the duration and music block does not regenerate a five-minute bed. `music` was removed from `PENDING` in `tests/unit/test_agents.py`.
+- `doctor`'s `ace-step env` check is `ok` only once `install.json` exists, and shows the weights and their licence.
+
+Checked (acceptance):
+
+- `tests/integration/test_music_generate.py` (`slow`, `mac`, `music`): a 57 s timeline gives a 59.9 s bed in 290 s; first run 346 s. Probed by hand with a 60 s lo-fi prompt: model load 227 s, generation 137 s (DiT 72 s at 9 s/step, VAE decode 18 s), on MPS with the MLX DiT and VAE, worker peak RSS 1.8 GB. The machine was 17 GB into swap from parallel worktrees at the time; load time is mostly reading 4.7 GB of DiT weights under that pressure. The bed: 60.0 s, RMS 0.11, speech ratio 0.0, librosa tempo 89.1 for a requested 90 BPM, 85 beats.
+- Vocal check with the real Silero model (`tests/unit/test_music_vocals.py`, `mac`, `models`): a `say` speech WAV is rejected (ratio above 0.5), a synth chord pad is accepted. In CI the CLI tests use a stand-in detector and worker for the retry, give-up, freshness, disk-guard, missing-env, `none` and library paths (`tests/unit/test_music_cli.py`, 10 tests).
+- Library mode picks the same track twice from the same tags and refuses a named unlicensed entry (unit tests).
+- `music.json` holds `prompt`, `seed`, `model` (`ACE-Step/Ace-Step1.5@19671f4 (acestep-v15-turbo)`), `licence`, `licence_source`, `bpm`, `detected_bpm`, `beats`, `attempts` and `elapsed_s`.
+- ACE-Step weights licence: MIT, from the model card's front matter at the pinned revision (no LICENSE file in the weights repository); recorded in THIRD_PARTY.md and README. The open question in #1 is settled: generation stays the default and the card says its output may be used commercially.
+- `tests/integration/test_setup.py::test_setup_music_installs_acestep_and_prints_the_weights_licence` passes. The first `setup --music` took 1164 s, nearly all of it the 9.4 GB weights download; `uv sync` took 39 s with a warm uv cache.
+
+Deviations and why:
+
+- DiT only, no 5 Hz LM (`thinking=False`): the LM plans lyrics and metadata, which a bed under speech does not need, and skipping it saves memory on 18 GB. The LM weights are still downloaded because ACE-Step's model check requires every main component, or it tries to download them at load time.
+- The source comes from the commit tarball instead of `git clone`: the same files at a pinned commit without needing git.
+- `music.json` is not one of the generated JSON Schema contracts; it is a Pydantic model (`reelcut.music.stage.MusicInfo`) read only by reelcut.
+
+Open issues:
+
+- Model load dominates generation time on a loaded machine; ACE-Step's API server could keep the model warm, but that conflicts with one heavy model in memory at a time.
+- Same seed on MPS is not checked for bit-identical output.

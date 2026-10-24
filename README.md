@@ -24,7 +24,7 @@ Then open your coding agent in the workspace and ask: "Edit this into a 45-secon
 reelcut is MIT-licensed. Some dependencies are not:
 
 - **Remotion**, which renders the composition, is not OSI open source. It is free for individuals and for companies of up to 3 people; larger companies need a company licence. See [remotion.dev/license](https://www.remotion.dev/license).
-- **ACE-Step 1.5 weights**, used for local music generation, carry their own licence. `reelcut setup --music` prints it and every generated `music.json` records it.
+- **ACE-Step 1.5 weights**, used for local music generation, are MIT-licensed according to their model card (checked 2026-10-24 for the pinned revision), and the card says the generated music may be used commercially. `reelcut setup --music` prints the licence of the weights it downloads and every generated `music.json` records it.
 
 See [THIRD_PARTY.md](THIRD_PARTY.md) for every dependency's licence.
 
