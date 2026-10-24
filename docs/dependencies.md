@@ -177,3 +177,13 @@ The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/n
 | PySceneDetect | scenedetect 0.7.2: `SceneManager()`, `auto_downscale = True`, `add_detector(ContentDetector())` (threshold 27, min scene 15 frames), `detect_scenes(open_video(path))`, `get_scene_list(start_in_scene=True)` of `FrameTimecode` pairs with `.seconds` | `inspect.signature` and `dir()` on the installed package |
 
 The face detector guide offers three BlazeFace models: short range, full range and sparse full range. reelcut uses full range. On a 1080x1920 frame scaled to 640 px tall, short range found the photo's face only when the face was at least about 15% of the frame width (score 0.58 there, nothing at 12% or less), while full range found it at every size tried (score 0.56 with the face at 6% of the width, 0.93 at 22%). Talking heads filmed with a back camera on a tripod are often that small. Both models load in Tasks' `FaceDetector`.
+
+## Contact sheets (ticket #9, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| Pillow | 13.0.0 with FreeType (`PIL.features.check("freetype2")` is true): `ImageFont.truetype(path, size)`, `FreeTypeFont.getbbox`, `ImageDraw.text/line/rectangle`, `Image.save(..., optimize=True)` | Run on the installed package |
+| Pillow's bundled font | `ImageFont.load_default(size=...)` is Aileron and has no glyphs for "è" or "ù" (they drew as boxes on the IT fixture sheet), so reelcut vendors a Latin cut of DejaVu Sans 2.35 instead | Opened the sheet |
+| Font subset | `pyftsubset DejaVuSans.ttf --unicodes=U+0020-007E,U+00A0-024F,U+2010-2027,U+2030-203A,U+20AC,U+2212 --layout-features='*'` (fontTools 4.67.0, pulled in by matplotlib; not a runtime dependency of reelcut); 81,272 bytes, SHA-256 `ce1367a05a187fbd021ce52d4b6c207845bc68cb5c88e921b76b4eb1e0be11db` | `TTFont(...).getBestCmap()` covers àèéìòù and the ellipsis |
+| Frame seeking | `ffmpeg -ss <t> -i <mezzanine> -frames:v 1` (input seek, one decode per frame) through `reelcut.media.ffmpeg.read_frames` | Fixture sheets show the expected timestamps |
+
