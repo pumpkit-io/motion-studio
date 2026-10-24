@@ -44,10 +44,11 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 | MediaPipe BlazeFace | Apache-2.0 | UNVERIFIED |
 | ACE-Step 1.5 weights | Unknown | UNVERIFIED. `reelcut setup --music` prints the licence of the exact weights it downloads, and every `music.json` records it. |
 | CrisperWhisper | Believed CC BY-NC 4.0 (non-commercial) | Not shipped in v0.1.0; see ROADMAP.md |
+| RNNoise model `sh.rnnn` ("somnolent-hogwash", speech in recording noise) | Not subject to copyright, per the README of GregorR/rnnoise-models | Verified 2026-10-24 at commit `3eee541a283fd3b8f81b85b1748e3b9ccbefa04d`. Vendored in `src/reelcut/audio/models/sh.rnnn` (SHA-256 `70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0`) for the ffmpeg `arnndn` fallback. |
 
 ## System tools
 
-| Tool | Licence | Notes |
-|---|---|---|
-| FFmpeg | LGPL-2.1+ or GPL-2+ depending on the build | reelcut calls the system `ffmpeg` binary and does not distribute it. Homebrew's build is GPL. |
-| DeepFilterNet | MIT or Apache-2.0 | UNVERIFIED; added by the ingest ticket |
+| Tool | Version | Licence | Notes |
+|---|---|---|---|
+| FFmpeg | system | LGPL-2.1+ or GPL-2+ depending on the build | reelcut calls the system `ffmpeg` binary and does not distribute it. Homebrew's build is GPL. |
+| DeepFilterNet (`deep-filter` binary) | 0.5.6 | MIT or Apache-2.0, at your option | Verified from the repository's `LICENSE`, `LICENSE-MIT` and `LICENSE-APACHE` (Rikorose/DeepFilterNet) on 2026-10-24. The release binary embeds the DeepFilterNet3 model from the same repository. reelcut downloads it into its cache (`install_deep_filter`) and does not redistribute it. |
