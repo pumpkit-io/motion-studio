@@ -189,7 +189,7 @@ $ reelcut ingest [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image, and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
+Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image (HEIC and HEIF become PNG, decoded with `sips` on macOS or `heif-convert` from libheif elsewhere; with neither installed they are skipped with a warning), and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
 
 ## `reelcut analyze`
 

@@ -3,6 +3,8 @@
 import io
 import os
 import platform
+import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -145,10 +147,64 @@ def _encode(
     tmp.replace(dest)
 
 
-def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
-    """Apply EXIF orientation, fit within 4096 px and convert to sRGB; PNG keeps alpha."""
+HEIF_EXTENSIONS = frozenset({".heic", ".heif"})
+HEIF_HINT = (
+    "install libheif's heif-convert (`brew install libheif`, `apt install libheif-examples`)"
+)
+HEIF_TIMEOUT_S = 120
+
+
+def heif_decoder() -> str | None:
+    """The tool that turns HEIC/HEIF into PNG here: macOS's sips, else libheif's heif-convert.
+
+    Pillow cannot read HEIF, and the pillow-heif wheels bundle the GPL x265 encoder.
+    """
+    if platform.system() == "Darwin" and shutil.which("sips"):
+        return "sips"
+    if shutil.which("heif-convert"):
+        return "heif-convert"
+    return None
+
+
+def decode_heif(source: Path, dest: Path) -> None:
+    """Write `source` as the PNG `dest`."""
+    decoder = heif_decoder()
+    if decoder is None:
+        raise DependencyError(f"nothing on this machine can decode {source.name}", hint=HEIF_HINT)
+    if decoder == "sips":
+        argv = ["sips", "-s", "format", "png", str(source), "--out", str(dest)]
+    else:
+        argv = ["heif-convert", str(source), str(dest)]
     try:
-        with Image.open(source) as opened:
+        result = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=HEIF_TIMEOUT_S,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise UserError(f"{decoder} timed out decoding {source.name}") from exc
+    if result.returncode != 0 or not dest.is_file():
+        tail = (result.stderr or result.stdout).strip().splitlines()[-1:] or [""]
+        raise UserError(
+            f"cannot decode {source.name} with {decoder}: {tail[0]}",
+            hint="export it as JPEG and put that in raw/ instead",
+        )
+
+
+def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
+    """Apply EXIF orientation, fit within 4096 px and convert to sRGB; PNG keeps alpha.
+
+    HEIC and HEIF are decoded to PNG first; sips keeps the orientation as an EXIF tag on raw pixels.
+    """
+    decoded: Path | None = None
+    if source.suffix.lower() in HEIF_EXTENSIONS:
+        decoded = dest_stem.with_name(f".{dest_stem.name}.decoded.png")
+        decode_heif(source, decoded)
+    try:
+        with Image.open(decoded or source) as opened:
             image = ImageOps.exif_transpose(opened)
             icc = opened.info.get("icc_profile")
             fmt = opened.format
@@ -157,6 +213,9 @@ def normalise_image(source: Path, dest_stem: Path) -> tuple[Path, int, int]:
             f"cannot read image {source.name}: {exc}",
             hint="convert it to JPEG or PNG and put that in raw/ instead",
         ) from exc
+    finally:
+        if decoded is not None:
+            decoded.unlink(missing_ok=True)
     if icc:
         image = _to_srgb(image, icc)
     has_alpha = image.mode in ("RGBA", "LA", "PA") or "transparency" in image.info

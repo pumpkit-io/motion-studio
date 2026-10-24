@@ -256,6 +256,69 @@ def test_unreadable_files_are_skipped_with_a_warning(workspace: Path, take: Path
     assert any("notes.txt" in w for w in state["stages"]["ingest"]["warnings"])
 
 
+@pytest.mark.mac
+def test_a_heic_photo_becomes_a_png_image(workspace: Path, tmp_path: Path) -> None:
+    sources = tmp_path / "src"
+    sources.mkdir()
+    Image.new("RGB", (640, 480), "teal").save(sources / "card.png")
+    subprocess.run(
+        ["sips", "-s", "format", "heic", sources / "card.png", "--out", sources / "IMG 1.heic"],
+        check=True,
+        capture_output=True,
+    )
+    (sources / "card.png").unlink()
+    new_project(workspace, sources)
+
+    report = ingest()
+
+    [image] = report["clips"]
+    assert (image["id"], image["kind"], image["width"], image["height"]) == (
+        "i1",
+        "image",
+        640,
+        480,
+    )
+    with Image.open(image["mezzanine"]) as normalised:
+        assert (normalised.format, normalised.size) == ("PNG", (640, 480))
+
+
+@pytest.mark.mac
+def test_a_heic_photo_keeps_its_orientation(workspace: Path, tmp_path: Path) -> None:
+    sources = tmp_path / "src"
+    sources.mkdir()
+    shot = Image.new("RGB", (400, 200), "red")
+    exif = shot.getexif()
+    exif[0x0112] = 6  # rotate 90 degrees clockwise to display
+    shot.save(sources / "shot.jpg", exif=exif)
+    subprocess.run(
+        ["sips", "-s", "format", "heic", sources / "shot.jpg", "--out", sources / "shot.heic"],
+        check=True,
+        capture_output=True,
+    )
+    (sources / "shot.jpg").unlink()
+    new_project(workspace, sources)
+
+    [image] = ingest()["clips"]
+
+    assert (image["width"], image["height"]) == (200, 400)
+
+
+def test_a_heic_photo_is_skipped_with_a_warning_when_nothing_can_decode_it(
+    workspace: Path, tmp_path: Path, take: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("reelcut.ingest.heif_decoder", lambda: None)
+    project = new_project(workspace, take)
+    (project / "raw" / "IMG_0001.HEIC").write_bytes(b"not decoded here")
+
+    report = ingest()
+
+    assert list(clips(project)) == ["c1"]
+    [warning] = [w for w in report["warnings"] if "IMG_0001.HEIC" in w]
+    assert "heif-convert" in warning
+    state = json.loads((project / "state.json").read_text(encoding="utf-8"))
+    assert warning in state["stages"]["ingest"]["warnings"]
+
+
 def test_an_empty_raw_folder_is_a_user_error_naming_the_folder(
     workspace: Path, tmp_path: Path
 ) -> None:

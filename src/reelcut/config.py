@@ -100,7 +100,10 @@ class Captions(_Section):
     font: str = "Inter"
     max_words_per_page: int = Field(default=3, ge=1)
     uppercase: bool = False
-    hide_during_broll: bool = Field(default=False, description="Hide captions while a full-frame B-roll clip or image is on screen.")
+    hide_during_broll: bool = Field(
+        default=False,
+        description="Hide captions while a full-frame B-roll clip or image is on screen.",
+    )
     highlight_color: HexColor = "#FFD400"
     text_color: HexColor = "#FFFFFF"
     stroke_color: HexColor = "#000000"

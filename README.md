@@ -101,7 +101,7 @@ Music from your own library is yours to license: reelcut refuses library tracks 
 - "not enough free disk": free space or set `REELCUT_MIN_FREE_GB` lower, at your own risk.
 - The first music generation spends most of its time loading ACE-Step's weights (about 4 minutes on an M3 Pro); re-running `reelcut music` with unchanged settings does nothing.
 - A one-line `warning:` means reelcut used a fallback (YuNet instead of MediaPipe, `arnndn` instead of DeepFilterNet, `colorspace` instead of VideoToolbox for HDR, Inter instead of a missing brand font). It is also recorded in the project's `state.json`.
-- HEIC photos are not supported yet; export them as JPEG.
+- HEIC and HEIF photos are decoded with `sips` on macOS, or with libheif's `heif-convert` on Linux. Without either, ingest skips them with a warning and goes on with the other files.
 - Codex outside a Git repository only reads `AGENTS.md` and skills in the directory it starts in, so open it in the workspace root.
 
 ## Roadmap and development

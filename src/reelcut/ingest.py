@@ -22,7 +22,13 @@ from reelcut.audio.enhance import Denoiser, denoiser_available, extract_voice
 from reelcut.config import load_config
 from reelcut.errors import UserError
 from reelcut.media.ffmpeg import FFmpegCaps, ffmpeg_caps, run_ffmpeg
-from reelcut.media.normalise import make_mezzanine, normalise_image
+from reelcut.media.normalise import (
+    HEIF_EXTENSIONS,
+    HEIF_HINT,
+    heif_decoder,
+    make_mezzanine,
+    normalise_image,
+)
 from reelcut.media.probe import Probe, probe
 from reelcut.paths import ProjectPaths, project_paths
 from reelcut.state import (
@@ -170,7 +176,13 @@ def _ingest(
 ) -> IngestReport:
     fps = load_config(workspace, project.slug).defaults.fps
     caps = ffmpeg_caps()
-    params = {"recipe": RECIPE, "fps": fps, "denoiser": denoiser_available(caps)}
+    heif = heif_decoder()
+    params = {
+        "recipe": RECIPE,
+        "fps": fps,
+        "denoiser": denoiser_available(caps),
+        "heif": heif,
+    }
     project.media.mkdir(exist_ok=True)
     if stage_is_fresh(project, STAGE, [project.raw], params=params):
         entries = load_clips(project)
@@ -197,6 +209,9 @@ def _ingest(
     added = False
     for source in sorted(p for p in project.raw.iterdir() if _visible_file(p)):
         rel = source.relative_to(project.root).as_posix()
+        if heif is None and source.suffix.lower() in HEIF_EXTENSIONS:
+            warn(f"skipped {rel}: nothing here decodes HEIC/HEIF; {HEIF_HINT}")
+            continue
         info = probe(source)
         if rel in known:
             probes[known[rel]] = info
