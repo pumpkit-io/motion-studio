@@ -234,6 +234,24 @@ def test_final_ducks_a_looped_music_bed_and_still_masters_loudness(demo: Path) -
     assert band_level(voice, 440) < band_level(master, 440) - 10
 
 
+def test_the_edl_music_gain_overrides_the_config_level(demo: Path) -> None:
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "2",
+            "-ac", "2", demo / "build" / "music.wav",
+        ]
+    )  # fmt: skip
+    write_edl(demo, music={"mode": "generate", "gain_db": -20})
+    loud = band_level(Path(render("--final", "--format", "9x16")["outputs"][0]["path"]), 440)
+    write_edl(demo, music={"mode": "generate", "gain_db": -32})
+
+    out = render("--final", "--format", "9x16")
+
+    assert out["noop"] is False
+    # The ducking compressor squeezes the 12 dB gain change into a smaller drop at the output.
+    assert band_level(Path(out["outputs"][0]["path"]), 440) < loud - 3
+
+
 def band_level(path: Path, hz: int) -> float:
     """Mean dB around `hz` from 4 s to 2 s before the end of `path`."""
     lines = run_ffmpeg(
