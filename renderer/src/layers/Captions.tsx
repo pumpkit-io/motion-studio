@@ -2,12 +2,14 @@ import { measureText } from "@remotion/layout-utils";
 import { useMemo } from "react";
 import { spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { captionsHidden, pageCaptions, type PageWord } from "../lib/captions";
-import { FONT_WEIGHT, type LoadedFont } from "../lib/fonts";
+import type { LoadedFont } from "../lib/fonts";
 import { safeBox, TEXT_WIDTH } from "../lib/safezones";
 import type { FormatSpec, TimelineBrand, TimelineCaptions, TimelineEvent, TimelineWord } from "../lib/timeline";
 
 /** Word pop of the `pop` style: the active word grows to this scale. */
 const POP_SCALE = 1.08;
+/** Outline width as a fraction of the font size: a thin edge, like TikTok's Classic text. */
+const STROKE = 0.05;
 
 type Props = {
   words: TimelineWord[];
@@ -32,7 +34,7 @@ export const Captions: React.FC<Props> = ({ words, events, settings, brand, form
       maxWords: settings.max_words_per_page,
       maxChars: settings.max_chars_per_page,
       maxWidth,
-      measure: (text) => measureText({ text, fontFamily: font.family, fontSize, fontWeight: FONT_WEIGHT }).width,
+      measure: (text) => measureText({ text, fontFamily: font.family, fontSize, fontWeight: font.weight }).width,
       keepWithNext: settings.keep_with_next,
       uppercase: settings.uppercase,
     });
@@ -58,14 +60,14 @@ export const Captions: React.FC<Props> = ({ words, events, settings, brand, form
       <div
         style={{
           fontFamily: font.family,
-          fontWeight: FONT_WEIGHT,
+          fontWeight: font.weight,
           fontSize: fontSize * page.fit,
           lineHeight: 1.1,
           whiteSpace: "nowrap",
           display: "flex",
           columnGap: "0.4em",
           textTransform: settings.uppercase ? "uppercase" : "none",
-          WebkitTextStroke: `${fontSize * page.fit * 0.1}px ${settings.stroke_color}`,
+          WebkitTextStroke: `${fontSize * page.fit * STROKE}px ${settings.stroke_color}`,
           paintOrder: "stroke fill",
           textShadow: "0 4px 18px rgba(0, 0, 0, 0.35)",
         }}

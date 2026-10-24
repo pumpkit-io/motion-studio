@@ -16,7 +16,9 @@ from reelcut.render.renderer import remotion_bin
 
 FONT_SUFFIXES = (".ttf", ".otf", ".woff2", ".woff")
 FONTS_DIR = Path("library") / "brand" / "fonts"
-DEFAULT_FONT = "Inter"
+# The renderer bundles these families; a key is the casefolded name the config may use.
+BUNDLED_FONTS = {name.casefold(): name for name in ("TikTok Sans", "Inter")}
+DEFAULT_FONT = "TikTok Sans"
 PREVIEW_SCALE = 0.5
 FINAL_CRF = 16
 PREVIEW_CRF = 23
@@ -27,6 +29,7 @@ class Brand:
     """The brand files a render uses; None means the renderer's built-in look."""
 
     font: Path | None
+    bundled_font: str | None
     logo: Path | None
     warnings: tuple[str, ...]
 
@@ -34,15 +37,18 @@ class Brand:
 def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
     """Resolve the caption font and logo named in the timeline to files in the workspace.
 
-    `captions.font` is "Inter" (bundled), a font file path relative to the workspace, or a family
-    name matched against the file names in `library/brand/fonts`. A missing default logo is not
-    worth a warning: most workspaces have no logo.
+    `captions.font` is a bundled family ("TikTok Sans" or "Inter"), a font file path relative to
+    the workspace, or a family name matched against the file names in `library/brand/fonts`. A
+    missing default logo is not worth a warning: most workspaces have no logo.
     """
     warnings: list[str] = []
-    font = _find_font(timeline.captions.font, workspace)
-    if font is None and timeline.captions.font.casefold() != DEFAULT_FONT.casefold():
+    name = timeline.captions.font
+    bundled = BUNDLED_FONTS.get(name.casefold())
+    font = None if bundled else _find_font(name, workspace)
+    if bundled is None and font is None:
+        bundled = DEFAULT_FONT
         warnings.append(
-            f"caption font {timeline.captions.font!r} not found in {workspace / FONTS_DIR}; "
+            f"caption font {name!r} not found in {workspace / FONTS_DIR}; "
             f"captions use the bundled {DEFAULT_FONT}"
         )
     logo: Path | None = None
@@ -52,12 +58,10 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
             logo = candidate
         elif timeline.brand.logo != default_logo:
             warnings.append(f"brand logo {candidate} not found; rendering without a logo")
-    return Brand(font=font, logo=logo, warnings=tuple(warnings))
+    return Brand(font=font, bundled_font=bundled, logo=logo, warnings=tuple(warnings))
 
 
 def _find_font(name: str, workspace: Path) -> Path | None:
-    if name.casefold() == DEFAULT_FONT.casefold():
-        return None
     if "/" in name or name.lower().endswith(FONT_SUFFIXES):
         path = workspace / name
         return path if path.is_file() else None
@@ -122,6 +126,7 @@ def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand
         "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
         "video": video,
         "font_file": font_file,
+        "bundled_font": brand.bundled_font,
         "logo_file": logo_file,
     }
 

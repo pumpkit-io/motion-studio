@@ -375,25 +375,51 @@ def test_a_missing_renderer_fails_with_exit_2_and_points_at_setup(
     assert result.exit_code == 2
 
 
-def test_an_unknown_caption_font_falls_back_to_inter_with_a_warning(
+def set_caption_font(project: Path, font: str) -> None:
+    toml = project.parents[1] / "reelcut.toml"
+    text = toml.read_text(encoding="utf-8")
+    toml.write_text(re.sub(r'(?m)^font = "[^"]*"', f'font = "{font}"', text), encoding="utf-8")
+
+
+def test_a_default_workspace_sends_the_bundled_tiktok_sans(demo: Path, fake_renderer: Path) -> None:
+    result = invoke("render", "demo", "--preview", "--format", "9x16")
+
+    assert result.exit_code == 0, result.output
+    assert "warning:" not in result.stderr
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "TikTok Sans"
+    assert props["font_file"] is None
+    assert props["timeline"]["captions"]["style"] == "clean"
+
+
+def test_inter_is_sent_as_a_bundled_font_without_a_warning(demo: Path, fake_renderer: Path) -> None:
+    set_caption_font(demo, "inter")
+
+    result = invoke("render", "demo", "--preview", "--format", "9x16")
+
+    assert result.exit_code == 0, result.output
+    assert "warning:" not in result.stderr
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "Inter"
+    assert props["font_file"] is None
+
+
+def test_an_unknown_caption_font_falls_back_to_tiktok_sans_with_a_warning(
     demo: Path, fake_renderer: Path
 ) -> None:
-    ws = demo.parents[1]
-    toml = ws / "reelcut.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8").replace('font = "Inter"', 'font = "Montserrat"'),
-        encoding="utf-8",
-    )
+    set_caption_font(demo, "Montserrat")
 
     result = invoke("render", "demo", "--preview", "--format", "9x16")
 
     assert result.exit_code == 0, result.output
     warnings = [line for line in result.stderr.splitlines() if line.startswith("warning:")]
     assert len(warnings) == 1
-    assert "Montserrat" in warnings[0] and "Inter" in warnings[0]
+    assert "Montserrat" in warnings[0] and "TikTok Sans" in warnings[0]
     state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
     assert any("Montserrat" in w for w in state["stages"]["preview"]["warnings"])
-    assert calls(fake_renderer)[0]["props"]["font_file"] is None
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "TikTok Sans"
+    assert props["font_file"] is None
 
 
 def test_brand_font_and_logo_are_linked_into_the_public_dir(
@@ -404,11 +430,7 @@ def test_brand_font_and_logo_are_linked_into_the_public_dir(
     fonts.mkdir(parents=True, exist_ok=True)
     (fonts / "Montserrat-ExtraBold.ttf").write_bytes(b"font bytes")
     (ws / "library" / "brand" / "logo.png").write_bytes(b"png bytes")
-    toml = ws / "reelcut.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8").replace('font = "Inter"', 'font = "Montserrat"'),
-        encoding="utf-8",
-    )
+    set_caption_font(demo, "Montserrat")
 
     result = invoke("render", "demo", "--preview", "--format", "9x16")
 
@@ -417,6 +439,7 @@ def test_brand_font_and_logo_are_linked_into_the_public_dir(
     props = calls(fake_renderer)[0]["props"]
     public = demo / "build" / "public"
     assert (public / props["font_file"]).read_bytes() == b"font bytes"
+    assert props["bundled_font"] is None
     assert (public / props["logo_file"]).read_bytes() == b"png bytes"
     assert props["timeline"]["captions"]["font"].isalnum()
 
