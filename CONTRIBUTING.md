@@ -15,6 +15,7 @@ just test
 ## Before you open a pull request
 
 - `just lint` and `just test` pass. CI runs the same on Linux.
+- If you touched a pipeline stage, run `just e2e` on a Mac (after `reelcut setup --music` and `just fixtures`): the whole pipeline on the EN and IT fixtures, about 10 minutes.
 - If you changed a Pydantic contract, run `just schema` and commit the regenerated files.
 - Tests drive a module through its public interface. Mark tests that need a Mac, models, the renderer or ACE-Step (see `AGENTS.md`).
 - Add a line to `CHANGELOG.md` under "Unreleased".

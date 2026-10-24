@@ -501,3 +501,46 @@ Open issues:
 
 - Model load dominates generation time on a loaded machine; ACE-Step's API server could keep the model warm, but that conflicts with one heavy model in memory at a time.
 - Same seed on MPS is not checked for bit-identical output.
+
+## Phase 11, end-to-end part (ticket #17)
+
+Built:
+
+- `just e2e` (`uv run pytest tests/e2e -v -s`) runs `tests/e2e/test_pipeline.py` (markers slow, mac, models, renderer, music; so `just test` and CI skip it) once per language. Each step runs the venv's `reelcut` executable in a subprocess with `--json`, as an editing agent would: `init`, `new demo --from <talking clip> broll.mp4 image.png`, `ingest`, `analyze`, `look-asset demo b1`, `plan draft`, then the agent's edit to `edl.json` (formats 9x16 and 16x9; a title over the hook, a full-frame image card, a 1.25 zoom over the retake winner and a B-roll PiP in the outro, anchored to word IDs from the draft's segments), `plan validate`, `music` (ACE-Step generate, the draft's prompt), `plan validate` again for beat snapping, `render demo --preview` and `check demo --preview`. edl.json is the only file the test writes into the workspace.
+- Assertions against `tests/fixtures/ground_truth/<lang>_talking.json`: language detected and roles c1 aroll, b1 broll, i1 image; at least 90% of the known silences found within ±150 ms; the hard filler tagged within ±150 ms; the retake pair clustered with the complete take winning (both starts within ±150 ms); the timeline's words match the script without the filler or the abandoned take (filler absent, SequenceMatcher ratio ≥ 0.95, to allow one misheard word); music generated without vocals, with beats, and `music_path` set; both previews at 540x960 and 960x540 with the timeline's duration ±1 frame; check verdict `pass` over both formats, integrated loudness -14 ± 1 LUFS, true peak ≤ -1 dBTP and at least 90% of the words re-heard.
+- Per-stage wall times, `check/report.md`, `check/cuts.png` and stills (start, first cut, title, image, zoom, B-roll, both formats) go to `build/e2e/<lang>/` (`REELCUT_E2E_OUT` overrides); the times are also printed.
+
+Checked (acceptance):
+
+- `just e2e` passes on this Mac (Apple M3 Pro, 18 GB, nothing else running): 16 passed in 594 s.
+- Stage timings, fixture runs (one ~23 s talking clip + 6 s B-roll + one image, an ~11 s Reel, music generate, previews in 9x16 and 16x9), seconds:
+
+  | stage | EN | IT |
+  |---|---|---|
+  | init | 0.3 | 0.3 |
+  | new | 0.3 | 0.3 |
+  | ingest | 5.5 | 5.3 |
+  | analyze (mlx-whisper, faces) | 10.5 | 8.9 |
+  | look-asset | 0.8 | 0.8 |
+  | plan draft | 0.3 | 0.3 |
+  | plan validate | 0.3 | 0.3 |
+  | music (ACE-Step, ~14 s bed) | 248.0 | 218.8 |
+  | plan validate (beats) | 0.7 | 0.7 |
+  | render preview (2 formats) | 40.4 | 36.9 |
+  | check | 5.4 | 5.5 |
+  | total | 312.5 | 278.0 |
+
+  Music is nearly all model load: the bed is short, so the time is ACE-Step loading its weights, once per run.
+- Check results: EN pass with one caption-density warning (5.0 words/s from 2.63 s), 37 of 37 words re-heard, -13.9 LUFS / -2.5 dBTP in both formats; IT pass with no findings.
+- The run uses only CLI commands an editing agent would use (the list above), plus writing edl.json.
+- Visual check, opening the stills from the final runs: EN 9x16 start shows the "End to end" title pill above the presenter photo and the caption "Hi, welcome back" with the active word in yellow; 0.1 s after the first cut shows "Today, I want" with no "um" and the jump-cut punch visible as a slightly larger photo than at the start; the zoom frame shows the photo larger again, cropped at the right edge, under "thing to remember"; the image card fills the frame with the Mandelbrot still under "my videos."; the B-roll PiP is a rounded test-pattern card in the upper area over the presenter, caption "watching, and see". IT 16x9 start shows the portrait source centred on a blurred fill with the title and "Ciao, bentornati sul"; the IT zoom frame reads "da ricordare è" with the accent intact; the IT first cut reads "Oggi, vi faccio" with the "ehm" gone.
+
+Deviations and why:
+
+- B-roll and the image go into the same project as the talking clip, and the test adds events, so the e2e also covers look-asset, overlays, beat snapping and fit-blur; the guide's list has only the talking clip.
+- Previews only, as the guide's e2e step says; finals are covered by `tests/integration/test_render_fixtures.py`.
+
+Open issues:
+
+- No earlier ticket's code needed a fix: the first full run passed.
+- The fixtures are ~23 s, so these timings say little about a 5-minute shoot; music time is dominated by the model load, which does not scale with length, while analyze and render do.

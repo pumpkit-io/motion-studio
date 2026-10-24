@@ -7,3 +7,4 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Added
 
 - Repository scaffold: Python package, `reelcut --help` and `--version`, a minimal Remotion renderer, `justfile`, pre-commit hooks and Linux CI.
+- `just e2e`: the whole pipeline on the English and Italian fixtures through the CLI, asserted against their ground truth.
