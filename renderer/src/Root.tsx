@@ -8,6 +8,7 @@ const defaultProps: ReelProps = {
   source: { width: 1080, height: 1920 },
   video: "assembled.mp4",
   font_file: null,
+  logo_file: null,
   timeline: {
     schema_version: 1,
     title: "",

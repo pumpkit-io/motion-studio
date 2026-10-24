@@ -105,6 +105,7 @@ def _register() -> None:
         look,
         music,
         plan,
+        render,
         setup,
         words,
         workspace,
@@ -120,6 +121,7 @@ def _register() -> None:
     app.add_typer(docs.app, name="docs")
     app.add_typer(agents.app, name="agents")
     app.add_typer(config.app, name="config")
+    render.register(app)
     doctor.register(app)
     setup.register(app)
 

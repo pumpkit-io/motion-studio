@@ -84,6 +84,7 @@ def props(tmp_path: Path, fmt: str) -> Path:
         "source": SOURCE,
         "video": "assembled.mp4",
         "font_file": None,
+        "logo_file": None,
     }
     path.write_text(json.dumps(data))
     return path

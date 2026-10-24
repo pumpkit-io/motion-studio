@@ -10,7 +10,7 @@ The agent reads a compact text index of the footage and writes an edit decision 
 
 ```sh
 uv tool install reelcut          # or, from a checkout: uv tool install --editable .
-reelcut setup                    # download models into the cache (once)
+reelcut setup                    # download models and the renderer into the cache (once)
 reelcut init ~/Videos/reels      # create a workspace
 cd ~/Videos/reels && reelcut new my-video --from ~/Desktop/takes/
 ```

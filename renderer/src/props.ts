@@ -12,6 +12,8 @@ export type ReelProps = {
   video: string;
   /** Brand caption font file relative to the public dir; null loads the bundled Inter. */
   font_file: string | null;
+  /** Brand logo image relative to the public dir; null draws no logo. */
+  logo_file: string | null;
 };
 
 export function formatOf(props: ReelProps): FormatSpec {

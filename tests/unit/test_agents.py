@@ -118,7 +118,6 @@ def test_agents_sync_outside_a_workspace_is_a_user_error(
 # Guide §7 commands that later tickets build, with the flags §7 gives them. Once a command is
 # registered it is checked against the real CLI instead; delete its entry when you build it.
 PENDING: dict[tuple[str, ...], tuple[int, set[str]]] = {
-    ("render",): (13, {"--preview", "--final", "--format"}),
     ("check",): (15, {"--preview", "--final"}),
 }
 
