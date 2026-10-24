@@ -92,6 +92,8 @@ def worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture
 def demo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, worker: Path) -> Path:
+    # CI runners have less free disk than the guard's default threshold.
+    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
     ws = tmp_path / "reels"
     assert invoke("init", ws).exit_code == 0
     take = tmp_path / "take.mov"
