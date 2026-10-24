@@ -95,11 +95,25 @@ def main(
 
 
 def _register() -> None:
-    from reelcut.cli import agents, analyze, config, doctor, ingest, setup, workspace
+    from reelcut.cli import (
+        agents,
+        analyze,
+        config,
+        docs,
+        doctor,
+        ingest,
+        plan,
+        setup,
+        words,
+        workspace,
+    )
 
     workspace.register(app)
     ingest.register(app)
     analyze.register(app)
+    words.register(app)
+    app.add_typer(plan.app, name="plan")
+    app.add_typer(docs.app, name="docs")
     app.add_typer(agents.app, name="agents")
     app.add_typer(config.app, name="config")
     doctor.register(app)
