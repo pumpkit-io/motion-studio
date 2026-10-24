@@ -3,6 +3,7 @@
 import pytest
 from edl_fixtures import clip, edl, timed
 
+from reelcut.analysis import Faces, FaceSample
 from reelcut.config import Config
 from reelcut.edl import EdlError, Timeline, resolve
 
@@ -38,8 +39,8 @@ def test_a_segment_becomes_one_padded_run_snapped_to_frames() -> None:
 def test_hard_fillers_are_cut_and_each_side_stops_at_the_midpoint_to_them() -> None:
     result = resolve([FILLERS], edl(("a", "c1.s0", "c1.s0")), Config())
 
-    # "We" ends 0.80 and "um" starts 0.90: the run ends at the midpoint 0.85, so frame 25.
-    assert src_frames(result.timeline) == [(13, 25), (38, 76)]
+    # "We" ends 0.80 and "um" starts 0.90: the run ends at the midpoint 0.85, frame 25.5 -> 26.
+    assert src_frames(result.timeline) == [(13, 26), (38, 76)]
     assert kept_ids(result.timeline) == ["c1.w0", "c1.w2", "c1.w3", "c1.w4"]
     assert result.stats.hard_fillers_removed == 1
 
@@ -149,3 +150,101 @@ def test_a_word_in_both_drop_and_keep_words_is_dropped_with_a_warning() -> None:
 
     assert "c1.w1" not in kept_ids(result.timeline)
     assert [w.code for w in result.warnings] == ["drop_and_keep"]
+
+
+def scales(timeline: Timeline) -> list[float]:
+    return [r.base_scale for r in timeline.runs]
+
+
+TWO_LINES = clip("c1", "Hello there world.", "Second line here.")
+OTHER = clip("c2", "Another clip speaking.")
+
+
+def test_segments_that_meet_in_a_gap_share_the_boundary_frame() -> None:
+    timeline = resolve([TWO_LINES], edl(("a", "c1.w0", "c1.w1"), ("b", "c1.w2", "c1.w2")), Config())
+
+    first, second = timeline.timeline.runs
+    assert first.src_out_s == second.src_in_s
+
+
+def test_jump_cuts_alternate_the_punch_in_scale() -> None:
+    three = clip("c1", "Line one here.", "Line two here.", "Line three here.")
+
+    timeline = resolve([three], edl(("a", "c1.s0", "c1.s2")), Config()).timeline
+
+    assert scales(timeline) == [1.0, 1.08, 1.0]
+
+
+def test_the_punch_scale_and_switch_come_from_the_policy() -> None:
+    bigger = edl(("a", "c1.s0", "c1.s1"), policy={"jumpcut_punch_scale": 1.2})
+    off = edl(("a", "c1.s0", "c1.s1"), policy={"jumpcut_punch": False})
+
+    assert scales(resolve([TWO_LINES], bigger, Config()).timeline) == [1.0, 1.2]
+    assert scales(resolve([TWO_LINES], off, Config()).timeline) == [1.0, 1.0]
+
+
+def test_a_cut_to_another_clip_or_a_continuous_cut_is_not_a_jump_cut() -> None:
+    switch = edl(("a", "c1.s1", "c1.s1"), ("b", "c2.s0", "c2.s0"), ("c", "c1.s0", "c1.s0"))
+    continuous = edl(("a", "c1.w0", "c1.w1"), ("b", "c1.w2", "c1.w2"))
+    reversed_ = edl(("b", "c1.w2", "c1.w2"), ("a", "c1.w0", "c1.w1"))
+
+    assert scales(resolve([TWO_LINES, OTHER], switch, Config()).timeline) == [1.0, 1.0, 1.0]
+    assert scales(resolve([TWO_LINES], continuous, Config()).timeline) == [1.0, 1.0]
+    assert scales(resolve([TWO_LINES], reversed_, Config()).timeline) == [1.0, 1.08]
+
+
+def test_each_run_is_framed_on_the_median_face_inside_it() -> None:
+    samples = [(0.5, 0.3, 0.2), (1.0, 0.4, 0.5), (1.5, 0.9, 0.4), (3.0, 0.1, 0.1)]
+    faces = Faces(
+        samples=[FaceSample(t=t, cx=x, cy=y, w=0.2, h=0.3, score=0.9) for t, x, y in samples]
+    )
+    c1 = TWO_LINES.model_copy(update={"faces": faces})
+
+    first, second = resolve([c1], edl(("a", "c1.s0", "c1.s1")), Config()).timeline.runs
+
+    assert (first.crop.cx, first.crop.cy, first.face) == (0.4, 0.4, True)
+    assert (second.crop.cx, second.crop.cy, second.face) == (0.1, 0.1, True)
+
+
+def test_a_run_without_a_face_is_framed_on_the_centre() -> None:
+    [run] = resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s0")), Config()).timeline.runs
+
+    assert (run.crop.cx, run.crop.cy, run.face) == (0.5, 0.5, False)
+
+
+def test_language_captions_and_music_come_from_the_edl_over_the_config() -> None:
+    plain = resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s0")), Config()).timeline
+    styled = resolve(
+        [TWO_LINES],
+        edl(
+            ("a", "c1.s0", "c1.s0"),
+            language="it",
+            captions={"style": "karaoke"},
+            music={"mode": "none"},
+            formats=["16x9", "4x5"],
+        ),
+        Config(),
+    ).timeline
+
+    assert (plain.language, plain.captions.style, plain.music_path) == (
+        "en",
+        "pop",
+        "build/music.wav",
+    )
+    assert plain.captions.max_chars_per_page == 22
+    assert "the" in plain.captions.keep_with_next
+    assert [(f.name, f.width, f.height) for f in plain.formats] == [("9x16", 1080, 1920)]
+    assert (styled.language, styled.captions.style, styled.music_path) == ("it", "karaoke", None)
+    assert styled.captions.max_chars_per_page == 20
+    assert [(f.name, f.width, f.height) for f in styled.formats] == [
+        ("16x9", 1920, 1080),
+        ("4x5", 1080, 1350),
+    ]
+
+
+def test_an_edl_longer_than_its_limit_gets_a_warning() -> None:
+    result = resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s1"), max_duration_s=1), Config())
+
+    assert [(w.code, w.message) for w in result.warnings] == [
+        ("too_long", "duration 2.7 s is over the 1.0 s limit")
+    ]

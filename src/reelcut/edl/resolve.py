@@ -1,10 +1,15 @@
 """The resolver (guide §6.5): a pure function from analysis, EDL and config to a timeline."""
 
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from statistics import median
+from typing import Any
 
+from reelcut import lang
 from reelcut.analysis import ClipAnalysis
 from reelcut.config import Config, Edit
+from reelcut.edl.events import OutputMap, resolve_events
 from reelcut.edl.issues import Issue, Problems
 from reelcut.edl.models import (
     Crop,
@@ -19,6 +24,9 @@ from reelcut.edl.models import (
 )
 from reelcut.edl.refs import RefIndex, WordSpan
 from reelcut.edl.runs import SourceRun, cut_segment
+
+# The music stage writes the bed here, relative to the project.
+MUSIC_PATH = "build/music.wav"
 
 
 @dataclass
@@ -39,10 +47,16 @@ class Resolution:
     stats: ResolveStats
 
 
-def resolve(clips: Sequence[ClipAnalysis], edl: Edl, config: Config) -> Resolution:
+def resolve(
+    clips: Sequence[ClipAnalysis],
+    edl: Edl,
+    config: Config,
+    beats: Sequence[float] | None = None,
+) -> Resolution:
     """Resolve `edl` against the analyses. Raises EdlError listing every error found.
 
     `config` is the effective config; the EDL's own policy is applied on top of its [edit].
+    `beats` are music beat times in output seconds; B-roll and image starts snap to them.
     """
     policy = _policy(config, edl)
     fps = config.defaults.fps
@@ -54,6 +68,13 @@ def resolve(clips: Sequence[ClipAnalysis], edl: Edl, config: Config) -> Resoluti
     dropped = index.word_list(edl.drop_words, "drop_words", problems)
     keep = index.word_list(edl.keep_words, "keep_words", problems)
     index.check_ranges(edl.drop_ranges, problems)
+    language = edl.language or _project_language(config, index)
+    if language is not None and language not in lang.available_languages():
+        problems.error(
+            "unknown_language",
+            f"language {language} has no data file; available: "
+            + ", ".join(lang.available_languages()),
+        )
     problems.raise_errors()
     for clip_id, i in sorted(dropped & keep):
         problems.warn(
@@ -87,7 +108,8 @@ def resolve(clips: Sequence[ClipAnalysis], edl: Edl, config: Config) -> Resoluti
     runs: list[Run] = []
     timeline_words: list[TimelineWord] = []
     out = 0
-    for source in source_runs:
+    scales = _punch_scales(source_runs, policy)
+    for source, scale in zip(source_runs, scales, strict=True):
         length = source.end_f - source.start_f
         src_in = source.start_f / fps
         runs.append(
@@ -98,9 +120,8 @@ def resolve(clips: Sequence[ClipAnalysis], edl: Edl, config: Config) -> Resoluti
                 src_out_s=source.end_f / fps,
                 out_in=out,
                 out_out=out + length,
-                crop=Crop(cx=0.5, cy=0.5),
-                face=False,
-                base_scale=1.0,
+                **_framing(index.clips[source.clip], src_in, source.end_f / fps),
+                base_scale=scale,
             )
         )
         for word in source.words:
@@ -115,20 +136,98 @@ def resolve(clips: Sequence[ClipAnalysis], edl: Edl, config: Config) -> Resoluti
         out += length
     stats.words_kept = len(timeline_words)
 
+    segment_spans: dict[str, tuple[int, int] | None] = {s.id: None for s in edl.segments}
+    for run in runs:
+        current = segment_spans[run.segment]
+        segment_spans[run.segment] = (current[0] if current else run.out_in, run.out_out)
+    kept: dict[str, list[int]] = {}
+    for source in source_runs:
+        kept.setdefault(source.clip, []).extend(_index_of(w.id) for w in source.words)
+    output = OutputMap(
+        fps=fps,
+        words={w.id: w for w in timeline_words},
+        kept={c: sorted(indices) for c, indices in kept.items()},
+        segments=segment_spans,
+    )
+    resolved = resolve_events(edl.events, index, output, beats, problems)
+    problems.raise_errors()
+    for word in timeline_words:
+        word.emphasis = word.id in resolved.emphasis
+
+    limit = edl.max_duration_s or config.defaults.max_duration_s
+    if out / fps > limit:
+        problems.warn(
+            "too_long",
+            f"duration {out / fps:.1f} s is over the {limit:.1f} s limit",
+            hint="drop or shorten a segment, or lower policy.max_pause_ms",
+        )
+
+    music_mode = edl.music.mode or config.music.mode
     timeline = Timeline(
         title=edl.title,
-        language=edl.language,
+        language=language,
         fps=fps,
         duration_frames=out,
         formats=[_format_spec(name) for name in edl.formats or config.defaults.formats],
         runs=runs,
         words=timeline_words,
-        events=[],
-        captions=TimelineCaptions(**config.captions.model_dump()),
+        events=resolved.events,
+        captions=_captions(config, edl, language),
         brand=config.brand,
-        music_path=None,
+        music_path=None if music_mode == "none" else MUSIC_PATH,
     )
     return Resolution(timeline=timeline, warnings=problems.warnings, stats=stats)
+
+
+def _index_of(word_id: str) -> int:
+    return int(word_id.rsplit(".w", 1)[1])
+
+
+def _project_language(config: Config, index: RefIndex) -> str | None:
+    """The configured language, or else the one most A-roll words were spoken in."""
+    if config.defaults.language != "auto":
+        return config.defaults.language
+    words: Counter[str] = Counter()
+    for analysis in index.aroll():
+        if analysis.language is not None:
+            words[analysis.language.code] += len(analysis.words)
+    if not words:
+        return None
+    return min(words, key=lambda code: (-words[code], code))
+
+
+def _punch_scales(runs: Sequence[SourceRun], policy: Edit) -> list[float]:
+    """Alternate 1.0 and the punch scale at each jump cut; a cut to another clip resets it."""
+    scales: list[float] = []
+    for k, run in enumerate(runs):
+        scale = 1.0
+        if k > 0 and runs[k - 1].clip == run.clip:
+            scale = scales[-1]
+            if policy.jumpcut_punch and runs[k - 1].end_f != run.start_f:
+                scale = policy.jumpcut_punch_scale if scale == 1.0 else 1.0
+        scales.append(scale)
+    return scales
+
+
+def _framing(analysis: ClipAnalysis, start: float, end: float) -> dict[str, Any]:
+    """A static crop per run: the median face centre, or the frame centre with no face."""
+    inside = [s for s in analysis.faces.samples if start <= s.t <= end]
+    if not inside:
+        return {"crop": Crop(cx=0.5, cy=0.5), "face": False}
+    crop = Crop(cx=median(s.cx for s in inside), cy=median(s.cy for s in inside))
+    return {"crop": crop, "face": True}
+
+
+def _captions(config: Config, edl: Edl, language: str | None) -> TimelineCaptions:
+    settings: dict[str, Any] = {
+        **config.captions.model_dump(),
+        **edl.captions.model_dump(exclude_none=True),
+    }
+    if language is not None:
+        rules = lang.load_language(language).captions
+        settings["max_chars_per_page"] = rules.max_chars_per_page
+        settings["keep_with_next"] = rules.keep_with_next
+    return TimelineCaptions.model_validate(settings)
 
 
 def _policy(config: Config, edl: Edl) -> Edit:

@@ -1,5 +1,6 @@
 """Steps 1-5 of guide §6.5: from a segment's words to frame-snapped runs of source time."""
 
+import math
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -36,8 +37,8 @@ class _Draft:
     after: Break
     start: float = 0.0
     end: float = 0.0
-    lo: float = 0.0
-    hi: float = 0.0
+    lo_f: int = 0
+    hi_f: int = 0
 
 
 @dataclass
@@ -87,19 +88,15 @@ def cut_segment(
 
     for k, draft in enumerate(drafts):
         next_pause = k + 1 < len(drafts) and drafts[k + 1].after == "pause"
-        _bound(draft, words, ranges, analysis.clip.duration_s, policy, next_pause)
+        _bound(draft, words, ranges, analysis.clip.duration_s, policy, fps, next_pause)
     drafts = _merge(drafts)
 
     runs: list[SourceRun] = []
     pauses = 0
     kept_previous = False
     for draft in drafts:
-        start_f = round(draft.start * fps)
-        if start_f < draft.lo * fps - _EPS:
-            start_f += 1
-        end_f = round(draft.end * fps)
-        if end_f > draft.hi * fps + _EPS:
-            end_f -= 1
+        start_f = max(_nearest(draft.start, fps), draft.lo_f)
+        end_f = min(_nearest(draft.end, fps), draft.hi_f)
         kept = [words[i] for i in draft.indices]
         if (end_f - start_f) * 1000 < policy.min_segment_ms * fps:
             _warn_short(problems, segment, kept, (end_f - start_f) / fps, policy)
@@ -118,30 +115,52 @@ def _bound(
     ranges: Sequence[DropRange],
     duration: float,
     policy: Edit,
+    fps: int,
     next_pause: bool,
 ) -> None:
-    """Pad a run, stopping at the midpoint to a neighbouring word and at any drop range."""
+    """Pad a run, stopping at the midpoint to a neighbouring word and at any drop range.
+
+    The limits are frames. A midpoint snaps to its nearest frame, so runs that meet in a gap
+    share a frame, but never past the neighbouring word itself; drop ranges are never entered.
+    """
     first_i, last_i = draft.indices[0], draft.indices[-1]
     first, last = words[first_i], words[last_i]
     half_pause = policy.max_pause_ms / 2000
 
-    lo = 0.0
+    lo_f = 0
     if first_i > 0:
-        lo = min((words[first_i - 1].end + first.start) / 2, first.start)
+        prev_end = words[first_i - 1].end
+        mid = min((prev_end + first.start) / 2, first.start)
+        lo_f = max(_nearest(mid, fps), _ceil(min(prev_end, first.start), fps))
     for r in ranges:
-        if r.start < first.start and r.end > lo:
-            lo = r.end
+        if r.start < first.start:
+            lo_f = max(lo_f, _ceil(r.end, fps))
     lead = half_pause if draft.after == "pause" else policy.pad_in_ms / 1000
-    draft.lo, draft.start = lo, max(first.start - lead, lo)
+    draft.lo_f, draft.start = lo_f, first.start - lead
 
-    hi = duration
+    hi_f = _floor(duration, fps)
     if last_i + 1 < len(words):
-        hi = max((last.end + words[last_i + 1].start) / 2, last.end)
+        next_start = words[last_i + 1].start
+        mid = max((last.end + next_start) / 2, last.end)
+        hi_f = min(hi_f, _nearest(mid, fps), _floor(max(next_start, last.end), fps))
     for r in ranges:
-        if r.end > last.end and r.start < hi:
-            hi = r.start
+        if r.end > last.end:
+            hi_f = min(hi_f, _floor(r.start, fps))
     tail = half_pause if next_pause else policy.pad_out_ms / 1000
-    draft.hi, draft.end = hi, min(last.end + tail, hi)
+    draft.hi_f, draft.end = hi_f, last.end + tail
+
+
+def _nearest(t: float, fps: int) -> int:
+    """Nearest frame, halves rounding up; the epsilon absorbs float error such as 0.85 * 30."""
+    return math.floor(t * fps + 0.5 + _EPS)
+
+
+def _ceil(t: float, fps: int) -> int:
+    return math.ceil(t * fps - _EPS)
+
+
+def _floor(t: float, fps: int) -> int:
+    return math.floor(t * fps + _EPS)
 
 
 def _merge(drafts: list[_Draft]) -> list[_Draft]:
@@ -154,7 +173,7 @@ def _merge(drafts: list[_Draft]) -> list[_Draft]:
         if merged and draft.after == "pause" and draft.start - merged[-1].end < MERGE_GAP_S:
             last = merged[-1]
             last.indices = last.indices + draft.indices
-            last.end, last.hi = draft.end, draft.hi
+            last.end, last.hi_f = draft.end, draft.hi_f
         else:
             merged.append(draft)
     return merged
