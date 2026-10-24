@@ -8,8 +8,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from reelcut import lang
 from reelcut.errors import DependencyError, UserError
 from reelcut.paths import WORKSPACE_FILE, project_paths
 
@@ -27,7 +28,17 @@ class Defaults(_Section):
     formats: list[Format] = Field(default_factory=lambda: ["9x16"])
     fps: int = Field(default=30, gt=0)
     max_duration_s: float = Field(default=60, gt=0)
-    language: Literal["auto", "en", "it"] = "auto"
+    language: str = Field(
+        default="auto", description="auto, or the code of a language with a data file (en, it)."
+    )
+
+    @field_validator("language")
+    @classmethod
+    def _known_language(cls, value: str) -> str:
+        known = lang.available_languages()
+        if value != "auto" and value not in known:
+            raise ValueError(f"no language data for '{value}' (available: {', '.join(known)})")
+        return value
 
 
 class Review(_Section):

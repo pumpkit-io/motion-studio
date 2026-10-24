@@ -94,3 +94,9 @@ Checked against each agent's official docs; the table, quotes and links are in `
 | Cursor | `.agents/skills/` (also `.cursor/skills/`) | `AGENTS.md` |
 
 All four require or recommend `name` and `description` frontmatter in `SKILL.md`; Cursor and Gemini CLI want `name` to match the folder. PyYAML 6.0.3 (already in the lock through the dev group) parses the frontmatter in the skill test.
+
+## Analysis (ticket #6, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| rapidfuzz | 3.14.6 | `fuzz.token_set_ratio` run in the venv: float 0-100, a word subset scores 100 |

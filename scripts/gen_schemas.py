@@ -8,13 +8,14 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from reelcut.analysis import ClipAnalysis
 from reelcut.config import Config
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS = ROOT / "schemas"
 
-# The key names the file; analysis, edl and timeline join as their tickets land.
-CONTRACTS: dict[str, type[BaseModel]] = {"config": Config}
+# The key names the file; edl and timeline join as their tickets land.
+CONTRACTS: dict[str, type[BaseModel]] = {"analysis": ClipAnalysis, "config": Config}
 
 
 def main() -> None:
