@@ -55,13 +55,15 @@ line-length = 100
 target-version = "py312"
 src = ["src", "tests", "scripts"]
 # Ruff also formats Python blocks inside Markdown; the guide and docs keep their own layout.
-extend-exclude = ["*.md"]
+extend-exclude = ["*.md", ".claude"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
 
 [tool.pyright]
 include = ["src", "tests", "scripts"]
+# Restates pyright's defaults, plus agent worktrees under .claude/.
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".claude"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 strict = ["src/reelcut/edl", "src/reelcut/analysis"]
@@ -70,6 +72,7 @@ venv = ".venv"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = [".*", "node_modules", "build", "dist", "*.egg", "venv", ".claude"]
 addopts = ["--strict-markers", "-ra"]
 markers = [
     "slow: long-running integration or e2e test (local only)",
