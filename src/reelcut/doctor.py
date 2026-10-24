@@ -17,6 +17,7 @@ from reelcut.errors import DependencyError
 from reelcut.media.ffmpeg import ffmpeg_caps
 from reelcut.paths import cache_dir, envs_dir, renderer_dir
 from reelcut.state import free_disk_gb, min_free_gb
+from reelcut.vision import mediapipe_model_path, yunet_model_path
 
 REQUIRED_FILTERS = (
     "tonemap",
@@ -72,6 +73,7 @@ def run_doctor(workdir: Path) -> Report:
     checks += _node_checks()
     checks.append(_asr_check())
     checks += _speech_model_checks()
+    checks.append(_face_model_check())
     checks += _cache_checks()
     disk_check, disk = _disk_check(workdir)
     checks.append(disk_check)
@@ -206,6 +208,18 @@ def _speech_model_checks() -> list[Check]:
             None if found else setup,
         ),
     ]
+
+
+def _face_model_check() -> Check:
+    mediapipe, yunet = mediapipe_model_path(), yunet_model_path()
+    setup = f"run `{APP_NAME} setup` once while online"
+    if mediapipe.is_file():
+        return Check("face model", "ok", False, str(mediapipe))
+    if yunet.is_file():
+        return Check(
+            "face model", "warn", False, f"YuNet fallback only: {mediapipe.name} missing", setup
+        )
+    return Check("face model", "warn", False, f"no face model in {mediapipe.parent}", setup)
 
 
 def _cache_checks() -> list[Check]:
