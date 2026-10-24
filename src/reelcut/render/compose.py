@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 from reelcut.edl import Timeline
 from reelcut.errors import InternalError
@@ -16,9 +16,11 @@ from reelcut.render.renderer import remotion_bin
 
 FONT_SUFFIXES = (".ttf", ".otf", ".woff2", ".woff")
 FONTS_DIR = Path("library") / "brand" / "fonts"
-# The renderer bundles these families; a key is the casefolded name the config may use.
-BUNDLED_FONTS = {name.casefold(): name for name in ("TikTok Sans", "Inter")}
-DEFAULT_FONT = "TikTok Sans"
+# The families the renderer bundles; the first is the fallback for a caption font that is not found.
+BundledFont = Literal["TikTok Sans", "Inter"]
+# A key is the casefolded name the config may use.
+BUNDLED_FONTS: dict[str, BundledFont] = {name.casefold(): name for name in get_args(BundledFont)}
+DEFAULT_FONT: BundledFont = get_args(BundledFont)[0]
 PREVIEW_SCALE = 0.5
 FINAL_CRF = 16
 PREVIEW_CRF = 23
@@ -29,7 +31,7 @@ class Brand:
     """The brand files a render uses; None means the renderer's built-in look."""
 
     font: Path | None
-    bundled_font: str | None
+    bundled_font: BundledFont | None
     logo: Path | None
     warnings: tuple[str, ...]
 

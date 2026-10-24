@@ -51,23 +51,20 @@ export function pageCaptions(words: readonly TimelineWord[], options: PagingOpti
   };
   const keep = new Set(options.keepWithNext.map(normalise));
 
-  // `hardAfter[k]` is true when page k closed at a sentence end, before a long silence, or at the last word.
-  const pages: TimelineWord[][] = [];
-  const hardAfter: boolean[] = [];
+  // A page is `hard` when it closed at a sentence end, before a long silence, or at the last word.
+  const breaks: { words: TimelineWord[]; hard: boolean }[] = [];
   let page: TimelineWord[] = [];
   words.forEach((word, i) => {
     if (page.length > 0 && !fits([...page, word])) {
       const last = page[page.length - 1]!;
       const carried = page.length > 1 && keep.has(normalise(last.text)) ? [page.pop()!] : [];
-      pages.push(page);
-      hardAfter.push(false);
+      breaks.push({ words: page, hard: false });
       page = carried;
     }
     page.push(word);
     const next = words[i + 1];
     if (next === undefined || SENTENCE_END.test(word.text) || next.start_ms - word.end_ms >= SILENCE_BREAK_MS) {
-      pages.push(page);
-      hardAfter.push(true);
+      breaks.push({ words: page, hard: true });
       page = [];
     }
   });
@@ -85,33 +82,36 @@ export function pageCaptions(words: readonly TimelineWord[], options: PagingOpti
     return null;
   };
 
+  // One page when `first` and `second` fit together, else two rebalanced pages, else null.
+  const join = (first: TimelineWord[], second: TimelineWord[]): TimelineWord[][] | null => {
+    const merged = [...first, ...second];
+    return fits(merged) ? [merged] : rebalance(merged);
+  };
+
   // A lone word joins a neighbour across a break that is not hard: the previous page first, else the next.
   // The start and end of the words count as hard, so a lone word never crosses a sentence end or silence.
-  const absorb = (k: number, into: number): boolean => {
-    const lo = Math.min(k, into);
-    const merged = [...pages[lo]!, ...pages[lo + 1]!];
-    if (fits(merged)) {
-      pages.splice(lo, 2, merged);
-      hardAfter.splice(lo, 1);
-      return true;
+  const joined: { words: TimelineWord[]; hard: boolean }[] = [];
+  for (let k = 0; k < breaks.length; k++) {
+    const current = breaks[k]!;
+    if (current.words.length === 1 && fits(current.words)) {
+      const prev = joined[joined.length - 1];
+      const withPrev = prev !== undefined && !prev.hard ? join(prev.words, current.words) : null;
+      if (withPrev !== null) {
+        joined.pop();
+        joined.push(...withPrev.map((ws, i) => ({ words: ws, hard: i === withPrev.length - 1 && current.hard })));
+        continue;
+      }
+      const next = breaks[k + 1];
+      const withNext = next !== undefined && !current.hard ? join(current.words, next.words) : null;
+      if (withNext !== null) {
+        joined.push(...withNext.map((ws, i) => ({ words: ws, hard: i === withNext.length - 1 && next!.hard })));
+        k++;
+        continue;
+      }
     }
-    const split = rebalance(merged);
-    if (split === null) return false;
-    pages.splice(lo, 2, ...split);
-    hardAfter[lo] = false;
-    return true;
-  };
-  for (let k = 0; k < pages.length; k++) {
-    if (pages[k]!.length !== 1 || !fits(pages[k]!)) continue;
-    const prevOpen = k > 0 && !hardAfter[k - 1];
-    const nextOpen = k < pages.length - 1 && !hardAfter[k];
-    const count = pages.length;
-    if (prevOpen && absorb(k, k - 1)) {
-      if (pages.length < count) k--;
-    } else if (nextOpen) {
-      absorb(k, k + 1);
-    }
+    joined.push(current);
   }
+  const pages = joined.map((p) => p.words);
 
   const captions: Caption[] = pages.flatMap((ws) =>
     ws.map((w, i) => ({

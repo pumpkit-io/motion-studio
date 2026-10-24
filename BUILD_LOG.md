@@ -650,7 +650,9 @@ Open issues:
 ## Classic captions: two-word soft minimum (#23)
 
 - `pageCaptions` records whether each caption page closed at a hard break (sentence end, long silence, last word) or at a cap. A one-word page then joins the previous page across a cap, else the next; when the merged page breaks a cap it is split into two pages of at least two words, as even as possible (larger first page on a tie), never ending the first on a keep-with-next word. If no split fits, the lone word stays.
-- Deviation from the spec: greedy paging closes a page at a cap only when the next word does not fit, so a lone word can never join a neighbour across a cap without a rebalance, and never join the next page at all (the lone word plus the next word already failed the cap). Merging never crosses a sentence end or a long silence, so "joins the next page after a silence or sentence end" can only show up as "stays off the previous page"; the tests assert that. The start and end of the words count as hard breaks, so `Ciao. Come stai oggi?` keeps `Ciao.` alone.
+- Deviation from the spec: greedy paging closes a page at a cap only when the next word does not fit. So a lone word can never join a neighbour across a cap without a rebalance, and never joins the next page at all, because the lone word plus the next word already failed the cap.
+- Merging never crosses a sentence end or a long silence, so "joins the next page after a silence or sentence end" can only show up as "stays off the previous page"; the tests assert that.
+- The start and end of the words count as hard breaks, so `Ciao. Come stai oggi?` keeps `Ciao.` alone.
 - Two existing tests changed input so they no longer end on a lone word: the word-cap test (eight words) and the timing test (five words).
 
 ## Classic caption look by default (ticket #22)
@@ -673,3 +675,10 @@ font = "TikTok Sans"
 Checked: `just lint` and `just test` pass. `pytest -m renderer` ran the three real-Remotion tests in `test_renderer_cli.py` (Inter fixture, now with `bundled_font`), which pass; the fixture-based ones skip without `just fixtures`. A 9x16 still with TikTok Sans over pale, bright footage rendered through the real renderer.
 
 Open: the stroke width. With `paint-order: stroke fill` only the outer half of the 5% stroke shows, so the visible edge is thin; on very pale footage the soft shadow does most of the work. Confirm on real bright footage before settling on 5%.
+
+## Classic captions: review fixes (spec #21)
+
+- `CHANGELOG.md` gains Unreleased entries for the new caption defaults and the two-word soft minimum; `THIRD_PARTY.md` lists `@fontsource/tiktok-sans` (OFL-1.1) as the default caption and title font.
+- `render/compose.py` types the bundled font as `BundledFont = Literal["TikTok Sans", "Inter"]` and derives `BUNDLED_FONTS` and `DEFAULT_FONT` from it. `lib/fonts.ts` derives `BundledFont` from its table of bundled faces. The config default in `config.py` still names TikTok Sans on its own.
+- `pageCaptions` joins lone words in one forward pass that builds a new list of pages, instead of splicing the list it iterates. Behaviour is unchanged.
+- A new test covers a lone word merging into a previous page with room, which happens when a keep-with-next word is carried twice. It fails when the merge is disabled; no earlier test did.
