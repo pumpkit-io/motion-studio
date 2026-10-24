@@ -9,6 +9,7 @@ Every command and option of `reelcut` 0.1.0. The option lists were generated wit
 - Commands other than `init`, `setup`, `doctor` and `docs` look for `reelcut.toml` in the current directory and its parents, so run them inside a workspace.
 - `<slug>` is a project name under `projects/`: lowercase letters, digits and hyphens.
 - Clip IDs are `c1` (A-roll), `b1` (B-roll) and `i1` (image); utterance IDs `c1.s4` and word IDs `c1.w52`. See `GLOSSARY.md`.
+- Long steps report progress on stderr. In a terminal (stdout and stderr both TTYs, no `--json`) that is a Rich progress line per step: a bar for ingest encodes and the A-roll assembly, a spinner with the elapsed time for Remotion, music and the rest. Elsewhere each step is one `<step> ...` line, and `--json` prints none.
 - A fallback (YuNet for faces, `arnndn` for denoising, `colorspace` for HDR, a missing brand font) prints one `warning:` line on stderr and is recorded in the stage's `warnings` in `state.json`.
 
 The usual order for one video:

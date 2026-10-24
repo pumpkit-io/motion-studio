@@ -21,10 +21,10 @@ def check(
 ) -> None:
     """Re-transcribe, measure and look at a render; exit 1 when anything blocks delivery."""
     target = pick_target(preview=preview, final=final)
-    reporter = Reporter(as_json)
-    report = check_project(
-        find_workspace(), slug, target=target, on_step=reporter.step, on_warning=reporter.warn
-    )
+    with Reporter(as_json) as reporter:
+        report = check_project(
+            find_workspace(), slug, target=target, on_step=reporter.step, on_warning=reporter.warn
+        )
     body = report.to_json()
     lines = [body["summary"]]
     blocking = [f for f in report.findings if f.severity == "blocking"]

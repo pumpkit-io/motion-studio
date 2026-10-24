@@ -95,7 +95,9 @@ def render_project(
     concurrency: int = DEFAULT_CONCURRENCY,
     on_step: Callable[[str], None] | None = None,
     on_warning: Callable[[str], None] | None = None,
+    on_progress: Callable[[float, float], None] | None = None,
 ) -> RenderReport:
+    """`on_progress` gets (seconds assembled, timeline seconds) while the A-roll is cut."""
     step = on_step or (lambda _msg: None)
     warn = on_warning or (lambda _msg: None)
     project = project_paths(workspace, slug).require()
@@ -149,7 +151,9 @@ def render_project(
                 project, ASSEMBLE_RECORD, assemble_inputs, params={"recipe": RECIPE}
             ):
                 step("assembling the A-roll cuts")
-                assemble(timeline, clips, project.root, project.build)
+                total = timeline.duration_frames / timeline.fps
+                assembling = (lambda s: on_progress(s, total)) if on_progress else None
+                assemble(timeline, clips, project.root, project.build, assembling)
                 mark_done(
                     project,
                     ASSEMBLE_RECORD,

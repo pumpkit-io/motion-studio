@@ -27,7 +27,8 @@ def doctor(
     """
     lines: list[str] = []
     if fix:
-        fixed = fix_machine(Path.cwd(), on_step=Reporter(as_json).step)
+        with Reporter(as_json) as reporter:
+            fixed = fix_machine(Path.cwd(), on_step=reporter.step)
         report, payload = fixed.report, fixed.to_json()
         if not fixed.ran_setup:
             lines.append("fix: nothing to install; any other fix is printed after its check")

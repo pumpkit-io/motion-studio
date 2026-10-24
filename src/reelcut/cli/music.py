@@ -11,12 +11,12 @@ def music(slug: Slug, as_json: JsonOption = False) -> None:
     """Generate (ACE-Step) or pick (library) the music bed: build/music.wav and music.json."""
     from reelcut.music.stage import next_hint, run_music
 
-    reporter = Reporter(as_json)
+    with Reporter(as_json) as reporter:
 
-    def waiting(holder: str) -> None:
-        reporter.step(f"waiting for another heavy model to finish ({holder})")
+        def waiting(holder: str) -> None:
+            reporter.step(f"waiting for another heavy model to finish ({holder})")
 
-    report = run_music(find_workspace(), slug, on_step=reporter.step, on_wait=waiting)
+        report = run_music(find_workspace(), slug, on_step=reporter.step, on_wait=waiting)
     info = report.info
     lines = [f"warning: {w}" for w in report.warnings]
     if info.mode == "none":

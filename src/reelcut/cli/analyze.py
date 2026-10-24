@@ -19,8 +19,8 @@ def analyze(
     as_json: JsonOption = False,
 ) -> None:
     """Transcribe speech, find shots, static stretches and faces, and write the indexes."""
-    reporter = Reporter(as_json)
-    report = analyze_project(find_workspace(), slug, clip=clip, on_warning=reporter.warn)
+    with Reporter(as_json) as reporter:
+        report = analyze_project(find_workspace(), slug, clip=clip, on_warning=reporter.warn)
     written = not report.noop
     lines = [f"{slug}: nothing changed since the last analyze"] if report.noop else []
     for c in report.clips:

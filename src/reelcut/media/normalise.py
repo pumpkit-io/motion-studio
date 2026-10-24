@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -80,7 +81,13 @@ def _even(value: float) -> int:
 
 
 def make_mezzanine(
-    source: Path, dest: Path, info: Probe, *, fps: int, caps: FFmpegCaps
+    source: Path,
+    dest: Path,
+    info: Probe,
+    *,
+    fps: int,
+    caps: FFmpegCaps,
+    progress: Callable[[float], None] | None = None,
 ) -> Mezzanine:
     """Write `dest` at `fps` CFR with rotation applied and HDR tone-mapped to BT.709.
 
@@ -90,7 +97,7 @@ def make_mezzanine(
     width, height = output_size(info.width, info.height)
     base = [f"fps={fps}", f"scale={width}:{height}:flags=lanczos", "setsar=1"]
     if info.hdr is None:
-        _encode(source, dest, [*base, "format=yuv420p"], fps, caps, info.has_audio)
+        _encode(source, dest, [*base, "format=yuv420p"], fps, caps, info.has_audio, progress)
         return Mezzanine(dest, width, height, None, ())
     methods = tonemap_methods(caps)
     warnings: list[str] = []
@@ -102,7 +109,7 @@ def make_mezzanine(
     for index, method in enumerate(methods):
         chain = {"scale_vt": SCALE_VT_CHAIN, "zscale": ZSCALE_CHAIN}.get(method, COLORSPACE_CHAIN)
         try:
-            _encode(source, dest, [*base, chain], fps, caps, info.has_audio, hw=method)
+            _encode(source, dest, [*base, chain], fps, caps, info.has_audio, progress, hw=method)
         except FFmpegError as exc:
             if index == len(methods) - 1:
                 raise
@@ -128,6 +135,7 @@ def _encode(
     fps: int,
     caps: FFmpegCaps,
     has_audio: bool,
+    progress: Callable[[float], None] | None,
     *,
     hw: Tonemap | None = None,
 ) -> None:
@@ -143,7 +151,7 @@ def _encode(
         args += ["-map", "0:a:0", "-c:a", "aac", "-b:a", "192k"]
     tmp = dest.with_name(f".{dest.name}")
     args += ["-map_metadata", "-1", "-movflags", "+faststart", tmp]
-    run_ffmpeg(args)
+    run_ffmpeg(args, progress=progress)
     tmp.replace(dest)
 
 

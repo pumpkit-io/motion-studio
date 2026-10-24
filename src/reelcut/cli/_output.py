@@ -1,10 +1,21 @@
 """Shared CLI conventions: the `--json` and target options, and how output is printed."""
 
 import json
+import sys
 from collections.abc import Iterable
 from typing import Annotated, Any
 
 import typer
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 from reelcut.errors import ReelcutError, UserError
 from reelcut.target import RenderTarget
@@ -23,18 +34,60 @@ def pick_target(*, preview: bool, final: bool) -> RenderTarget:
 
 
 class Reporter:
-    """Progress and warnings on stderr while a command runs; silent under `--json`."""
+    """Progress and warnings on stderr while a command runs; silent under `--json`.
 
-    def __init__(self, as_json: bool) -> None:
+    On a terminal each step is a Rich progress line (a bar once `progress` reports a length,
+    else a spinner with the elapsed time); elsewhere a step is one plain `<step> ...` line.
+    Use it as a context manager so the live display stops before the result is printed.
+    """
+
+    def __init__(self, as_json: bool, *, console: Console | None = None) -> None:
         self.quiet = as_json
+        live = console is not None or (sys.stdout.isatty() and sys.stderr.isatty())
+        self._progress: Progress | None = None
+        self._task: TaskID | None = None
+        if live and not as_json:
+            self._progress = Progress(
+                SpinnerColumn(),
+                TextColumn("{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeElapsedColumn(),
+                console=console or Console(stderr=True),
+                transient=True,
+            )
+
+    def __enter__(self) -> "Reporter":
+        if self._progress is not None:
+            self._progress.start()
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        if self._progress is not None:
+            self._progress.stop()
 
     def step(self, message: str) -> None:
-        if not self.quiet:
+        if self.quiet:
+            return
+        if self._progress is None:
             typer.echo(f"{message} ...", err=True)
+            return
+        if self._task is not None:
+            self._progress.remove_task(self._task)
+        self._task = self._progress.add_task(message, total=None)
+
+    def progress(self, done: float, total: float) -> None:
+        """How far the current step is, in any unit (ffmpeg reports output seconds)."""
+        if self._progress is not None and self._task is not None and total > 0:
+            self._progress.update(self._task, completed=min(done, total), total=total)
 
     def warn(self, message: str) -> None:
-        if not self.quiet:
+        if self.quiet:
+            return
+        if self._progress is None:
             typer.echo(f"warning: {message}", err=True)
+        else:
+            self._progress.console.print(f"warning: {message}", markup=False, highlight=False)
 
 
 def emit(as_json: bool, payload: dict[str, Any], lines: Iterable[str], *, ok: bool = True) -> None:

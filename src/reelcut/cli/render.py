@@ -34,16 +34,17 @@ def render(
 ) -> None:
     """Cut the A-roll, compose each format with Remotion, then duck music and master loudness."""
     target = pick_target(preview=preview, final=final)
-    reporter = Reporter(as_json)
-    report = render_project(
-        find_workspace(),
-        slug,
-        target=target,
-        formats=formats or (),
-        concurrency=concurrency,
-        on_step=reporter.step,
-        on_warning=reporter.warn,
-    )
+    with Reporter(as_json) as reporter:
+        report = render_project(
+            find_workspace(),
+            slug,
+            target=target,
+            formats=formats or (),
+            concurrency=concurrency,
+            on_step=reporter.step,
+            on_warning=reporter.warn,
+            on_progress=reporter.progress,
+        )
     lines = [f"{slug}: {report.stage} is up to date"] if report.noop else []
     for out in report.outputs:
         size = f"{out.format} {out.width}x{out.height}, {out.frames / out.fps:.2f} s"

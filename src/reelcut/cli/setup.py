@@ -20,8 +20,8 @@ def setup(
     as_json: JsonOption = False,
 ) -> None:
     """Download the speech, voice-activity and denoiser models and the renderer, for offline use."""
-    reporter = Reporter(as_json)
-    report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step)
+    with Reporter(as_json) as reporter:
+        report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step)
     lines: list[str] = []
     for item in report.items:
         lines.append(f"{item.status} {item.path} ({item.name})")

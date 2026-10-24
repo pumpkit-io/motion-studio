@@ -4,7 +4,7 @@ One ffmpeg filter graph does every cut, so the voice is decoded and encoded once
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -107,7 +107,11 @@ def assembly_graph(timeline: Timeline, inputs: Sequence[Input], canvas: Canvas) 
 
 
 def assemble(
-    timeline: Timeline, clips: dict[str, ClipMedia], project_root: Path, build: Path
+    timeline: Timeline,
+    clips: dict[str, ClipMedia],
+    project_root: Path,
+    build: Path,
+    progress: Callable[[float], None] | None = None,
 ) -> Path:
     """Write `build/assembled.mp4` and check it lasts the timeline's duration within one frame."""
     if not timeline.runs:
@@ -134,7 +138,7 @@ def assemble(
     args += ["-c:v", "libx264", "-crf", "14", "-preset", "medium", "-pix_fmt", "yuv420p"]
     args += ["-c:a", "aac", "-b:a", "320k", "-ar", str(SAMPLE_RATE)]
     args += ["-movflags", "+faststart", "-y", out]
-    run_ffmpeg(args)
+    run_ffmpeg(args, progress=progress)
 
     frames = count_frames(out)
     if abs(frames - timeline.duration_frames) > 1:

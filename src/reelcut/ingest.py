@@ -53,6 +53,9 @@ SPEECH_PEAK_DB = -35.0
 
 MANIFEST = "manifest.json"
 
+# Called with (done, total) in the same unit, here seconds of media.
+Progress = Callable[[float, float], None]
+
 
 class ClipEntry(BaseModel):
     source: str
@@ -159,20 +162,36 @@ def load_manifest(project: ProjectPaths) -> Manifest:
 
 
 def ingest_project(
-    workspace: Path, slug: str, *, on_warning: Callable[[str], None] | None = None
+    workspace: Path,
+    slug: str,
+    *,
+    on_warning: Callable[[str], None] | None = None,
+    on_step: Callable[[str], None] | None = None,
+    on_progress: Progress | None = None,
 ) -> IngestReport:
+    """`on_progress` gets (seconds encoded, clip seconds) while a mezzanine is written."""
     project = project_paths(workspace, slug).require()
     ensure_free_disk(project.media)
     with project_lock(project):
         try:
-            return _ingest(project, workspace, on_warning or (lambda _msg: None))
+            return _ingest(
+                project,
+                workspace,
+                on_warning or (lambda _msg: None),
+                on_step or (lambda _msg: None),
+                on_progress or (lambda _done, _total: None),
+            )
         except Exception as exc:
             mark_failed(project, STAGE, str(exc))
             raise
 
 
 def _ingest(
-    project: ProjectPaths, workspace: Path, on_warning: Callable[[str], None]
+    project: ProjectPaths,
+    workspace: Path,
+    on_warning: Callable[[str], None],
+    on_step: Callable[[str], None],
+    on_progress: Progress,
 ) -> IngestReport:
     fps = load_config(workspace, project.slug).defaults.fps
     caps = ffmpeg_caps()
@@ -249,7 +268,9 @@ def _ingest(
             unchanged.append(clip_id)
             retained += state.stages[record_key].warnings
             continue
-        clip, clip_warnings = _normalise(project, clip_id, entry, info, fps, caps)
+        on_step(f"normalising {clip_id} ({entry.source})")
+        encoded = _out_of(on_progress, info.duration_s) if info.duration_s else None
+        clip, clip_warnings = _normalise(project, clip_id, entry, info, fps, caps, encoded)
         for message in clip_warnings:
             warn(message)
         outputs = [project.root / p for p in (clip.mezzanine, clip.audio, clip.audio_16k) if p]
@@ -282,6 +303,7 @@ def _normalise(
     info: Probe,
     fps: int,
     caps: FFmpegCaps,
+    progress: Callable[[float], None] | None = None,
 ) -> tuple[ClipMedia, list[str]]:
     source = project.root / entry.source
 
@@ -300,7 +322,9 @@ def _normalise(
             height=height,
         ), []
     warnings: list[str] = []
-    mezzanine = make_mezzanine(source, project.media / f"{clip_id}.mp4", info, fps=fps, caps=caps)
+    mezzanine = make_mezzanine(
+        source, project.media / f"{clip_id}.mp4", info, fps=fps, caps=caps, progress=progress
+    )
     warnings += mezzanine.warnings
     audio = audio_16k = None
     denoiser: Denoiser | None = None
@@ -331,6 +355,10 @@ def _normalise(
         tonemap=mezzanine.tonemap,
         denoiser=denoiser,
     ), [w if w.startswith(clip_id) else f"{clip_id}: {w}" for w in warnings]
+
+
+def _out_of(on_progress: Progress, total: float) -> Callable[[float], None]:
+    return lambda done: on_progress(done, total)
 
 
 def _manifest_entry(project: ProjectPaths, clip_id: str) -> ClipMedia | None:
