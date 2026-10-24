@@ -72,3 +72,12 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 
 - Typer 0.27.3 vendors Click as `typer._click`; catch `typer._click.exceptions`, not the separate `click` package.
 - platformdirs 4.13.5: `user_cache_path("reelcut")` is `~/Library/Caches/reelcut` on macOS and `~/.cache/reelcut` on Linux.
+
+## Fixture generation (ticket #4, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| `say` voices | Samantha (en_US), Alice (it_IT) | `say -v '?'` |
+| `say` output flags | `-o x.wav --file-format=WAVE --data-format=LEI16@48000` | ran it; output is byte-identical across runs |
+| ffmpeg `setts` bitstream filter | `setts=ts=<expr>` on a stream copy, with `-bf 0` so pts equals dts | ffmpeg 9.0.1; ffprobe shows the alternating packet durations |
+| ffmpeg `streamhash` muxer | `-map 0 -f streamhash -` | ffmpeg 9.0.1; used by the determinism test |
