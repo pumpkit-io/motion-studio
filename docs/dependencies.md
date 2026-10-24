@@ -155,6 +155,23 @@ Remotion CLI flags (`npx remotion render --help` and `npx remotion still --help`
 
 The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/node_modules/.remotion/`; `npx remotion browser ensure` does that ahead of time.
 
+## Render (ticket #13, 2026-10-24)
+
+ffmpeg filter options, checked with `ffmpeg -h filter=<name>` on 9.0.1 (Ubuntu's 6.x in CI has the same options; the tests run there):
+
+| Filter | Options used |
+|---|---|
+| `trim` | `start_frame`, `end_frame` (frame-exact cuts on the CFR mezzanine) |
+| `atrim` | `start_sample`, `end_sample` (sample-exact at 48 kHz) |
+| `afade` | `t` (in, out), `st`, `d` (30 ms at each end of a run) |
+| `concat` | `n`, `v=1`, `a=1` |
+| `sidechaincompress` | `threshold`, `ratio`, `attack` (10 ms), `release` (400 ms) |
+| `amix` | `inputs=2`, `duration=first`, `normalize=0` |
+| `loudnorm` | `I`, `TP`, `LRA`, `print_format=json` (pass 1); `measured_I`, `measured_TP`, `measured_LRA`, `measured_thresh`, `offset`, `linear=true` (pass 2) |
+| `streamhash` muxer | `-hash md5`, used by the tests to show the mix copies the video stream |
+
+Remotion: `remotion browser ensure` (`npx remotion browser --help`, @remotion/cli 4.0.538) downloads Chrome Headless Shell into `node_modules/.remotion/` of the renderer it runs in; `setup` runs it in the cache copy. The render flags are the ones in the ticket #12 table, plus `--crf=23` for previews.
+
 ## Speech (ticket #7, 2026-10-24)
 
 | Item | Value | How checked |

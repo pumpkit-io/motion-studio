@@ -16,7 +16,8 @@ def test_setup_leaves_the_denoiser_vad_and_speech_model_in_the_cache() -> None:
 
     assert result.exit_code == 0, result.output
     items = {item["name"].split()[0]: item for item in json.loads(result.stdout)["items"]}
-    assert {"deepfilternet", "silero-vad"} <= items.keys()
+    assert {"deepfilternet", "silero-vad", "renderer"} <= items.keys()
+    assert (Path(items["renderer"]["path"]) / "node_modules" / ".bin" / "remotion").exists()
     assert any(name in items for name in ("mlx-whisper", "faster-whisper"))
     assert all(Path(item["path"]).exists() for item in items.values())
 

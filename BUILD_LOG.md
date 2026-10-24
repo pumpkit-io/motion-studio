@@ -325,3 +325,48 @@ Deviations and why:
 Open issues:
 
 - `reelcut.workspace.read_edl_policy` (for `config show`) still reads `policy` loosely rather than through `parse_edl`.
+
+## Phase 7: render, assemble, compose and mix (ticket #13)
+
+Built:
+
+- `reelcut render <slug> [--preview|--final] [--format F ...] [--concurrency N] [--json]` (`reelcut.render.render_project`). It calls the disk guard first (exit 2 below the threshold), validates `edl.json` when the `plan` stage is not fresh, takes the project lock, and renders each requested format (default: every format in the timeline). Preview is the default; `--preview --final` is exit 1. A re-run with nothing changed is a no-op (stage `preview` or `final` in `state.json`; inputs `build/timeline.json`, `media/manifest.json`, the music bed, brand font and logo; params recipe, formats, `[music]`, `[master]`, Remotion version).
+- Assemble (`render/assemble.py`): one filter graph, written to `build/assemble.filtergraph` and passed with the probed `-/filter_complex` or `-filter_complex_script`. Per run: `trim=start_frame:end_frame` on the CFR mezzanine and `atrim=start_sample:end_sample` on the enhanced 48 kHz WAV (both exact, from the timeline's frame-grid seconds), 30 ms `afade` in and out, then one `concat`. Output `build/assembled.mp4`, H.264 CRF 14, AAC 320k 48 kHz; its frame count is asserted equal to `duration_frames` within one frame. Cached as the `render.assemble` record, so a second format or a final after a preview reuses it.
+- Compose (`render/compose.py`): `build/public/` holds hard links (copy across volumes) of `assembled.mp4`, every overlay `src`, the brand font (`brand/font.<ext>`) and logo (`brand/logo.<ext>`); `build/props_<fmt>.json` adds `logo_file` to #12's props. The Remotion CLI runs from the renderer dir as `node_modules/.bin/remotion render src/index.ts Reel build/composed_<fmt>.mp4 --props --public-dir --concurrency (default 4) --codec=h264 --crf 16 (final) or 23 plus --scale=0.5 (preview) --log=error`.
+- Brand (user story 65): `captions.font` is "Inter" (bundled), a font path relative to the workspace, or a family name matched against `library/brand/fonts/*.{ttf,otf,woff,woff2}` (exact stem, else a stem starting with it, such as `Montserrat-ExtraBold.ttf`). The font is used by captions and titles; the props rename the family to a plain identifier so any configured value is valid CSS. When the font is not found, compose prints one `warning:` line and records it in `state.json` under the stage. The logo (`brand.logo`) is now drawn by a new `Logo` layer: top-right corner of the format's safe area, 7% of the short side tall, hidden while a title card is on screen (they share the top of the safe area). Placement is in `lib/safezones.ts` with vitest tests.
+- Mix (`render/mix.py`): music input looped with `-stream_loop -1`, `atrim` to the video, 1.5 s fade-out, `volume=<gain_db>dB`, `sidechaincompress` keyed by an `asplit` of the voice (threshold/ratio from `[music]`, attack 10 ms, release 400 ms), `amix=inputs=2:duration=first:normalize=0`; music `none` sends the voice alone. Two-pass `loudnorm` at `[master]` (pass 1 `print_format=json`, pass 2 the measured values with `linear=true`; silence falls back to one pass), `aresample=48000`, `-c:v copy`, AAC 320k, `+faststart`. The voice stem `build/voice_<fmt>.wav` (mono 48 kHz s16, from the composed file, before music) is kept for `check`.
+- Renderer lookup (`render/renderer.py`): `REELCUT_RENDERER_DIR`, then the repo's `renderer/` when it has `node_modules` (dev mode), then `<cache>/renderer/<version>/` with an install marker; none is exit 2 pointing at `setup`.
+- `reelcut setup` now installs the renderer: copies the sources (packaged into the wheel as `reelcut/_renderer` via hatch `force-include`, or the repo's `renderer/` in a checkout) into `<cache>/renderer/<version>.partial`, runs `npm ci`, then `remotion browser ensure`, writes the marker and renames into place. `doctor`'s renderer check is `ok` only for a complete install and names the Remotion version.
+- Removed `render` from `PENDING` in `tests/unit/test_agents.py`.
+
+Pinned: nothing new. ffmpeg filter options and `remotion browser ensure` verified in `docs/dependencies.md`.
+
+Checked (acceptance):
+
+- `reelcut setup --json` on the build machine installed the renderer into `~/Library/Caches/reelcut/renderer/0.1.0.dev0` in 14 min 24 s (almost all of it the Chrome Headless Shell download); the second run reports it `present`. `reelcut doctor`: `ok renderer: /Users/fpaolileonardi/Library/Caches/reelcut/renderer/0.1.0.dev0 (Remotion 4.0.538)`.
+- `tests/integration/test_render_fixtures.py` (`slow`, `mac`, `models`, `renderer`; run with `REELCUT_RENDERER_DIR` set to the cache install): EN and IT fixtures ingested, analysed, drafted, given a title, a snap zoom (1.25) and a B-roll PiP card, validated, rendered. Previews: 540x960 and 960x540, frame count equal to the timeline (EN 335 frames, IT 322). 5 tests (including `test_setup.py`) pass in 2 min 51 s.
+- Loudness with `ebur128=peak=true` on the 9x16 finals: EN (music `none`) −13.9 LUFS, −2.5 dBTP; IT (a 220 Hz tone bed at `build/music.wav` standing in for #14, looped from 5 s) −13.9 LUFS, −1.5 dBTP. Both within −14 ± 1 LUFS and ≤ −1 dBTP.
+- Video copy: the `streamhash` MD5 of the EN final's video stream equals that of `build/composed_9x16.mp4` (`523b2bc8...`); the CI test `test_mix_copies_the_composed_video_stream_bit_for_bit` asserts the same on every run.
+- Stills, opened as images: frames extracted from `preview/9x16.mp4` and `preview/16x9.mp4` (start = frame 15, cut = 3 frames after the first cut, zoom = middle of the zoom), plus full-size `remotion still` frames of the same points. What I saw:
+  - Start: the brand title card "Fixture test" (white Inter 800 on the brand primary #111111) centred in the top of the safe area, the logo hidden under it; captions "Hi, welcome back" / "Oggi, vi faccio" in white with a black stroke, the active word yellow, in the lower part of the safe area, clear of the bottom 20%.
+  - Cut (EN frame 64, IT 63): the jump-cut punch is visible, the presenter disc is larger than at the start (base scale 1.08 vs 1.0); the yellow logo disc sits in the top-right corner inside the safe area; captions moved to the next page.
+  - Zoom (EN 98, IT 121): the disc is clearly larger again (scale 1.25) and the active word is yellow ("show", "monto").
+  - 16x9: the vertical source is fit-blurred: sharp 9x16 column in the centre, a darkened blurred copy filling the sides; captions and title span the centre; logo top-right of the 16x9 safe area.
+  - The fixture "presenter" is a flat disc that the face detector does not report as a face, so runs use the centre crop (`face: false`); face-centred reframing was checked by #12 on the face photo.
+- CI-level tests (`tests/unit/test_render_cli.py`, real ffmpeg, a stand-in Remotion binary that scales the assembled video): dimensions and frame counts per format, `--scale=0.5` and `--concurrency` passed, −14 ± 1 LUFS and ≤ −1 dBTP for music `none` and for a looped tone bed, the bed ducked (more than 24 dB under the voice tone where gain alone would give 20 dB) and absent from the voice stem, video stream copied, re-run no-op, EDL edit re-validates, disk guard exit 2, missing music bed exit 1 with a `music` hint, unknown format exit 1, missing renderer exit 2, font fallback warning in stderr and `state.json`, brand font and logo linked into the public dir. `tests/unit/test_renderer_install.py`: install with a stand-in npm, doctor before and after, failed `npm ci` leaves nothing installed.
+
+Deviations and why:
+
+- Dev mode wins over the cache: every worktree shares one cache and one dev version string, so a cached renderer may be another checkout's code. `REELCUT_RENDERER_DIR` overrides both.
+- The CLI is called as `node_modules/.bin/remotion` rather than `npx remotion`: same binary, no npx resolution step, and tests can stand it in.
+- `--concurrency` is a CLI option (default 4), not a config key, so the config schema and template stay as they are.
+- Previews use `--crf=23` as well as `--scale=0.5` ("fast encode" in guide §7).
+- The logo layer is new renderer code (spec story 65; guide §7b puts the logo in the public dir but names no layer). A missing logo at the default path renders without a logo and no warning, since most workspaces have none; a missing logo at a configured path warns.
+- Runs from clips of different sizes are scaled and padded to the first run's clip size before `concat`; with mismatched aspect ratios the crop centres of the padded runs are off (open issue).
+- Guide §5.1 masters to −1.5 dBTP (user story 67); the acceptance bar is ≤ −1 dBTP. Measured values meet both.
+
+Open issues:
+
+- Mixed-aspect A-roll (see above) is not handled beyond letterboxing.
+- The renderer is installed from the checkout that ran `setup`; a later `setup` from another checkout reports it `present` without refreshing it. Delete `<cache>/renderer/<version>` to reinstall.
+- Captions still show during full B-roll (guide default; not configurable yet).
