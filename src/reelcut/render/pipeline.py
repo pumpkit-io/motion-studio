@@ -14,7 +14,7 @@ from reelcut.errors import ReelcutError, UserError
 from reelcut.ingest import MANIFEST, ClipMedia, load_manifest
 from reelcut.paths import ProjectPaths, project_paths
 from reelcut.plan import load_edl, timeline_path, validate_project
-from reelcut.render.assemble import assemble, count_frames, video_size
+from reelcut.render.assemble import assemble, assembly_canvas, count_frames, video_size
 from reelcut.render.compose import compose, find_brand, prepare_public, props
 from reelcut.render.mix import mix
 from reelcut.render.renderer import find_renderer, remotion_version
@@ -31,7 +31,7 @@ from reelcut.target import RenderTarget
 
 DEFAULT_CONCURRENCY = 4
 # Bump when the assemble, compose or mix recipe changes, so earlier renders go stale.
-RECIPE = 1
+RECIPE = 2
 ASSEMBLE_RECORD = "render.assemble"
 
 
@@ -158,11 +158,11 @@ def render_project(
                     params={"recipe": RECIPE},
                 )
             public = prepare_public(project.build, assembled, timeline, project.root, brand)
-            source = video_size(assembled)
+            canvas = assembly_canvas(timeline, clips)
             done: list[Output] = []
             for fmt in chosen:
                 step(f"composing {fmt} with Remotion")
-                data = props(timeline, fmt, source, assembled.name, brand)
+                data = props(timeline, fmt, canvas, assembled.name, brand)
                 composed = compose(
                     renderer,
                     data,

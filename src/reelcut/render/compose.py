@@ -11,6 +11,7 @@ from typing import Any
 
 from reelcut.edl import Timeline
 from reelcut.errors import InternalError
+from reelcut.render.assemble import Canvas
 from reelcut.render.renderer import remotion_bin
 
 FONT_SUFFIXES = (".ttf", ".otf", ".woff2", ".woff")
@@ -105,9 +106,7 @@ def _link(source: Path, target: Path) -> None:
         shutil.copy2(source, target)
 
 
-def props(
-    timeline: Timeline, fmt: str, source: tuple[int, int], video: str, brand: Brand
-) -> dict[str, Any]:
+def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand) -> dict[str, Any]:
     data = timeline.model_dump(mode="json")
     font_file = logo_file = None
     if brand.font is not None:
@@ -119,7 +118,8 @@ def props(
     return {
         "timeline": data,
         "format": fmt,
-        "source": {"width": source[0], "height": source[1]},
+        "source": {"width": canvas.width, "height": canvas.height},
+        "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
         "video": video,
         "font_file": font_file,
         "logo_file": logo_file,

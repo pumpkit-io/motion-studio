@@ -6,6 +6,7 @@ import { reelMetadata, type ReelProps } from "./props";
 const defaultProps: ReelProps = {
   format: "9x16",
   source: { width: 1080, height: 1920 },
+  regions: {},
   video: "assembled.mp4",
   font_file: null,
   logo_file: null,

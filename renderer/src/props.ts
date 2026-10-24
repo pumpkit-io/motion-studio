@@ -1,4 +1,5 @@
 import type { CalculateMetadataFunction } from "remotion";
+import type { Regions } from "./lib/camera";
 import type { FormatSpec, Size, Timeline } from "./lib/timeline";
 
 /** Props of the `Reel` composition: what `render/compose.py` writes to `build/props_<fmt>.json`. */
@@ -6,8 +7,10 @@ export type ReelProps = {
   timeline: Timeline;
   /** One of `timeline.formats[].name`. */
   format: FormatSpec["name"];
-  /** Pixel size of `video`; every run's crop centre is a fraction of it. */
+  /** Pixel size of `video`. */
   source: Size;
+  /** Each A-roll clip's rectangle in `video`; a run's crop centre is a fraction of its clip's. */
+  regions: Regions;
   /** The assembled A-roll, relative to the public dir. */
   video: string;
   /** Brand caption font file relative to the public dir; null loads the bundled Inter. */

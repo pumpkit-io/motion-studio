@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Run, Timeline, TimelineEvent } from "./timeline";
-import { cameraAt, coverTransform, layoutFor, scaleAt } from "./camera";
+import { coverTransform, framingAt, layoutFor, scaleAt } from "./camera";
 
 const vertical = { width: 1080, height: 1920 };
 const square = { width: 1000, height: 1000 };
@@ -142,17 +142,72 @@ describe("scaleAt", () => {
   });
 });
 
-describe("cameraAt", () => {
+describe("framingAt on one clip", () => {
   it("frames each run on its own face centre, without smoothing across the cut", () => {
     const t = timeline([run(0, 30, 1.2, { cx: 0.2, cy: 0.5 }), run(30, 60, 1.2, { cx: 0.8, cy: 0.5 })]);
-    const before = cameraAt(t, 29, vertical, vertical);
-    const after = cameraAt(t, 30, vertical, vertical);
+    const before = framingAt(t, 29, vertical, {}, vertical).camera;
+    const after = framingAt(t, 30, vertical, {}, vertical).camera;
     expect(before.x).toBe(0);
     expect(after.x).toBeCloseTo(1080 - 1080 * 1.2);
   });
 
   it("holds the last run's framing past the end of the timeline", () => {
     const t = timeline([run(0, 30, 1.08)]);
-    expect(cameraAt(t, 31, vertical, vertical).scale).toBeCloseTo(1.08);
+    expect(framingAt(t, 31, vertical, {}, vertical).camera.scale).toBeCloseTo(1.08);
+  });
+});
+
+describe("framingAt", () => {
+  // A portrait take and a landscape take centred, unscaled, in one square canvas.
+  const canvas = { width: 1920, height: 1920 };
+  const regions = {
+    c1: { x: 420, y: 0, width: 1080, height: 1920 },
+    c2: { x: 0, y: 420, width: 1920, height: 1080 },
+  };
+  const landscape = { width: 1920, height: 1080 };
+  const mixed = timeline([
+    { ...run(0, 30), clip: "c1" },
+    { ...run(30, 60, 1, { cx: 0.5, cy: 0.5 }), clip: "c2" },
+  ]);
+
+  /** The canvas rectangle the output frame shows. */
+  function shown(t: { scale: number; x: number; y: number }, frame: { width: number; height: number }) {
+    return {
+      left: -t.x / t.scale,
+      top: -t.y / t.scale,
+      right: (frame.width - t.x) / t.scale,
+      bottom: (frame.height - t.y) / t.scale,
+    };
+  }
+
+  it("fills a 9x16 frame from the landscape take's own region, never the padding", () => {
+    const { camera, layout } = framingAt(mixed, 40, canvas, regions, vertical);
+    const r = regions.c2;
+    const view = shown(camera, layout.box);
+    expect(layout.mode).toBe("cover");
+    expect(view.left).toBeGreaterThanOrEqual(r.x - 1e-6);
+    expect(view.top).toBeCloseTo(r.y);
+    expect(view.right).toBeLessThanOrEqual(r.x + r.width + 1e-6);
+    expect(view.bottom).toBeCloseTo(r.y + r.height);
+    // The face centre of the landscape take lands in the middle of the frame's width.
+    expect(camera.x + (r.x + 0.5 * r.width) * camera.scale).toBeCloseTo(540);
+  });
+
+  it("frames the portrait take from its region in the same canvas", () => {
+    const { camera, layout } = framingAt(mixed, 10, canvas, regions, vertical);
+    const view = shown(camera, layout.box);
+    expect(view.left).toBeCloseTo(420);
+    expect(view.right).toBeCloseTo(1500);
+    expect(camera.scale).toBeCloseTo(1);
+  });
+
+  it("chooses the layout per run: fit-blur for the portrait take in 16x9, cover for the landscape one", () => {
+    expect(framingAt(mixed, 10, canvas, regions, landscape).layout.mode).toBe("fitBlur");
+    expect(framingAt(mixed, 40, canvas, regions, landscape).layout.mode).toBe("cover");
+  });
+
+  it("uses the whole canvas for a clip with no region", () => {
+    const { region } = framingAt(timeline([run(0, 30)]), 0, vertical, {}, vertical);
+    expect(region).toEqual({ x: 0, y: 0, width: 1080, height: 1920 });
   });
 });

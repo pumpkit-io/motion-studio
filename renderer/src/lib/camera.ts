@@ -84,10 +84,27 @@ function zoomProgress(timeline: CameraTimeline, zoom: TimelineZoom, frame: numbe
   return 0;
 }
 
-/** The A-roll transform inside `box` at `frame`: that run's face centre and the camera scale. */
-export function cameraAt(timeline: CameraTimeline, frame: number, source: Size, box: Size): Transform {
+/** Where each A-roll clip sits in the assembled canvas, keyed by clip ID. */
+export type Regions = Record<string, Box>;
+
+export type Framing = { region: Box; layout: Layout; camera: Transform };
+
+/**
+ * The A-roll framing at `frame`, from the showing run's own region of the canvas: its layout
+ * follows that clip's shape and the pan never leaves the region, so padding never shows.
+ */
+export function framingAt(timeline: CameraTimeline, frame: number, canvas: Size, regions: Regions, format: Size): Framing {
   const run = runAt(timeline.runs, frame);
-  return coverTransform(source, box, run?.crop ?? { cx: 0.5, cy: 0.5 }, scaleAt(timeline, frame));
+  const region = (run && regions[run.clip]) ?? { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  const layout = layoutFor(region, format);
+  const camera = regionTransform(region, layout.box, run?.crop ?? { cx: 0.5, cy: 0.5 }, scaleAt(timeline, frame));
+  return { region, layout, camera };
+}
+
+/** `coverTransform` for a sub-rectangle of the source: placed as if it were the whole source. */
+export function regionTransform(region: Box, frame: Size, crop: Crop, scale: number): Transform {
+  const t = coverTransform(region, frame, crop, scale);
+  return { scale: t.scale, x: t.x - region.x * t.scale, y: t.y - region.y * t.scale };
 }
 
 function clamp(value: number, min: number, max: number): number {

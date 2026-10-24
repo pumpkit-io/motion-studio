@@ -1,5 +1,5 @@
 import { AbsoluteFill, OffthreadVideo, staticFile, useCurrentFrame } from "remotion";
-import { cameraAt, coverTransform, layoutFor, type Transform } from "../lib/camera";
+import { framingAt, regionTransform, type Transform } from "../lib/camera";
 import type { FormatSpec } from "../lib/timeline";
 import type { ReelProps } from "../props";
 
@@ -7,8 +7,7 @@ export const BaseVideo: React.FC<{ props: ReelProps; format: FormatSpec }> = ({ 
   const frame = useCurrentFrame();
   const { source, timeline } = props;
   const src = staticFile(props.video);
-  const layout = layoutFor(source, format);
-  const camera = cameraAt(timeline, frame, source, layout.box);
+  const { region, layout, camera } = framingAt(timeline, frame, source, props.regions, format);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {layout.mode === "fitBlur" ? (
@@ -17,7 +16,7 @@ export const BaseVideo: React.FC<{ props: ReelProps; format: FormatSpec }> = ({ 
             src={src}
             muted
             // Overscaled so the blur's soft edges stay outside the frame.
-            style={placed(source, coverTransform(source, format, { cx: 0.5, cy: 0.5 }, 1.15), "blur(40px) brightness(0.55)")}
+            style={placed(source, regionTransform(region, format, { cx: 0.5, cy: 0.5 }, 1.15), "blur(40px) brightness(0.55)")}
           />
         </AbsoluteFill>
       ) : null}
