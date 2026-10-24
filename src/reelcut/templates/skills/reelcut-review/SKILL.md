@@ -25,5 +25,6 @@ description: How to read reelcut check reports and turn user feedback on a previ
 | "music too loud" | Lower music `gain_db` by 3–4 dB |
 | "different music" | New `seed` (same vibe) or new `prompt` |
 | "remove X" | Find the utterance in packed.md, then split the segment around it or leave it out |
+| "no captions over the B-roll" | Set `"captions": {"hide_during_broll": true}` (full-frame B-roll and images only) |
 
 Record the feedback and how you applied it in `notes.md` so it carries over to the next video.

@@ -28,6 +28,7 @@ const defaultProps: ReelProps = {
       max_chars_per_page: null,
       keep_with_next: [],
       uppercase: false,
+      hide_during_broll: false,
       highlight_color: "#FFD400",
       text_color: "#FFFFFF",
       stroke_color: "#000000",

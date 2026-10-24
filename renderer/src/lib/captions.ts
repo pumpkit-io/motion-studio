@@ -1,5 +1,5 @@
 import { createTikTokStyleCaptions, type Caption } from "@remotion/captions";
-import type { TimelineWord } from "./timeline";
+import type { TimelineEvent, TimelineWord } from "./timeline";
 
 /** A gap this long between words always starts a new page. */
 const SILENCE_BREAK_MS = 700;
@@ -100,4 +100,12 @@ export function pageCaptions(words: readonly TimelineWord[], options: PagingOpti
 
 function normalise(word: string): string {
   return word.toLowerCase().replace(/[^\p{L}\p{N}'’]/gu, "");
+}
+
+/** True while `hide` is on and a full-frame B-roll clip or image covers the speaker at `frame`. */
+export function captionsHidden(hide: boolean, events: readonly TimelineEvent[], frame: number): boolean {
+  if (!hide) return false;
+  return events.some(
+    (e) => (e.type === "broll" || e.type === "image") && e.mode === "full" && frame >= e.start && frame < e.end,
+  );
 }

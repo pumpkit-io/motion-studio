@@ -32,7 +32,8 @@ style = "pop"                 # pop | clean | karaoke
 font = "Inter"                # or a path in library/brand/fonts
 max_words_per_page = 3
 uppercase = false
-highlight_color = "#FFD400"     # colours are #RRGGBB or #RGB
+hide_during_broll = false     # true: no captions over full-frame B-roll or images
+highlight_color = "#FFD400"   # colours are #RRGGBB or #RGB
 text_color = "#FFFFFF"
 stroke_color = "#000000"
 

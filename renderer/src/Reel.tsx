@@ -18,7 +18,14 @@ export const Reel: React.FC<ReelProps> = (props) => {
       <Broll events={timeline.events} format={format} />
       {props.logo_file !== null ? <Logo file={props.logo_file} format={format} events={timeline.events} /> : null}
       <Titles events={timeline.events} format={format} brand={timeline.brand} font={font} />
-      <Captions words={timeline.words} settings={timeline.captions} brand={timeline.brand} format={format} font={font} />
+      <Captions
+        words={timeline.words}
+        events={timeline.events}
+        settings={timeline.captions}
+        brand={timeline.brand}
+        format={format}
+        font={font}
+      />
     </AbsoluteFill>
   );
 };

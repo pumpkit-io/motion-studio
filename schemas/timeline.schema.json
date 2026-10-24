@@ -233,6 +233,11 @@
           "title": "Font",
           "type": "string"
         },
+        "hide_during_broll": {
+          "description": "Hide captions while a full-frame B-roll clip or image is on screen.",
+          "title": "Hide During Broll",
+          "type": "boolean"
+        },
         "highlight_color": {
           "description": "#RRGGBB; #RGB is accepted and expanded.",
           "pattern": "^#[0-9A-F]{6}$",
@@ -296,6 +301,7 @@
         "font",
         "max_words_per_page",
         "uppercase",
+        "hide_during_broll",
         "highlight_color",
         "text_color",
         "stroke_color",

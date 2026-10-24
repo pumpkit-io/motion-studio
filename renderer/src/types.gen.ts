@@ -44,6 +44,10 @@ export interface TimelineCaptions {
   enabled: boolean;
   font: string;
   /**
+   * Hide captions while a full-frame B-roll clip or image is on screen.
+   */
+  hide_during_broll: boolean;
+  /**
    * #RRGGBB; #RGB is accepted and expanded.
    */
   highlight_color: string;

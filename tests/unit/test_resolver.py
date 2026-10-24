@@ -242,6 +242,16 @@ def test_language_captions_and_music_come_from_the_edl_over_the_config() -> None
     ]
 
 
+def test_hiding_captions_during_full_b_roll_is_off_unless_configured() -> None:
+    one = edl(("a", "c1.s0", "c1.s0"))
+    hidden = Config.model_validate({"captions": {"hide_during_broll": True}})
+    overridden = edl(("a", "c1.s0", "c1.s0"), captions={"hide_during_broll": False})
+
+    assert resolve([TWO_LINES], one, Config()).timeline.captions.hide_during_broll is False
+    assert resolve([TWO_LINES], one, hidden).timeline.captions.hide_during_broll is True
+    assert resolve([TWO_LINES], overridden, hidden).timeline.captions.hide_during_broll is False
+
+
 def test_an_edl_longer_than_its_limit_gets_a_warning() -> None:
     result = resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s1"), max_duration_s=1), Config())
 
