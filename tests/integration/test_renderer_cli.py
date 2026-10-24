@@ -82,6 +82,7 @@ def props(tmp_path: Path, fmt: str) -> Path:
         "timeline": timeline,
         "format": fmt,
         "source": SOURCE,
+        "regions": {"c1": {"x": 0, "y": 0, **SOURCE}},
         "video": "assembled.mp4",
         "font_file": None,
         "logo_file": None,
