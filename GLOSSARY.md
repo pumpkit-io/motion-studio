@@ -180,6 +180,14 @@ _Avoid_: QA run, validation (validation is of the EDL, not of a render)
 A cut that removes part of a word that should have been kept. A check that finds one blocks delivery.
 _Avoid_: Bad cut
 
+**Caption page**:
+The two or three spoken words shown on screen together as a caption.
+_Avoid_: Chunk, line, subtitle
+
+**Caption style**:
+How the words on a caption page are revealed: `clean` (all at once, still), `karaoke` (spoken words change colour) or `pop` (the active word changes colour and grows).
+_Avoid_: Animation, preset
+
 **Review gate**:
 An optional stop after the plan or after the preview, where the host agent waits for the creator's go-ahead.
 _Avoid_: Approval step, checkpoint
