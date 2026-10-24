@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from reelcut import APP_NAME, __version__
+from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
 from reelcut.errors import DependencyError
 from reelcut.media.ffmpeg import ffmpeg_caps
 from reelcut.paths import cache_dir, envs_dir, models_dir, renderer_dir
@@ -190,6 +191,7 @@ def _cache_checks() -> list[Check]:
     models = models_dir()
     ace = envs_dir() / "ace-step"
     has_models = models.is_dir() and any(models.iterdir())
+    deep_filter = deep_filter_binary()
     return [
         Check(
             "renderer",
@@ -211,6 +213,13 @@ def _cache_checks() -> list[Check]:
             False,
             str(ace),
             None if ace.is_dir() else setup_music,
+        ),
+        Check(
+            "deepfilternet",
+            "ok" if deep_filter else "warn",
+            False,
+            str(deep_filter) if deep_filter else "not found; ingest falls back to ffmpeg arnndn",
+            None if deep_filter else f"{setup}, or put deep-filter {DEEP_FILTER_VERSION} on PATH",
         ),
     ]
 

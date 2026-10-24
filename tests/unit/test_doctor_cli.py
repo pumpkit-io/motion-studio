@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -112,3 +113,26 @@ def test_doctor_human_output_is_short(fake_tools: FakeTools) -> None:
     assert result.exit_code == 0
     assert len(result.output.splitlines()) <= 30
     assert "ffmpeg" in result.output
+
+
+def test_doctor_warns_when_deepfilternet_is_missing(fake_tools: FakeTools) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    code, payload = doctor_json()
+    assert code == 0
+    deep_filter = check(payload, "deepfilternet")
+    assert deep_filter["status"] == "warn"
+    assert "arnndn" in deep_filter["detail"]
+
+
+def test_doctor_finds_deepfilternet_in_the_cache(
+    fake_tools: FakeTools, isolated_cache: Path
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    binary = isolated_cache / "bin" / "deep-filter"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("", encoding="utf-8")
+    _, payload = doctor_json()
+    assert check(payload, "deepfilternet")["status"] == "ok"
+    assert str(binary) in check(payload, "deepfilternet")["detail"]

@@ -168,3 +168,36 @@ Deviations and why:
 - No `retakes.schema.json`: the ticket asks only for the analysis schema. The model exists for the analyze stage to write `retakes.json`.
 
 Open issues: none.
+
+## Phase 3: ingest (ticket #5)
+
+Built:
+
+- `reelcut ingest <slug>` (`--json`), in `reelcut.ingest`. It calls the disk guard, takes the project lock, probes every visible file in `raw/` (sorted), and gives each new one the next free ID for its provisional role: `c` for a video whose audio peaks above -35 dBFS, `b` for a quieter or silent video, `i` for an image. IDs live in `project.toml` as `[clips.<id>]` with `source`, `role` and `auto_role`. A `role` that differs from `auto_role` is the creator's override; ingest never changes it, and `record_auto_role()` (for the role-finalisation ticket) only moves `role` along with `auto_role` when they agree. IDs are never renumbered or reused; a source that vanished from `raw/` keeps its ID and gets a warning.
+- Mezzanines (`reelcut.media.normalise`): `media/<id>.mp4`, `fps=<project fps>` + `-fps_mode cfr`, rotation applied by ffmpeg's autorotate, long side capped at 3840 px with even dimensions, H.264 High CRF 15 `-preset fast`, GOP of one second, `yuv420p`, `+faststart`, original audio as AAC for reference. HDR (HLG, PQ) is tone-mapped per ADR 0003: `scale_vt` on macOS, `zscale` + `tonemap` (hable) where zscale exists, otherwise `colorspace` with a warning; tone-mapped output is tagged BT.709. A method that fails at run time falls through to the next with a warning. `REELCUT_TONEMAP` forces one method.
+- Voice (`reelcut.audio.enhance`): 48 kHz mono extract, DeepFilterNet 3 (`deep-filter --compensate-delay`), or ffmpeg `arnndn` with the vendored `sh.rnnn` model and a warning, then an 80 Hz high-pass, padded or trimmed to the exact source sample count: `media/<id>.wav` (48 kHz) and `media/<id>_16k.wav` (16 kHz, for ASR and VAD). `install_deep_filter()` downloads the pinned 0.5.6 binary into `<cache>/bin/deep-filter` and checks its SHA-256; `doctor` reports it (warn when missing).
+- Images: EXIF orientation applied, fitted within 4096 px, ICC profile converted to sRGB, saved as `media/<id>.jpg` for opaque JPEGs and `media/<id>.png` otherwise.
+- `media/manifest.json` lists each clip's media (paths, size, fps, duration, HDR, tone-map method, denoiser) for later stages; `load_manifest()` and `load_clips()` read it and `project.toml`.
+- Freshness: the stage is fresh when `raw/` and the parameters (recipe version, fps, available denoiser) are unchanged and every output exists; then ingest touches nothing. Each clip also has its own record (`ingest.<id>` in `state.json`), so adding a file only processes that file. Installing DeepFilterNet later makes the stage stale, so the voice gets re-cleaned.
+- Every fallback prints one `warning:` line on stderr and is recorded in `state.json` under the ingest stage; warnings of clips skipped as unchanged are carried over.
+
+Checked (acceptance):
+
+- Fixtures (`tests/integration/test_ingest_fixtures.py`, `slow`, `mac`): every video mezzanine has `avg_frame_rate` = `r_frame_rate` = 30, no HLG/PQ transfer, and container and voice durations within one frame of the source; this includes the VFR talking clips and `prova clip è.mov`.
+- HLG: a 10-bit HEVC BT.2020 HLG clip made with ffmpeg comes out tagged `bt709` primaries, transfer and matrix, with `scale_vt` on this Mac and different pixel values from the untone-mapped source. The `colorspace` fallback is tested with its warning and state record.
+- Re-run with unchanged inputs leaves every file in `media/` and `project.toml` untouched (mtimes compared). A file added to `raw/` that sorts first gets `c2` while `c1` keeps its source and is not re-encoded. A `role = "broll"` override survives re-ingest.
+- DeepFilterNet verified on arm64 macOS: the 0.5.6 `aarch64-apple-darwin` binary ran in the fixture test, all three talking clips report `denoiser = "deepfilternet"` and ingest raised no warnings. Ingesting the 21 s clip, the B-roll and the image took about 5 s.
+
+Deviations and why:
+
+- DeepFilterNet runs as the official release binary, not the `deepfilternet` pip package, which has no Python 3.12 wheel and requires numpy < 2.
+- The `arnndn` fallback needs a model file, so `sh.rnnn` (RNNoise "somnolent-hogwash", speech in recording noise; not copyrighted per its README) ships inside the package and works offline.
+- The provisional role uses the audio peak only; the analysis tickets replace it with speech and face evidence via `record_auto_role()`.
+- `project.toml` is rewritten with `tomli-w` when new clips are added, which drops comments the creator wrote in it. Values, including overrides, are kept.
+- Audio-only files and files ffprobe cannot read are skipped with a warning and get no ID.
+
+Open issues:
+
+- HEIC/HEIF photos are not decoded (Pillow has no HEIF support without `pillow-heif`); ingest fails with a hint to convert them. iPhones save photos as HEIC by default.
+- `reelcut setup` does not exist yet; whichever ticket adds it should call `reelcut.audio.enhance.install_deep_filter()`. Until then, `deep-filter` can be put on PATH or the integration test installs it into the cache.
+- The `zscale` path is not exercised on the build machine (Homebrew ffmpeg lacks zscale); CI's Ubuntu ffmpeg runs it in the HLG test.
