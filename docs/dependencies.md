@@ -100,3 +100,13 @@ All four require or recommend `name` and `description` frontmatter in `SKILL.md`
 | Item | Value | How checked |
 |---|---|---|
 | rapidfuzz | 3.14.6 | `fuzz.token_set_ratio` run in the venv: float 0-100, a word subset scores 100 |
+
+## EDL and timeline (ticket #10, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| json-schema-to-typescript | 16.0.0 (MIT, Node >= 16) | `npm view`; `json2ts --help` for `--bannerComment`, `--unknownAny` and stdin input. Renderer devDependency; `scripts/gen_schemas.py` runs `renderer/node_modules/.bin/json2ts` |
+| hypothesis | 6.170.9 | `st.composite`, `st.DrawFn`, `st.permutations`, `st.randoms(use_true_random=False)` run in the property tests |
+| pydantic | 2.14.1 | `json_schema_serialization_defaults_required` with `model_json_schema(mode="serialization")` marks defaulted timeline fields required |
+
+npm 11.6.0 drops every platform-specific optional package (`@rolldown/binding-*`, `lightningcss-*`, `fsevents`) from `package-lock.json` whenever it rewrites the lock, after which vitest cannot find its native binding (npm/cli#4828). The entries were merged back from the previous lock and `npm ci` verified. Re-check the lock diff after any renderer dependency change.
