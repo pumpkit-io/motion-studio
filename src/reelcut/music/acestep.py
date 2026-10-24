@@ -119,6 +119,7 @@ def install(step: Callable[[str], None]) -> tuple[Install, bool]:
     out = _run(
         [
             str(env_python()),
+            "-I",
             str(worker_script()),
             "download",
             WEIGHTS_REPO,
@@ -174,7 +175,7 @@ def default_timeout_s(duration_s: float) -> float:
             return float(value)
         except ValueError as exc:
             raise UserError(f"{TIMEOUT_ENV}={value!r} is not a number") from exc
-    return 300 + 10 * duration_s
+    return 600 + 10 * duration_s
 
 
 def generate(
@@ -201,7 +202,8 @@ def generate(
                 f"the ACE-Step environment is not installed in {env_root()}",
                 hint=f'run `{APP_NAME} setup --music` once while online, or set "mode": "library"',
             )
-        command = [str(env_python()), str(worker_script()), "generate"]
+        # -I keeps the script's directory off sys.path: this module would shadow `acestep`.
+        command = [str(env_python()), "-I", str(worker_script()), "generate"]
     job = {
         "prompt": prompt,
         "duration": round(duration_s, 3),

@@ -165,3 +165,15 @@ The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/n
 | faster-whisper 1.2.1 | `WhisperModel(path, device="cpu", compute_type="int8")`; `transcribe(..., word_timestamps=True, vad_filter=False, clip_timestamps=[...], hallucination_silence_threshold=, condition_on_previous_text=False)`; `detect_language(audio)` returns `(code, prob, [(code, prob), ...])` | Read from the installed package source |
 | CTranslate2 model | `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf`. faster-whisper's own `large-v3-turbo` alias names `mobiuslabsgmbh/...`, which Hugging Face now redirects to this repository | Hugging Face API (HTTP 307 on the old name) |
 | huggingface_hub | 2.3.0 (pulled by both backends); models go to `<cache>/models/huggingface` through `snapshot_download(cache_dir=...)` | `uv pip show` |
+
+## Music (ticket #14, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| ACE-Step 1.5 source | `ace-step/ACE-Step-1.5` @ `ca1e85fe9430179831e6bc6be790c332190a3866` (main on 2026-10-24), package `ace-step` 1.5.0, Python `>=3.11,<3.13` | `gh api`; `pyproject.toml` at that commit |
+| Install on Apple Silicon | The official README and `docs/en/INSTALL.md`: get the source, `uv sync`; macOS gets `torch>=2.9.1`, `mlx>=0.25.2` and `mlx-lm` by platform markers, and the MLX DiT and VAE are used automatically on MPS. reelcut downloads the commit tarball and runs `uv sync --frozen` in `<cache>/envs/ace-step/src` | README, INSTALL.md and the startup log (`MLX-DiT ... initialized`, `Native MLX VAE initialized`) |
+| Weights | `ACE-Step/Ace-Step1.5` @ `19671f406d603126926c1b7e2adc169acbcade22`: `acestep-v15-turbo` (DiT, 8 steps), `vae`, `Qwen3-Embedding-0.6B`, `acestep-5Hz-lm-1.7B`; 9.4 GB in `src/checkpoints`, where `initialize_service(project_root=...)` looks | Hugging Face API; `MAIN_MODEL_COMPONENTS` in `acestep/model_downloader.py` |
+| Python API | `AceStepHandler().initialize_service(project_root, config_path="acestep-v15-turbo", device="auto")` returns `(status, ok)`; `generate_music(dit_handler, llm_handler, GenerationParams, GenerationConfig, save_dir)`; `llm_handler=None` with `thinking=False` runs the DiT alone (`use_lm` is False) | `docs/en/INFERENCE.md`; `acestep/inference.py`, `init_service_orchestrator.py` |
+| Duration, BPM, seed | `GenerationParams(duration=<s>, bpm=<int>, seed=<int>)` with `GenerationConfig(batch_size=1, use_random_seed=False, seeds=[seed], audio_format="wav")`; output 48 kHz stereo WAV, normalised to −1 dBFS peak | INFERENCE.md; the generated file |
+| Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so reelcut sends it and runs the VAD check | `grep` of `acestep/` |
+| librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)` | `inspect.signature` on the installed package |

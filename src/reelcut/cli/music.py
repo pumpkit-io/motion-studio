@@ -26,7 +26,8 @@ def music(slug: Slug, as_json: JsonOption = False) -> None:
     elif info.mode == "generate":
         tries = len(info.attempts)
         lines.append(
-            f'music: generated {info.duration_s:.1f} s, seed {info.seed}, "{info.prompt}"'
+            f"music: generated {info.duration_s:.1f} s in {info.elapsed_s:.0f} s, "
+            f'seed {info.seed}, "{info.prompt}"'
             + (f" ({tries} attempts, earlier ones had vocals)" if tries > 1 else "")
         )
         lines.append(f"  model {info.model}, licence {info.licence or 'UNVERIFIED'}")

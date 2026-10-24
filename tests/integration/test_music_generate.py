@@ -49,7 +49,7 @@ def test_music_generates_a_60_second_instrumental(
     monkeypatch.chdir(ws)
     assert invoke("new", "demo", "--from", take).exit_code == 0
     project = ws / "projects" / "demo"
-    (project / "analysis" / "c1.json").write_text(talking_clip(57.5).model_dump_json())
+    (project / "analysis" / "c1.json").write_text(talking_clip(58.0).model_dump_json())
     assert invoke("plan", "draft", "demo").exit_code == 0
     edl = json.loads((project / "edl.json").read_text())
     edl["music"] = {
