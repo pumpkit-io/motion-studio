@@ -1,0 +1,718 @@
+{
+  "$defs": {
+    "BrollEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "description": "B-roll clip ID: b1.",
+          "title": "Asset",
+          "type": "string"
+        },
+        "asset_in_s": {
+          "default": 0,
+          "description": "Where in the B-roll clip to start.",
+          "minimum": 0,
+          "title": "Asset In S",
+          "type": "number"
+        },
+        "end": {
+          "description": "Shown until the end of this anchor.",
+          "title": "End",
+          "type": "string"
+        },
+        "mode": {
+          "default": "full",
+          "description": "full: full-frame cutaway. pip: card over the speaker.",
+          "enum": [
+            "full",
+            "pip"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "start": {
+          "description": "Shown from the start of this anchor.",
+          "title": "Start",
+          "type": "string"
+        },
+        "type": {
+          "const": "broll",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "asset",
+        "start",
+        "end"
+      ],
+      "title": "BrollEvent",
+      "type": "object"
+    },
+    "DropRange": {
+      "additionalProperties": false,
+      "description": "Source time to cut out, for audio no word points at (unaligned voice).",
+      "properties": {
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "end": {
+          "description": "Source seconds.",
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "description": "Source seconds.",
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "clip",
+        "start",
+        "end"
+      ],
+      "title": "DropRange",
+      "type": "object"
+    },
+    "EdlCaptions": {
+      "additionalProperties": false,
+      "description": "Overrides of the config's [captions] for this video.",
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "max_words_per_page": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Words Per Page"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "enum": [
+                "pop",
+                "clean",
+                "karaoke"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Style"
+        },
+        "uppercase": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uppercase"
+        }
+      },
+      "title": "EdlCaptions",
+      "type": "object"
+    },
+    "EdlMusic": {
+      "additionalProperties": false,
+      "description": "The music bed. Unset keys fall back to the config's [music].",
+      "properties": {
+        "bpm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bpm"
+        },
+        "gain_db": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gain Db"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "generate",
+                "library",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mood prompt for generation.",
+          "title": "Prompt"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "track": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Library track, for mode library.",
+          "title": "Track"
+        }
+      },
+      "title": "EdlMusic",
+      "type": "object"
+    },
+    "EmphasisEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "emphasis",
+          "title": "Type",
+          "type": "string"
+        },
+        "words": {
+          "description": "Word IDs drawn in the accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Words",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "words"
+      ],
+      "title": "EmphasisEvent",
+      "type": "object"
+    },
+    "ImageEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "description": "Image clip ID: i1.",
+          "title": "Asset",
+          "type": "string"
+        },
+        "end": {
+          "description": "A word ID (c1.w52), an utterance ID (c1.s4) or, for event anchors, a segment ID (hook).",
+          "title": "End",
+          "type": "string"
+        },
+        "mode": {
+          "default": "full",
+          "enum": [
+            "full",
+            "pip"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "motion": {
+          "default": "kenburns",
+          "enum": [
+            "kenburns",
+            "none"
+          ],
+          "title": "Motion",
+          "type": "string"
+        },
+        "start": {
+          "description": "A word ID (c1.w52), an utterance ID (c1.s4) or, for event anchors, a segment ID (hook).",
+          "title": "Start",
+          "type": "string"
+        },
+        "type": {
+          "const": "image",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "asset",
+        "start",
+        "end"
+      ],
+      "title": "ImageEvent",
+      "type": "object"
+    },
+    "Policy": {
+      "additionalProperties": false,
+      "description": "Trimming rules for this EDL. Every key is optional and overrides the config's [edit].",
+      "properties": {
+        "drop_fillers": {
+          "anyOf": [
+            {
+              "enum": [
+                "none",
+                "hard",
+                "hard+soft"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Which tagged fillers are removed automatically.",
+          "title": "Drop Fillers"
+        },
+        "jumpcut_punch": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Alternate the base zoom at jump cuts so they read as deliberate.",
+          "title": "Jumpcut Punch"
+        },
+        "jumpcut_punch_scale": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scale of the punched-in runs.",
+          "title": "Jumpcut Punch Scale"
+        },
+        "max_pause_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Longer pauses between kept words are cut down to this.",
+          "title": "Max Pause Ms"
+        },
+        "min_segment_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shorter runs are dropped, with a warning.",
+          "title": "Min Segment Ms"
+        },
+        "pad_in_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kept before a run's first word.",
+          "title": "Pad In Ms"
+        },
+        "pad_out_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kept after a run's last word.",
+          "title": "Pad Out Ms"
+        }
+      },
+      "title": "Policy",
+      "type": "object"
+    },
+    "PushEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "description": "Segment ID; the push-in runs across the whole segment.",
+          "title": "From",
+          "type": "string"
+        },
+        "scale": {
+          "default": 1.06,
+          "description": "Scale reached at the segment's end.",
+          "minimum": 1,
+          "title": "Scale",
+          "type": "number"
+        },
+        "type": {
+          "const": "push",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "from"
+      ],
+      "title": "PushEvent",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "description": "A range of words from one clip. Segment order is output order.",
+      "properties": {
+        "from": {
+          "description": "First word kept: a word ID, or an utterance ID meaning its first word.",
+          "title": "From",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique name, usable as an event anchor: hook, body1, cta.",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "to": {
+          "description": "Last word kept: a word ID, or an utterance ID meaning its last word.",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "TitleEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "description": "A word ID (c1.w52), an utterance ID (c1.s4) or, for event anchors, a segment ID (hook).",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "description": "A word ID (c1.w52), an utterance ID (c1.s4) or, for event anchors, a segment ID (hook).",
+          "title": "Start",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "title",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text",
+        "start",
+        "end"
+      ],
+      "title": "TitleEvent",
+      "type": "object"
+    },
+    "ZoomEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "description": "Zoom starts at the start of this anchor.",
+          "title": "At",
+          "type": "string"
+        },
+        "ease": {
+          "default": "snap",
+          "enum": [
+            "snap",
+            "smooth"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "hold_until": {
+          "anyOf": [
+            {
+              "description": "A word ID (c1.w52), an utterance ID (c1.s4) or, for event anchors, a segment ID (hook).",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Zoom holds until the end of this anchor; default: end of `at`.",
+          "title": "Hold Until"
+        },
+        "scale": {
+          "default": 1.15,
+          "minimum": 1,
+          "title": "Scale",
+          "type": "number"
+        },
+        "type": {
+          "const": "zoom",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "at"
+      ],
+      "title": "ZoomEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The edit: which words to keep, in which order, and what to layer on top.",
+  "properties": {
+    "captions": {
+      "$ref": "#/$defs/EdlCaptions"
+    },
+    "drop_ranges": {
+      "items": {
+        "$ref": "#/$defs/DropRange"
+      },
+      "title": "Drop Ranges",
+      "type": "array"
+    },
+    "drop_words": {
+      "description": "Word IDs cut out of their segments.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Drop Words",
+      "type": "array"
+    },
+    "events": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "broll": "#/$defs/BrollEvent",
+            "emphasis": "#/$defs/EmphasisEvent",
+            "image": "#/$defs/ImageEvent",
+            "push": "#/$defs/PushEvent",
+            "title": "#/$defs/TitleEvent",
+            "zoom": "#/$defs/ZoomEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/ZoomEvent"
+          },
+          {
+            "$ref": "#/$defs/PushEvent"
+          },
+          {
+            "$ref": "#/$defs/BrollEvent"
+          },
+          {
+            "$ref": "#/$defs/ImageEvent"
+          },
+          {
+            "$ref": "#/$defs/TitleEvent"
+          },
+          {
+            "$ref": "#/$defs/EmphasisEvent"
+          }
+        ]
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "formats": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "9x16",
+              "16x9",
+              "4x5"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Default: config formats.",
+      "title": "Formats"
+    },
+    "keep_words": {
+      "description": "Word IDs kept although the policy drops them as fillers.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Keep Words",
+      "type": "array"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Caption language; default: project's.",
+      "title": "Language"
+    },
+    "max_duration_s": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Duration S"
+    },
+    "music": {
+      "$ref": "#/$defs/EdlMusic"
+    },
+    "policy": {
+      "$ref": "#/$defs/Policy"
+    },
+    "rationale": {
+      "default": "",
+      "title": "Rationale",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "segments": {
+      "items": {
+        "$ref": "#/$defs/Segment"
+      },
+      "minItems": 1,
+      "title": "Segments",
+      "type": "array"
+    },
+    "title": {
+      "default": "",
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "segments"
+  ],
+  "title": "Edl",
+  "type": "object"
+}

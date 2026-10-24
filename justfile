@@ -30,6 +30,10 @@ test-all:
     uv run pytest
     cd renderer && npx vitest run --passWithNoTests
 
+# The resolver's test bar (spec #1, seam 2): at least 95% line coverage of src/reelcut/edl.
+edl-coverage:
+    uv run pytest -q tests/unit/test_edl_*.py tests/unit/test_resolver*.py --cov=reelcut.edl --cov-report=term-missing --cov-fail-under=95
+
 schema:
     uv run python scripts/gen_schemas.py
 
@@ -42,4 +46,4 @@ schema-check: schema
 fixtures:
     uv run python scripts/make_fixtures.py
 
-ci: lint schema-check test
+ci: lint schema-check test edl-coverage
