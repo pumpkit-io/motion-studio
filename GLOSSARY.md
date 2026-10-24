@@ -181,7 +181,7 @@ A cut that removes part of a word that should have been kept. A check that finds
 _Avoid_: Bad cut
 
 **Caption page**:
-The two or three spoken words shown on screen together as a caption.
+The spoken words shown on screen together as a caption: at most `max_words_per_page`, and at least two unless a sentence end, a long silence or the caps leave a word alone.
 _Avoid_: Chunk, line, subtitle
 
 **Caption style**:

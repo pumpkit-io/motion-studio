@@ -103,6 +103,12 @@ describe("pageCaptions", () => {
     expect(texts(pages)).toEqual(["Oggi ho", "visto tutto."]);
   });
 
+  it("merges a lone word into a previous page that still has room", () => {
+    // Carrying "il" leaves "ab cd" one word short; carrying "di" past the character cap leaves "il" alone.
+    const pages = pageCaptions(words("ab cd il di efghijklmn"), { ...options, maxChars: 12, keepWithNext: ["il", "di"] });
+    expect(texts(pages)).toEqual(["ab cd il", "di efghijklmn"]);
+  });
+
   it("rebalances three words and a lone word into two pages of two", () => {
     const pages = pageCaptions(words("uno due tre quattro"), options);
     expect(texts(pages)).toEqual(["uno due", "tre quattro"]);

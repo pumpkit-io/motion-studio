@@ -4,6 +4,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## Unreleased
 
+### Changed
+
+- New workspaces caption in the `clean` caption style, set in TikTok Sans 700 with a thinner outline. TikTok Sans is bundled next to Inter, so renders stay offline. Existing workspaces keep `style = "pop"` and `font = "Inter"` until they set `style = "clean"` and `font = "TikTok Sans"` under `[captions]` in `reelcut.toml`. The thinner outline applies to every caption style.
+- Titles use the caption font's weight: 700 for TikTok Sans, 800 for Inter and for brand font files.
+- A caption page holds at least two words where it can: a lone word joins a neighbouring page, or the two are rebalanced into two pages of two or more words. A lone word still stands alone after a sentence end or a long silence, or when no split keeps the word, character and width caps.
+
 ## 0.1.0 - 2026-10-24
 
 The first release: a coding agent can edit talking-head footage into Reels and X videos on a Mac, offline.

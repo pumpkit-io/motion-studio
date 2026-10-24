@@ -12,14 +12,17 @@ const LATIN =
 const LATIN_EXT =
   "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF";
 
-export type BundledFont = "TikTok Sans" | "Inter";
-
-const BUNDLED: Record<BundledFont, { weight: number; latin: string; latinExt: string }> = {
+const BUNDLED = {
   "TikTok Sans": { weight: 700, latin: tiktokSansLatin, latinExt: tiktokSansLatinExt },
   Inter: { weight: 800, latin: interLatin, latinExt: interLatinExt },
-};
+} satisfies Record<string, { weight: number; latin: string; latinExt: string }>;
 
-/** Brand font files are drawn at the weight Inter used before fonts carried their own. */
+export type BundledFont = keyof typeof BUNDLED;
+
+/** Used when the props name no bundled font. */
+const DEFAULT_FONT: BundledFont = "TikTok Sans";
+
+/** Brand font files draw at 800. */
 const BRAND_WEIGHT = 800;
 
 export type LoadedFont = { family: string; weight: number; ready: boolean };
@@ -29,7 +32,7 @@ export type LoadedFont = { family: string; weight: number; ready: boolean };
  * offline. `ready` turns true once the font is in `document.fonts`, so text can be measured.
  */
 export function useCaptionFont(brandFamily: string, fontFile: string | null, bundled: BundledFont | null): LoadedFont {
-  const name = bundled ?? "TikTok Sans";
+  const name = bundled ?? DEFAULT_FONT;
   const family = fontFile === null ? name : brandFamily;
   const weight = fontFile === null ? BUNDLED[name].weight : BRAND_WEIGHT;
   const [ready, setReady] = useState(false);
