@@ -1,6 +1,6 @@
 """Face detection, run in a model subprocess under the machine-wide heavy-model lock.
 
-MediaPipe Tasks' FaceDetector (BlazeFace short range) is the detector; OpenCV's YuNet is the
+MediaPipe Tasks' FaceDetector (BlazeFace full range) is the detector; OpenCV's YuNet is the
 fallback when MediaPipe or its model is unavailable. `reelcut setup` downloads both models.
 """
 
@@ -40,11 +40,12 @@ class ModelFile:
 
 
 # Both pinned on 2026-10-24; the hashes are of those downloads.
+# Full range, not short range: short range misses faces under about 15% of the frame width.
 MEDIAPIPE_MODEL = ModelFile(
-    "blaze_face_short_range-float16-1.tflite",
+    "blaze_face_full_range-float16-1.tflite",
     "https://storage.googleapis.com/mediapipe-models/face_detector/"
-    "blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-    "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
+    "blaze_face_full_range/float16/1/blaze_face_full_range.tflite",
+    "3698b18f063835bc609069ef052228fbe86d9c9a6dc8dcb7c7c2d69aed2b181b",
 )
 YUNET_MODEL = ModelFile(
     "face_detection_yunet_2023mar.onnx",

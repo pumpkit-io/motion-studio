@@ -19,7 +19,7 @@ def test_setup_leaves_the_denoiser_vad_face_and_speech_models_in_the_cache() -> 
     assert {
         "deepfilternet",
         "silero-vad",
-        "blaze_face_short_range-float16-1.tflite",
+        "blaze_face_full_range-float16-1.tflite",
         "face_detection_yunet_2023mar.onnx",
     } <= items.keys()
     assert any(name in items for name in ("mlx-whisper", "faster-whisper"))

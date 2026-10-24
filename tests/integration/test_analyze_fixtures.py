@@ -23,6 +23,7 @@ from reelcut.audio.enhance import deep_filter_binary
 from reelcut.cli import app
 from reelcut.state import heavy_model_lock
 from reelcut.text import normalise_words
+from reelcut.vision import mediapipe_model_path
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.models]
 
@@ -31,6 +32,8 @@ MEDIA = ROOT / "media"
 TRUTH = ROOT / "ground_truth"
 TALKING = {"en_talking.mov": "en", "it_talking.mov": "it", "prova clip è.mov": "en"}
 FIXTURES = [*TALKING, "broll.mp4", "image.png"]
+TALKING_TRUTH = {"en_talking.mov": "en_talking", "it_talking.mov": "it_talking"}
+TALKING_TRUTH["prova clip è.mov"] = "en_talking"
 BACKENDS = ["mlx-whisper", "faster-whisper"]
 TOLERANCE_S = 0.15
 FIVE_MINUTES_REPEATS = 15
@@ -44,6 +47,8 @@ def require_setup(backend: str) -> None:
         pytest.skip(f"fixtures not generated ({', '.join(missing)}); run `just fixtures`")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:  # type: ignore[index]
         pytest.skip("speech models not in the cache; run `reelcut setup`")
+    if not mediapipe_model_path().is_file():
+        pytest.skip("face models not in the cache; run `reelcut setup`")
 
 
 def make_project(
@@ -176,6 +181,66 @@ def test_assets_have_no_transcript(analysed: tuple[Path, dict[str, Any], str]) -
         clip = analysis(project, names[asset])
         assert clip["words"] == [], asset
         assert clip["language"] is None, asset
+
+
+def test_roles_are_final_talking_clips_a_roll_b_roll_and_the_image_kept(
+    analysed: tuple[Path, dict[str, Any], str],
+) -> None:
+    project, out, _ = analysed
+    names = sources(project)
+    expected = {name: "aroll" for name in TALKING} | {"broll.mp4": "broll", "image.png": "image"}
+    assert {names[c["id"]]: c["role"] for c in out["clips"]} == expected
+    clips = tomllib.loads((project / "project.toml").read_text(encoding="utf-8"))["clips"]
+    assert {names[c]: e["auto_role"] for c, e in clips.items()} == expected
+
+
+def test_the_talking_fixtures_static_tail_is_reported_as_static(
+    analysed: tuple[Path, dict[str, Any], str],
+) -> None:
+    project, _, _ = analysed
+    for clip_id, name in sources(project).items():
+        if name not in TALKING:
+            continue
+        truth = json.loads((TRUTH / f"{TALKING_TRUTH[name]}.json").read_text(encoding="utf-8"))
+        tail = truth["silences"][-1]
+        clip = analysis(project, clip_id)
+        [static] = clip["static"]
+        assert abs(static["start"] - tail["start_ms"] / 1000) <= 0.6, name
+        assert static["end"] == clip["clip"]["duration_s"], name
+        assert clip["shots"] == [{"start": 0.0, "end": clip["clip"]["duration_s"]}], name
+    packed = (project / "analysis" / "packed.md").read_text(encoding="utf-8")
+    assert "## Static / no-speech stretches ≥ 2s" in packed
+
+
+def test_the_talking_fixtures_face_is_found_in_every_sampled_frame(
+    analysed: tuple[Path, dict[str, Any], str],
+) -> None:
+    project, _, _ = analysed
+    for clip_id, name in sources(project).items():
+        if name not in TALKING:
+            continue
+        clip = analysis(project, clip_id)
+        samples = clip["faces"]["samples"]
+        assert len(samples) >= clip["clip"]["duration_s"] * 2 - 1, name
+        assert all(0.2 < s["cx"] < 0.6 and 0.2 < s["cy"] < 0.6 for s in samples), name
+    packed = (project / "analysis" / "packed.md").read_text(encoding="utf-8")
+    assert "face centred" in packed or "face left" in packed
+
+
+def test_assets_md_catalogues_the_b_roll_and_the_image(
+    analysed: tuple[Path, dict[str, Any], str],
+) -> None:
+    project, out, _ = analysed
+    ids = {name: clip_id for clip_id, name in sources(project).items()}
+    text = Path(out["assets"]).read_text(encoding="utf-8")
+    broll, image = ids["broll.mp4"], ids["image.png"]
+    assert f"## {broll} · broll.mp4\n- file: raw/broll.mp4 · 6.0s · 1920x1080 · 1 shot\n" in text
+    assert (
+        f"## {image} · image.png\n- file: raw/image.png · still image · 1600x1200 · 1 shot\n"
+        in text
+    )
+    assert f"- contact sheet: contact/{broll}.png\n- description:\n" in text
+    assert not any(f"## {ids[name]} " in text for name in TALKING)
 
 
 def test_the_model_runs_in_a_worker_that_has_exited_and_waits_for_the_lock(

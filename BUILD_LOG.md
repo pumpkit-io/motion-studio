@@ -298,3 +298,38 @@ Open issues:
 
 - On the 5-minute concatenation Whisper sometimes attaches the first word of the next take to the end of the abandoned one ("... remember is The"); the retake still clusters, but the draft would keep a stray word. Check (#15) re-transcribes and will flag it.
 - `project.toml` is an input of the analyze stage, so role finalisation (#8) writing it marks analyze stale once; the next run is then a repack, not a re-transcription (per-clip records stay fresh).
+
+## Phase 4, visual: shots, static stretches, faces, roles and the asset catalogue (ticket #8)
+
+Built:
+
+- `reelcut analyze` now also fills `shots`, `static` and `faces` in each `analysis/<clip>.json`, finalises roles, and writes `analysis/assets.md`. The per-clip state record covers the mezzanine as well as the 16 kHz WAV, and the analyze recipe is 2, so existing projects re-analyse once.
+- Shots: PySceneDetect `ContentDetector` (default threshold 27) through a `SceneManager` with `auto_downscale`, on the mezzanine (`reelcut.vision.motion.find_shots`). A clip without cuts is one shot.
+- Static: ffmpeg decodes grey frames at 2 fps, 320 px wide (`reelcut.media.ffmpeg.read_frames`, a new streaming raw-frame reader), and OpenCV `absdiff` gives the mean difference between neighbours. `reelcut.analysis.find_static` (pure) keeps runs below 1.5 (of 255), removes VAD speech from them, and keeps pieces of 2 s or more; the last sampled frame stands for the rest of the clip.
+- Faces: MediaPipe Tasks `FaceDetector` with the BlazeFace full-range model at 2 fps on frames scaled to 640 px on the long side, largest face per frame, boxes normalised to the frame. It runs in `python -m reelcut.vision.worker` while the parent holds `heavy_model_lock("faces")`, one process for all clips. YuNet (`cv2.FaceDetectorYN`) takes over when the MediaPipe model is missing or MediaPipe fails to load; analyze then prints `warning: face detection fell back to YuNet: <reason>` and records it in `stages.analyze.warnings` of `state.json`. `REELCUT_FACE_WORKER` replaces the worker; the unit tests use an autouse stand-in that reports a face in every sampled frame.
+- Roles: `reelcut.analysis.finalise_role` (pure): images stay images; a video is A-roll when VAD speech covers more than 30% of it and a face is in more than 50% of the sampled frames, otherwise B-roll. analyze stores it with `ingest.record_auto_role`, only when it changed, so a creator's `role` override in `project.toml` wins and the file is not rewritten on every run.
+- `assets.md` (`reelcut.analysis.pack_assets`): one section per B-roll clip and image with ID, file name, source path, duration (or "still image"), resolution, shot count, the contact sheet path `contact/<id>.png` and a blank `description:` line. Descriptions the agent writes are read back before every repack and kept. The sheets themselves come with the look ticket (#9); the path is fixed now (`ProjectPaths.asset_sheet`).
+- `reelcut setup` downloads both face models (SHA-256 checked); `doctor` has a `face model` check that warns when only YuNet, or nothing, is in the cache.
+- Fixtures: the talking clips' presenter is now the public-domain Armstrong photo (cropped to the face, 720 px wide on the 1080x1920 frame) instead of a skin-coloured disc, and it holds still through a silent tail that is now 3 s instead of 1 s. The ground truth JSON is regenerated; the fixture test expects the 3 s tail.
+
+Pinned: `blaze_face_full_range.tflite` float16 version 1 (Apache-2.0, from its model card) and OpenCV Zoo `face_detection_yunet_2023mar.onnx` at commit `48b10fa5` (MIT). APIs and URLs in `docs/dependencies.md`, licences in `THIRD_PARTY.md`.
+
+Checked (acceptance):
+
+- Face photo (`tests/integration/test_faces.py`, `models`): MediaPipe finds one face in `neil_armstrong_960.jpg` at centre (0.61, 0.28), width 0.18, score 0.88; with only the YuNet model in a cache, `detect_faces` reports `yunet` with the reason "the MediaPipe face model is not in the cache" and finds the same face within 0.06.
+- Static tail (`test_analyze_fixtures.py`, both backends): each talking fixture has exactly one static stretch, starting within 0.6 s of the 3 s silent tail and ending at the clip end (EN: 20.0 to 22.83 s), and `packed.md` lists it under "Static / no-speech stretches".
+- Roles: the B-roll fixture is `broll`, the image `image`, and the three talking clips `aroll`, both in the `--json` output and as `auto_role` in `project.toml`; a face is found in every sampled frame of the talking clips.
+- `assets.md` on the fixtures lists `b1 · broll.mp4` (6.0s, 1920x1080, 1 shot) and `i1 · image.png` (still image, 1600x1200, 1 shot), each with its contact sheet path and a blank description, and no talking clip.
+- YuNet fallback warning: the CI test with the stand-in worker reporting YuNet checks the `warning:` line on stderr and the entry in `state.json`.
+- Timing: analysing the EN fixture, the B-roll and the image takes about 9 s on the build machine with mlx-whisper, face pass and shot detection included.
+
+Deviations and why:
+
+- BlazeFace full range instead of the guide's unnamed BlazeFace variant (usually short range): on a 1080x1920 frame short range missed the face below about 15% of the frame width, and full range found it at 6%. Phone footage shot from a tripod has faces that small.
+- A video with speech but no face is B-roll, as the rule says. The fixtures therefore needed a real face; screen recordings with a voice-over will be classified B-roll and need a `role = "aroll"` override in `project.toml`.
+- The contact sheet linked from `assets.md` does not exist until #9 writes it.
+
+Open issues:
+
+- The static threshold (1.5 of 255 at 2 fps) is tuned on synthetic footage; real phone noise on a locked-off shot may sit above it, so static stretches in real footage may be missed. Check it in the morning test.
+- Face samples are absent for frames without a face, so `face_sample_count` (from the duration) and the worker's ffmpeg `fps=2` frame count can differ by one frame; the ratio is only used against the 50% threshold.

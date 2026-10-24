@@ -186,6 +186,6 @@ def test_doctor_warns_until_setup_has_downloaded_the_face_models(
     assert check(payload, "face model")["status"] == "warn"
     assert "YuNet fallback only" in check(payload, "face model")["detail"]
 
-    (models / "blaze_face_short_range-float16-1.tflite").write_bytes(b"tflite")
+    (models / "blaze_face_full_range-float16-1.tflite").write_bytes(b"tflite")
     _, payload = doctor_json()
     assert check(payload, "face model")["status"] == "ok"
