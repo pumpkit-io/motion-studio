@@ -8,6 +8,7 @@ reelcut is MIT-licensed. This file lists the licences of what it depends on and 
 |---|---|---|---|
 | Remotion (`remotion`, `@remotion/*`) | 4.0.538 | Remotion License (not OSI open source) | Verified from `node_modules/remotion/LICENSE.md` on 2026-10-24. Free for individuals, for-profit organisations with up to 3 employees, non-profits, and evaluation. Larger for-profit organisations need a Company License from remotion.pro. The licence notes that it changes slightly in Remotion 5.0. |
 | React, React DOM | 19.2.3 | MIT | |
+| Inter font via `@fontsource/inter` | 5.3.0 | SIL Open Font License 1.1 | Verified from `node_modules/@fontsource/inter/LICENSE` on 2026-10-24. Bundled into every render as the default caption and title font. |
 
 ## Python core
 

@@ -229,3 +229,36 @@ Open issues:
 
 - `plan draft`, `plan validate`, the §6.6 summary and "validating the draft for each fixture succeeds" are ticket #11. `ResolveStats` carries the summary counts (words total and kept, hard fillers removed, pauses tightened, runs per segment).
 - `reelcut.workspace.read_edl_policy` still reads `policy` loosely for `config show`; #11 can switch it to `parse_edl(...).policy.model_dump(exclude_none=True)`.
+
+## Phase 7b, Remotion renderer (ticket #12)
+
+Built:
+
+- `renderer/src/Root.tsx`: composition `Reel` with `calculateMetadata` (`src/props.ts`): width and height from the chosen format, fps and duration from the timeline. Props (`ReelProps`): `{ timeline, format, source: { width, height }, video, font_file }`; `render/compose.py` (#13) writes them.
+- `lib/camera.ts`: cover-fit, face centre placed at x 0.5 / y 0.4 and clamped so no edge shows; scale = run base scale (jump-cut punch), replaced by a zoom (`snap`: 4-frame spring; `smooth`: 10-frame cubic ease, both easing back out unless the zoom ends on a cut) and multiplied by a push-in (linear 1.0 to scale). `layoutFor` picks fit-blur for a portrait source in a landscape format.
+- Layers: `BaseVideo` (`OffthreadVideo` of `assembled.mp4`, with a blurred, darkened cover copy behind the sharp box in fit-blur), `Broll` (`full`: cover with a 6-frame crossfade in and out, muted, `trimBefore` = `asset_in_s`; `pip`: rounded card with a shadow, upper third on portrait formats and top right on landscape; images with Ken Burns 1.0 to 1.08 plus a 3% pan), `Titles` (bold card on `brand.primary`, black or white text by luminance, spring in, 8-frame spring out), `Captions`.
+- `lib/captions.ts` `pageCaptions`: pages break on `max_words_per_page`, the language's `max_chars_per_page`, a width cap measured with `@remotion/layout-utils` `measureText`, after a sentence end and at a 700 ms silence; a full page never ends on a `keep_with_next` word; a single word wider than the page gets a `fit` font scale. The break points become `pageBreakAfter` on `Caption[]`, which `createTikTokStyleCaptions` turns into pages. A page stays up to 500 ms after its last word, or until the next page. Styles: `pop` (active word in `highlight_color` with a 1.08 spring pop), `karaoke` (spoken words in `highlight_color`), `clean` (no per-word colour); emphasis words take `brand.accent`. Captions sit 3% above the bottom of the format's safe zone, centred in it.
+- `lib/fonts.ts`: brand font file through `@remotion/fonts` `loadFont` + `staticFile`, else Inter 800 bundled from `@fontsource/inter`.
+- Tests: vitest `camera.test.ts` (cover, clamping on every edge, never below cover, fit-blur layout, punch per run, snap/smooth zoom timing, ease-out vs a cut, push linearity, zoom-in-push composition, per-run framing with no smoothing across cuts) and `captions.test.ts` (word cap, width cap with "precipitevolissimevolmente", fit scale, uppercase measuring, character cap, keep-with-next, sentence and silence breaks, page timing and emphasis). `tests/integration/test_renderer_cli.py` (`slow`, `renderer`) renders the hand-made `tests/fixtures/renderer/timeline.json` (validated against the pydantic `Timeline`) with the Remotion CLI.
+
+Versions pinned: @remotion/layout-utils and @remotion/fonts 4.0.538 (same as every other `@remotion/*`), @fontsource/inter 5.3.0. CLI flags and APIs are in `docs/dependencies.md`.
+
+Checked (acceptance):
+
+- vitest: 30 tests pass; `tsc --noEmit` clean.
+- Hand-made timeline (120 frames, 2 runs with a punch, snap zoom, pip B-roll, full Ken Burns image, title, 9 Italian words): `render` to 9x16 gives 1080x1920, 16x9 gives 1920x1080 and 16x9 `--scale=0.5` gives 960x540, each with 120 frames at 30/1 (ffprobe `-count_frames`). About 17-26 s per full-size render on the build machine, concurrency 4.
+- Stills I opened (frames 20, 46, 70, 110 of each format; source is the Armstrong photo cropped so the face is at (0.689, 0.267)). 9x16 start: title card "3 ore → 10 minuti" dark with white text near the top of the safe zone; caption "Ho costruito tutto" with "costruito" yellow and popped, white words with black stroke, spaced, at about 75% height, clear of the right UI strip. 9x16 cut (frame 46, punch 1.08): image visibly tighter and shifted toward the face than frame 20; "precipitevolissimevolmente" alone on its page, shrunk to fit inside the safe width. 9x16 zoom (frame 70, 1.2): clearly tighter; the pip test card sits in the upper third with rounded corners and shadow, and covers the face, because this face sits high in the frame (resolver warns only for titles over B-roll). 9x16 image: Mandelbrot fills the frame, caption "Ecco come." with "Ecco" in the orange accent (emphasis) and "come." yellow (active). 16x9: fit-blur shows the whole vertical frame centred over a blurred, darkened copy with no hard edges; title and captions are centred; the pip card moved to the top right, clear of the speaker; the full image covers 16:9.
+
+Deviations and why:
+
+- No `@remotion/google-fonts`: it loads font files from Google at render time, which breaks reelcut's offline rule. The default Inter ships in `@fontsource/inter` and is bundled; any other `captions.font` needs a file in `library/brand/fonts` (compose passes it as `font_file`), otherwise the renderer uses Inter and compose should warn.
+- Paging is reelcut's own (`pageCaptions`); `createTikTokStyleCaptions` alone pages only by time and silence, so the word, character and width caps are expressed as `pageBreakAfter`, the library's own hook.
+- The renderer takes the assembled video's pixel size as a prop (`source`) instead of probing it in the browser; compose knows it from ffprobe.
+- Zoom and push frames are taken as given; a zoom eases back over its easing length after `end` only while the same run continues.
+
+Open issues:
+
+- The logo (`brand.logo`) is not drawn; the guide names no logo layer.
+- "Hide captions during full B-roll if configured" has no config key in the timeline; captions always show (the guide's default).
+- Caption width is measured with spaces between words but drawn with a 0.4em gap; the 12% headroom covers the difference.
+- Glyphs outside Inter's latin and latin-ext subsets (for example "→") fall back to a system font.
