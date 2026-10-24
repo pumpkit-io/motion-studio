@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "title": "Renderer test",
+  "language": "it",
+  "fps": 30,
+  "duration_frames": 120,
+  "runs": [
+    {
+      "clip": "c1",
+      "segment": "hook",
+      "src_in_s": 0.0,
+      "src_out_s": 1.5,
+      "out_in": 0,
+      "out_out": 45,
+      "crop": { "cx": 0.689, "cy": 0.267 },
+      "face": true,
+      "base_scale": 1.0
+    },
+    {
+      "clip": "c1",
+      "segment": "hook",
+      "src_in_s": 1.5,
+      "src_out_s": 4.0,
+      "out_in": 45,
+      "out_out": 120,
+      "crop": { "cx": 0.689, "cy": 0.267 },
+      "face": true,
+      "base_scale": 1.08
+    }
+  ],
+  "words": [
+    { "id": "c1.w0", "text": "Ho", "start_ms": 100, "end_ms": 300, "emphasis": false },
+    { "id": "c1.w1", "text": "costruito", "start_ms": 300, "end_ms": 700, "emphasis": false },
+    { "id": "c1.w2", "text": "tutto", "start_ms": 700, "end_ms": 1000, "emphasis": false },
+    { "id": "c1.w3", "text": "in", "start_ms": 1000, "end_ms": 1150, "emphasis": false },
+    { "id": "c1.w4", "text": "precipitevolissimevolmente", "start_ms": 1150, "end_ms": 2000, "emphasis": true },
+    { "id": "c1.w5", "text": "due", "start_ms": 2050, "end_ms": 2300, "emphasis": false },
+    { "id": "c1.w6", "text": "settimane.", "start_ms": 2300, "end_ms": 2800, "emphasis": false },
+    { "id": "c1.w7", "text": "Ecco", "start_ms": 3000, "end_ms": 3300, "emphasis": true },
+    { "id": "c1.w8", "text": "come.", "start_ms": 3300, "end_ms": 3800, "emphasis": false }
+  ],
+  "events": [
+    { "type": "title", "text": "3 ore → 10 minuti", "start": 5, "end": 40 },
+    { "type": "broll", "asset": "b1", "src": "media/b1.mp4", "start": 50, "end": 80, "asset_in_s": 1.0, "mode": "pip" },
+    { "type": "zoom", "start": 60, "end": 90, "scale": 1.2, "ease": "snap" },
+    { "type": "image", "asset": "i1", "src": "media/i1.png", "start": 95, "end": 120, "mode": "full", "motion": "kenburns" }
+  ],
+  "captions": {
+    "enabled": true,
+    "style": "pop",
+    "font": "Inter",
+    "max_words_per_page": 3,
+    "uppercase": false,
+    "hide_during_broll": false,
+    "highlight_color": "#FFD400",
+    "text_color": "#FFFFFF",
+    "stroke_color": "#000000",
+    "max_chars_per_page": 18,
+    "keep_with_next": ["in", "il", "di"]
+  },
+  "formats": [
+    { "name": "9x16", "width": 1080, "height": 1920, "safe_zone": { "top": 0.1, "right": 0.12, "bottom": 0.2, "left": 0.05 } },
+    { "name": "16x9", "width": 1920, "height": 1080, "safe_zone": { "top": 0.05, "right": 0.05, "bottom": 0.12, "left": 0.05 } }
+  ],
+  "brand": { "primary": "#111111", "accent": "#FF6B3D", "logo": "library/brand/logo.png" },
+  "music_path": null
+}

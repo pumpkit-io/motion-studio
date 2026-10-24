@@ -1,0 +1,54 @@
+# Workspace defaults. Any key can be overridden in a project's project.toml,
+# and the trimming keys under [edit] again by the EDL's "policy".
+
+[defaults]
+formats = ["9x16"]            # any of 9x16, 16x9, 4x5
+fps = 30
+max_duration_s = 60
+language = "auto"             # auto | en | it
+
+[review]                      # optional gates; default fully autonomous
+plan = false
+preview = false
+
+[asr]
+backend = "auto"              # auto: mlx-whisper on Apple Silicon, faster-whisper elsewhere
+model = "auto"
+fillers_backend = "prompted"  # prompted | crisper (not implemented in v0.1.0)
+
+[edit]
+pad_in_ms = 80
+pad_out_ms = 120
+max_pause_ms = 350
+min_segment_ms = 400
+drop_fillers = "hard"         # none | hard | hard+soft
+jumpcut_punch = true
+jumpcut_punch_scale = 1.08
+look_budget = 8               # max contact sheets per project unless the creator asks for more
+
+[captions]
+enabled = true
+style = "pop"                 # pop | clean | karaoke
+font = "Inter"                # or a path in library/brand/fonts
+max_words_per_page = 3
+uppercase = false
+hide_during_broll = false     # true: no captions over full-frame B-roll or images
+highlight_color = "#FFD400"   # colours are #RRGGBB or #RGB
+text_color = "#FFFFFF"
+stroke_color = "#000000"
+
+[music]
+mode = "generate"             # generate | library | none
+gain_db = -20                 # bed level before ducking
+duck_threshold = 0.03
+duck_ratio = 8
+
+[master]
+integrated_lufs = -14
+true_peak_db = -1.5
+lra = 11
+
+[brand]
+primary = "#111111"
+accent = "#FFD400"
+logo = "library/brand/logo.png"

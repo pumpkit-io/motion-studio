@@ -1,0 +1,463 @@
+{
+  "$defs": {
+    "ClipInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enhanced voice, relative to the project.",
+          "title": "Audio"
+        },
+        "duration_s": {
+          "minimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "fps": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fps"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "id": {
+          "description": "Stable short clip ID: c1 (A-roll), b1 (B-roll), i1 (image).",
+          "title": "Id",
+          "type": "string"
+        },
+        "input_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Hash"
+        },
+        "mezzanine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Normalised video, relative to the project.",
+          "title": "Mezzanine"
+        },
+        "role": {
+          "enum": [
+            "aroll",
+            "broll",
+            "image"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "source": {
+          "description": "Original file, relative to the project: raw/IMG_0412.MOV.",
+          "title": "Source",
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "source",
+        "duration_s"
+      ],
+      "title": "ClipInfo",
+      "type": "object"
+    },
+    "FaceSample": {
+      "additionalProperties": false,
+      "description": "Largest face in one sampled frame, normalised 0-1 to the mezzanine frame.",
+      "properties": {
+        "cx": {
+          "title": "Cx",
+          "type": "number"
+        },
+        "cy": {
+          "title": "Cy",
+          "type": "number"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "t": {
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "cx",
+        "cy",
+        "w",
+        "h",
+        "score"
+      ],
+      "title": "FaceSample",
+      "type": "object"
+    },
+    "Faces": {
+      "additionalProperties": false,
+      "properties": {
+        "sample_fps": {
+          "default": 2,
+          "exclusiveMinimum": 0,
+          "title": "Sample Fps",
+          "type": "number"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/FaceSample"
+          },
+          "title": "Samples",
+          "type": "array"
+        }
+      },
+      "title": "Faces",
+      "type": "object"
+    },
+    "LanguageGuess": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "description": "Language code with a data file in reelcut's lang directory.",
+          "title": "Code",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "code",
+        "confidence"
+      ],
+      "title": "LanguageGuess",
+      "type": "object"
+    },
+    "Pause": {
+      "additionalProperties": false,
+      "description": "Silence between two consecutive words, or before the first or after the last word.",
+      "properties": {
+        "after_word": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Word before the pause; null at the clip start.",
+          "title": "After Word"
+        },
+        "dur": {
+          "minimum": 0,
+          "title": "Dur",
+          "type": "number"
+        },
+        "end": {
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "dur",
+        "after_word"
+      ],
+      "title": "Pause",
+      "type": "object"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "description": "A stretch of source time.",
+      "properties": {
+        "end": {
+          "description": "End, seconds.",
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "start": {
+          "description": "Start, seconds.",
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Utterance": {
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "description": "False when the speaker stops mid-sentence before a long pause or the clip end: usually an abandoned take.",
+          "title": "Complete",
+          "type": "boolean"
+        },
+        "end": {
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "first_word": {
+          "title": "First Word",
+          "type": "string"
+        },
+        "id": {
+          "description": "`<clip>.s<index>`, zero-based.",
+          "title": "Id",
+          "type": "string"
+        },
+        "last_word": {
+          "title": "Last Word",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "start",
+        "end",
+        "first_word",
+        "last_word",
+        "text",
+        "complete"
+      ],
+      "title": "Utterance",
+      "type": "object"
+    },
+    "Word": {
+      "additionalProperties": false,
+      "properties": {
+        "conf": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Conf",
+          "type": "number"
+        },
+        "end": {
+          "minimum": 0,
+          "title": "End",
+          "type": "number"
+        },
+        "filler": {
+          "anyOf": [
+            {
+              "enum": [
+                "hard",
+                "soft"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "hard: removed by default. soft: only marked; the host agent decides.",
+          "title": "Filler"
+        },
+        "id": {
+          "description": "`<clip>.w<index>`, zero-based, stable for a given transcript.",
+          "title": "Id",
+          "type": "string"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "number"
+        },
+        "text": {
+          "description": "As transcribed, punctuation included.",
+          "title": "Text",
+          "type": "string"
+        },
+        "utt": {
+          "description": "ID of the utterance that holds this word.",
+          "title": "Utt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "start",
+        "end",
+        "conf",
+        "utt"
+      ],
+      "title": "Word",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Everything reelcut knows about one clip: `analysis/<clip>.json`.",
+  "properties": {
+    "clip": {
+      "$ref": "#/$defs/ClipInfo"
+    },
+    "faces": {
+      "$ref": "#/$defs/Faces"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LanguageGuess"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Null for silent clips."
+    },
+    "pauses": {
+      "items": {
+        "$ref": "#/$defs/Pause"
+      },
+      "title": "Pauses",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "shots": {
+      "items": {
+        "$ref": "#/$defs/Span"
+      },
+      "title": "Shots",
+      "type": "array"
+    },
+    "static": {
+      "description": "Stretches >= 2 s with no speech and almost no motion.",
+      "items": {
+        "$ref": "#/$defs/Span"
+      },
+      "title": "Static",
+      "type": "array"
+    },
+    "unaligned_voice": {
+      "description": "Voice-activity regions >= 150 ms that overlap no word: likely mumbles, breaths or fillers the transcriber skipped. Cut them with EDL drop_ranges.",
+      "items": {
+        "$ref": "#/$defs/Span"
+      },
+      "title": "Unaligned Voice",
+      "type": "array"
+    },
+    "utterances": {
+      "items": {
+        "$ref": "#/$defs/Utterance"
+      },
+      "title": "Utterances",
+      "type": "array"
+    },
+    "vad": {
+      "items": {
+        "$ref": "#/$defs/Span"
+      },
+      "title": "Vad",
+      "type": "array"
+    },
+    "words": {
+      "items": {
+        "$ref": "#/$defs/Word"
+      },
+      "title": "Words",
+      "type": "array"
+    }
+  },
+  "required": [
+    "clip"
+  ],
+  "title": "ClipAnalysis",
+  "type": "object"
+}

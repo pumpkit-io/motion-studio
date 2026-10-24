@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "Asr": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "mlx-whisper",
+            "faster-whisper"
+          ],
+          "title": "Backend",
+          "type": "string"
+        },
+        "fillers_backend": {
+          "default": "prompted",
+          "enum": [
+            "prompted",
+            "crisper"
+          ],
+          "title": "Fillers Backend",
+          "type": "string"
+        },
+        "model": {
+          "default": "auto",
+          "title": "Model",
+          "type": "string"
+        }
+      },
+      "title": "Asr",
+      "type": "object"
+    },
+    "Brand": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "default": "#FFD400",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "title": "Accent",
+          "type": "string"
+        },
+        "logo": {
+          "default": "library/brand/logo.png",
+          "title": "Logo",
+          "type": "string"
+        },
+        "primary": {
+          "default": "#111111",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "title": "Primary",
+          "type": "string"
+        }
+      },
+      "title": "Brand",
+      "type": "object"
+    },
+    "Captions": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "font": {
+          "default": "Inter",
+          "title": "Font",
+          "type": "string"
+        },
+        "hide_during_broll": {
+          "default": false,
+          "description": "Hide captions while a full-frame B-roll clip or image is on screen.",
+          "title": "Hide During Broll",
+          "type": "boolean"
+        },
+        "highlight_color": {
+          "default": "#FFD400",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "title": "Highlight Color",
+          "type": "string"
+        },
+        "max_words_per_page": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Words Per Page",
+          "type": "integer"
+        },
+        "stroke_color": {
+          "default": "#000000",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "title": "Stroke Color",
+          "type": "string"
+        },
+        "style": {
+          "default": "pop",
+          "enum": [
+            "pop",
+            "clean",
+            "karaoke"
+          ],
+          "title": "Style",
+          "type": "string"
+        },
+        "text_color": {
+          "default": "#FFFFFF",
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "title": "Text Color",
+          "type": "string"
+        },
+        "uppercase": {
+          "default": false,
+          "title": "Uppercase",
+          "type": "boolean"
+        }
+      },
+      "title": "Captions",
+      "type": "object"
+    },
+    "Defaults": {
+      "additionalProperties": false,
+      "properties": {
+        "formats": {
+          "items": {
+            "enum": [
+              "9x16",
+              "16x9",
+              "4x5"
+            ],
+            "type": "string"
+          },
+          "title": "Formats",
+          "type": "array"
+        },
+        "fps": {
+          "default": 30,
+          "exclusiveMinimum": 0,
+          "title": "Fps",
+          "type": "integer"
+        },
+        "language": {
+          "default": "auto",
+          "description": "auto, or the code of a language with a data file (en, it).",
+          "title": "Language",
+          "type": "string"
+        },
+        "max_duration_s": {
+          "default": 60,
+          "exclusiveMinimum": 0,
+          "title": "Max Duration S",
+          "type": "number"
+        }
+      },
+      "title": "Defaults",
+      "type": "object"
+    },
+    "Edit": {
+      "additionalProperties": false,
+      "description": "The trimming policy; an EDL's `policy` object overrides these keys.",
+      "properties": {
+        "drop_fillers": {
+          "default": "hard",
+          "enum": [
+            "none",
+            "hard",
+            "hard+soft"
+          ],
+          "title": "Drop Fillers",
+          "type": "string"
+        },
+        "jumpcut_punch": {
+          "default": true,
+          "title": "Jumpcut Punch",
+          "type": "boolean"
+        },
+        "jumpcut_punch_scale": {
+          "default": 1.08,
+          "minimum": 1,
+          "title": "Jumpcut Punch Scale",
+          "type": "number"
+        },
+        "look_budget": {
+          "default": 8,
+          "minimum": 0,
+          "title": "Look Budget",
+          "type": "integer"
+        },
+        "max_pause_ms": {
+          "default": 350,
+          "minimum": 0,
+          "title": "Max Pause Ms",
+          "type": "integer"
+        },
+        "min_segment_ms": {
+          "default": 400,
+          "minimum": 0,
+          "title": "Min Segment Ms",
+          "type": "integer"
+        },
+        "pad_in_ms": {
+          "default": 80,
+          "minimum": 0,
+          "title": "Pad In Ms",
+          "type": "integer"
+        },
+        "pad_out_ms": {
+          "default": 120,
+          "minimum": 0,
+          "title": "Pad Out Ms",
+          "type": "integer"
+        }
+      },
+      "title": "Edit",
+      "type": "object"
+    },
+    "Master": {
+      "additionalProperties": false,
+      "properties": {
+        "integrated_lufs": {
+          "default": -14,
+          "title": "Integrated Lufs",
+          "type": "number"
+        },
+        "lra": {
+          "default": 11,
+          "title": "Lra",
+          "type": "number"
+        },
+        "true_peak_db": {
+          "default": -1.5,
+          "title": "True Peak Db",
+          "type": "number"
+        }
+      },
+      "title": "Master",
+      "type": "object"
+    },
+    "Music": {
+      "additionalProperties": false,
+      "properties": {
+        "duck_ratio": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Duck Ratio",
+          "type": "number"
+        },
+        "duck_threshold": {
+          "default": 0.03,
+          "exclusiveMinimum": 0,
+          "title": "Duck Threshold",
+          "type": "number"
+        },
+        "gain_db": {
+          "default": -20,
+          "title": "Gain Db",
+          "type": "number"
+        },
+        "mode": {
+          "default": "generate",
+          "enum": [
+            "generate",
+            "library",
+            "none"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "Music",
+      "type": "object"
+    },
+    "Review": {
+      "additionalProperties": false,
+      "properties": {
+        "plan": {
+          "default": false,
+          "title": "Plan",
+          "type": "boolean"
+        },
+        "preview": {
+          "default": false,
+          "title": "Preview",
+          "type": "boolean"
+        }
+      },
+      "title": "Review",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The effective config; every key in reelcut.toml can be overridden in project.toml.",
+  "properties": {
+    "asr": {
+      "$ref": "#/$defs/Asr"
+    },
+    "brand": {
+      "$ref": "#/$defs/Brand"
+    },
+    "captions": {
+      "$ref": "#/$defs/Captions"
+    },
+    "defaults": {
+      "$ref": "#/$defs/Defaults"
+    },
+    "edit": {
+      "$ref": "#/$defs/Edit"
+    },
+    "master": {
+      "$ref": "#/$defs/Master"
+    },
+    "music": {
+      "$ref": "#/$defs/Music"
+    },
+    "review": {
+      "$ref": "#/$defs/Review"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "title": "Config",
+  "type": "object"
+}

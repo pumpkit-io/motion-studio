@@ -1,0 +1,627 @@
+{
+  "$defs": {
+    "Crop": {
+      "additionalProperties": false,
+      "properties": {
+        "cx": {
+          "description": "Face centre x, 0-1 of the mezzanine frame.",
+          "title": "Cx",
+          "type": "number"
+        },
+        "cy": {
+          "description": "Face centre y, 0-1 of the mezzanine frame.",
+          "title": "Cy",
+          "type": "number"
+        }
+      },
+      "required": [
+        "cx",
+        "cy"
+      ],
+      "title": "Crop",
+      "type": "object"
+    },
+    "FormatSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        },
+        "name": {
+          "enum": [
+            "9x16",
+            "16x9",
+            "4x5"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "safe_zone": {
+          "$ref": "#/$defs/SafeZone"
+        },
+        "width": {
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "width",
+        "height",
+        "safe_zone"
+      ],
+      "title": "FormatSpec",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "description": "A continuous stretch of one clip. Runs follow each other with no gap in output time.",
+      "properties": {
+        "base_scale": {
+          "description": "1.0, or the jump-cut punch scale. A zoom event replaces it while active.",
+          "title": "Base Scale",
+          "type": "number"
+        },
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "crop": {
+          "$ref": "#/$defs/Crop"
+        },
+        "face": {
+          "description": "False when no face was seen; crop is then the frame centre.",
+          "title": "Face",
+          "type": "boolean"
+        },
+        "out_in": {
+          "description": "First output frame.",
+          "title": "Out In",
+          "type": "integer"
+        },
+        "out_out": {
+          "description": "Output frame after the last one.",
+          "title": "Out Out",
+          "type": "integer"
+        },
+        "segment": {
+          "title": "Segment",
+          "type": "string"
+        },
+        "src_in_s": {
+          "description": "Source seconds, on the frame grid.",
+          "title": "Src In S",
+          "type": "number"
+        },
+        "src_out_s": {
+          "title": "Src Out S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "segment",
+        "clip",
+        "src_in_s",
+        "src_out_s",
+        "out_in",
+        "out_out",
+        "crop",
+        "face",
+        "base_scale"
+      ],
+      "title": "Run",
+      "type": "object"
+    },
+    "SafeZone": {
+      "additionalProperties": false,
+      "description": "Fractions of the frame kept clear of platform UI on each side.",
+      "properties": {
+        "bottom": {
+          "title": "Bottom",
+          "type": "number"
+        },
+        "left": {
+          "title": "Left",
+          "type": "number"
+        },
+        "right": {
+          "title": "Right",
+          "type": "number"
+        },
+        "top": {
+          "title": "Top",
+          "type": "number"
+        }
+      },
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "title": "SafeZone",
+      "type": "object"
+    },
+    "TimelineBrand": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
+          "title": "Accent",
+          "type": "string"
+        },
+        "logo": {
+          "description": "Relative to the workspace.",
+          "title": "Logo",
+          "type": "string"
+        },
+        "primary": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
+          "title": "Primary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary",
+        "accent",
+        "logo"
+      ],
+      "title": "TimelineBrand",
+      "type": "object"
+    },
+    "TimelineBroll": {
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "title": "Asset",
+          "type": "string"
+        },
+        "asset_in_s": {
+          "title": "Asset In S",
+          "type": "number"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "full",
+            "pip"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "src": {
+          "description": "Asset file, relative to the project.",
+          "title": "Src",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "broll",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "asset",
+        "src",
+        "start",
+        "end",
+        "asset_in_s",
+        "mode"
+      ],
+      "title": "TimelineBroll",
+      "type": "object"
+    },
+    "TimelineCaptions": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "font": {
+          "title": "Font",
+          "type": "string"
+        },
+        "hide_during_broll": {
+          "description": "Hide captions while a full-frame B-roll clip or image is on screen.",
+          "title": "Hide During Broll",
+          "type": "boolean"
+        },
+        "highlight_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
+          "title": "Highlight Color",
+          "type": "string"
+        },
+        "keep_with_next": {
+          "description": "Words that never end a caption page.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Keep With Next",
+          "type": "array"
+        },
+        "max_chars_per_page": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "From the language's caption rules.",
+          "title": "Max Chars Per Page"
+        },
+        "max_words_per_page": {
+          "title": "Max Words Per Page",
+          "type": "integer"
+        },
+        "stroke_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
+          "title": "Stroke Color",
+          "type": "string"
+        },
+        "style": {
+          "enum": [
+            "pop",
+            "clean",
+            "karaoke"
+          ],
+          "title": "Style",
+          "type": "string"
+        },
+        "text_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
+          "title": "Text Color",
+          "type": "string"
+        },
+        "uppercase": {
+          "title": "Uppercase",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "style",
+        "font",
+        "max_words_per_page",
+        "uppercase",
+        "hide_during_broll",
+        "highlight_color",
+        "text_color",
+        "stroke_color",
+        "max_chars_per_page",
+        "keep_with_next"
+      ],
+      "title": "TimelineCaptions",
+      "type": "object"
+    },
+    "TimelineImage": {
+      "additionalProperties": false,
+      "properties": {
+        "asset": {
+          "title": "Asset",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "full",
+            "pip"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "motion": {
+          "enum": [
+            "kenburns",
+            "none"
+          ],
+          "title": "Motion",
+          "type": "string"
+        },
+        "src": {
+          "title": "Src",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "image",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "asset",
+        "src",
+        "start",
+        "end",
+        "mode",
+        "motion"
+      ],
+      "title": "TimelineImage",
+      "type": "object"
+    },
+    "TimelinePush": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scale": {
+          "description": "Linear from 1.0 at start to this at end.",
+          "title": "Scale",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "push",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "start",
+        "end",
+        "scale"
+      ],
+      "title": "TimelinePush",
+      "type": "object"
+    },
+    "TimelineTitle": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "title",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text",
+        "start",
+        "end"
+      ],
+      "title": "TimelineTitle",
+      "type": "object"
+    },
+    "TimelineWord": {
+      "additionalProperties": false,
+      "properties": {
+        "emphasis": {
+          "default": false,
+          "title": "Emphasis",
+          "type": "boolean"
+        },
+        "end_ms": {
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "start_ms": {
+          "description": "Output time.",
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "start_ms",
+        "end_ms",
+        "emphasis"
+      ],
+      "title": "TimelineWord",
+      "type": "object"
+    },
+    "TimelineZoom": {
+      "additionalProperties": false,
+      "properties": {
+        "ease": {
+          "enum": [
+            "snap",
+            "smooth"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scale": {
+          "title": "Scale",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "zoom",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "start",
+        "end",
+        "scale",
+        "ease"
+      ],
+      "title": "TimelineZoom",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The resolved edit: `build/timeline.json`, the renderer's props.",
+  "properties": {
+    "brand": {
+      "$ref": "#/$defs/TimelineBrand"
+    },
+    "captions": {
+      "$ref": "#/$defs/TimelineCaptions"
+    },
+    "duration_frames": {
+      "title": "Duration Frames",
+      "type": "integer"
+    },
+    "events": {
+      "description": "Overlays and camera moves, by start frame.",
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "broll": "#/$defs/TimelineBroll",
+            "image": "#/$defs/TimelineImage",
+            "push": "#/$defs/TimelinePush",
+            "title": "#/$defs/TimelineTitle",
+            "zoom": "#/$defs/TimelineZoom"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TimelineZoom"
+          },
+          {
+            "$ref": "#/$defs/TimelinePush"
+          },
+          {
+            "$ref": "#/$defs/TimelineBroll"
+          },
+          {
+            "$ref": "#/$defs/TimelineImage"
+          },
+          {
+            "$ref": "#/$defs/TimelineTitle"
+          }
+        ]
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "formats": {
+      "items": {
+        "$ref": "#/$defs/FormatSpec"
+      },
+      "title": "Formats",
+      "type": "array"
+    },
+    "fps": {
+      "title": "Fps",
+      "type": "integer"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Language"
+    },
+    "music_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Music bed relative to the project; null for none.",
+      "title": "Music Path"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/Run"
+      },
+      "title": "Runs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "words": {
+      "description": "Kept words in output order.",
+      "items": {
+        "$ref": "#/$defs/TimelineWord"
+      },
+      "title": "Words",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "title",
+    "language",
+    "fps",
+    "duration_frames",
+    "formats",
+    "runs",
+    "words",
+    "events",
+    "captions",
+    "brand",
+    "music_path"
+  ],
+  "title": "Timeline",
+  "type": "object"
+}

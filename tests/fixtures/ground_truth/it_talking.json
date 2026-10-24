@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "clip": "it_talking.mov",
+  "language": "it",
+  "voice": "Alice",
+  "duration_ms": 22000,
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "vfr": true
+  },
+  "utterances": [
+    {
+      "text": "Ciao, bentornati sul canale.",
+      "start_ms": 800,
+      "end_ms": 2713,
+      "complete": true
+    },
+    {
+      "text": "Oggi, ehm, vi faccio vedere come monto i miei video.",
+      "start_ms": 4213,
+      "end_ms": 7596,
+      "complete": true
+    },
+    {
+      "text": "La cosa più importante da ricordare è",
+      "start_ms": 8796,
+      "end_ms": 10811,
+      "complete": false
+    },
+    {
+      "text": "La cosa più importante da ricordare è tenere ogni frase breve.",
+      "start_ms": 11711,
+      "end_ms": 15142,
+      "complete": true
+    },
+    {
+      "text": "Grazie per la visione, e alla prossima.",
+      "start_ms": 16642,
+      "end_ms": 18995,
+      "complete": true
+    }
+  ],
+  "fillers": [
+    {
+      "text": "ehm",
+      "kind": "hard",
+      "start_ms": 4915,
+      "end_ms": 5227
+    }
+  ],
+  "silences": [
+    {
+      "start_ms": 0,
+      "end_ms": 800,
+      "context": "head"
+    },
+    {
+      "start_ms": 2713,
+      "end_ms": 4213,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 4615,
+      "end_ms": 4915,
+      "context": "around_filler"
+    },
+    {
+      "start_ms": 5227,
+      "end_ms": 5527,
+      "context": "around_filler"
+    },
+    {
+      "start_ms": 7596,
+      "end_ms": 8796,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 10811,
+      "end_ms": 11711,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 15142,
+      "end_ms": 16642,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 18995,
+      "end_ms": 22000,
+      "context": "tail"
+    }
+  ],
+  "retake": {
+    "abandoned": 2,
+    "winner": 3
+  }
+}
