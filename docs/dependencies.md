@@ -82,6 +82,25 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 | ffmpeg `setts` bitstream filter | `setts=ts=<expr>` on a stream copy, with `-bf 0` so pts equals dts | ffmpeg 9.0.1; ffprobe shows the alternating packet durations |
 | ffmpeg `streamhash` muxer | `-map 0 -f streamhash -` | ffmpeg 9.0.1; used by the determinism test |
 
+## Agent skill paths (ticket #16, 2026-10-24)
+
+Checked against each agent's official docs; the table, quotes and links are in `docs/agents.md`.
+
+| Agent | Workspace skill directory | Instructions file |
+|---|---|---|
+| Claude Code | `.claude/skills/` | `CLAUDE.md` |
+| Codex | `.agents/skills/` | `AGENTS.md` |
+| Gemini CLI | `.agents/skills/` (alias of `.gemini/skills/`) | `GEMINI.md` |
+| Cursor | `.agents/skills/` (also `.cursor/skills/`) | `AGENTS.md` |
+
+All four require or recommend `name` and `description` frontmatter in `SKILL.md`; Cursor and Gemini CLI want `name` to match the folder. PyYAML 6.0.3 (already in the lock through the dev group) parses the frontmatter in the skill test.
+
+## Analysis (ticket #6, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| rapidfuzz | 3.14.6 | `fuzz.token_set_ratio` run in the venv: float 0-100, a word subset scores 100 |
+
 ## Ingest (ticket #5, 2026-10-24)
 
 | Item | Value | How checked |

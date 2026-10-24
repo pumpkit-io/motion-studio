@@ -11,6 +11,7 @@ from typing import Any
 import tomli_w
 
 from reelcut import APP_NAME
+from reelcut.agents import TARGETS, sync_skills
 from reelcut.config import load_config
 from reelcut.errors import UserError
 from reelcut.paths import WORKSPACE_FILE, ProjectPaths, project_paths
@@ -20,7 +21,10 @@ PLACEHOLDER = ".gitkeep"
 
 
 def init_workspace(target: Path) -> list[Path]:
-    """Copy the workspace template into `target` and return every file written."""
+    """Copy the workspace template and every agent's skills into `target`.
+
+    Returns the files and skill folders written.
+    """
     target = target.expanduser().resolve()
     if (target / WORKSPACE_FILE).exists():
         raise UserError(f"{target} is already a workspace ({WORKSPACE_FILE} exists)")
@@ -44,7 +48,7 @@ def init_workspace(target: Path) -> list[Path]:
                 continue
             shutil.copyfile(source, dest)
             written.append(dest)
-    return written
+    return written + sync_skills(target, list(TARGETS))
 
 
 def new_project(

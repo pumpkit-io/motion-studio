@@ -16,6 +16,7 @@ from typing import Any, Literal
 import tomli_w
 from pydantic import BaseModel
 
+from reelcut.analysis.models import Role
 from reelcut.audio.enhance import Denoiser, denoiser_available, extract_voice
 from reelcut.config import load_config
 from reelcut.errors import UserError
@@ -37,7 +38,6 @@ STAGE = "ingest"
 # Bump when the mezzanine or audio recipe changes, so existing projects re-ingest.
 RECIPE = 1
 
-Role = Literal["aroll", "broll", "image"]
 ROLES: tuple[Role, ...] = ("aroll", "broll", "image")
 PREFIX: dict[Role, str] = {"aroll": "c", "broll": "b", "image": "i"}
 

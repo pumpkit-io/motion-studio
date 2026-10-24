@@ -122,6 +122,53 @@ Deviations and why:
 
 Open issues: there is no 5-minute fixture yet for the Phase 4 `packed.md` token budget check; the talking clips are about 21 s.
 
+## Phase 10: agent layer (ticket #16)
+
+Built:
+
+- The five canonical skills in `src/reelcut/templates/skills/` (`reelcut-edit`, `reelcut-plan`, `reelcut-look`, `reelcut-music`, `reelcut-review`), each a folder with `SKILL.md` and `name`/`description` frontmatter, from guide §9.2–9.6.
+- The workspace template: `AGENTS.md` from §9.1, `CLAUDE.md` and `GEMINI.md` (both `@AGENTS.md`), the default `reelcut.toml` (unchanged), and `library/music/README.md` (licensing and the `tags.json` format) plus `library/brand/README.md`.
+- `reelcut agents sync [--targets claude,codex,gemini,cursor]` (`reelcut.agents`, `reelcut.cli.agents`). It copies the skills into `.claude/skills/` (Claude Code) and `.agents/skills/` (Codex, Gemini CLI, Cursor), replacing only reelcut's own skill folders. `.agents/skills/` is always written. `init` now runs it for every target.
+- Skill paths verified from each agent's official docs on 2026-10-24 and recorded with quotes and links in `docs/agents.md`.
+- Tests (`tests/unit/test_agents.py`, CI): skills in every agent path after `init`; YAML frontmatter with the folder's name and a description of at most 1024 characters; sync restores edited skills and keeps other skills; target parsing; AGENTS.md links every skill file by a path that exists; the library README; and a check that every `reelcut …` command in `AGENTS.md` and the skills exists in the CLI with the flags it is given. Commands later tickets build are listed in `PENDING` in that test with their guide §7 flags; once registered, a command is checked against the real CLI instead. A further test holds the `AGENTS.md` promise that every command takes `--json`.
+
+Deviations and why:
+
+- `GEMINI.md` added to the template: Gemini CLI reads `GEMINI.md`, not `AGENTS.md`, by default, and supports `@file` imports.
+- Gemini CLI and Cursor get `.agents/skills/` rather than `.gemini/skills/` or `.cursor/skills/`: both read it, it is the path Codex requires, and one shared copy is what `AGENTS.md` links to.
+- Sync always writes `.agents/skills/`, even for `--targets claude`, so the paths in `AGENTS.md` always exist.
+- Skill wording refined where the implementation or other contracts force it: §9.1's dot-separated quick reference became one command per line in a code block (so the command check can read it, and with the `docs edl` command added); exit codes and `--json` are stated once in `reelcut-edit` and `AGENTS.md`; `reelcut-review` says to raise `pad_out_ms` in the EDL `policy` instead of a per-segment `pad_out_ms`, which §6.4's segment shape does not have; the music skill names the `tags.json` fields and the credits file from guide Phase 8. Prohibitions were rephrased as the positive target where that kept the meaning.
+- Claude Code plugin packaging is not built (spec #1 moves it to `ROADMAP.md`).
+
+Open issues:
+
+- `PENDING` in `tests/unit/test_agents.py` lists ingest (#5), analyze and setup (#7), look and look-asset (#9), words, plan draft, plan validate and docs edl (#11), render (#13), music (#14) and check (#15). Each ticket deletes its entry when it registers the command; the test then checks the real flags.
+- Gemini CLI has been succeeded by Antigravity CLI (per the Gemini CLI docs). Its use of `.agents/skills/` and `AGENTS.md` comes from third-party guides only.
+- Cursor sees each skill twice when both `.claude/skills/` and `.agents/skills/` are installed (noted in `docs/agents.md`).
+
+## Phase 4, transcript analysers and contracts (ticket #6)
+
+Built:
+
+- `reelcut.analysis.models`: the §6.1 contract `ClipAnalysis` (with `ClipInfo`, `LanguageGuess`, `Word`, `Utterance`, `Pause`, `Span`, `Faces`, `FaceSample`), `TranscribedWord` (what an ASR backend returns) and `Retakes`/`RetakeCluster` for `analysis/retakes.json`. Times are seconds, rounded to milliseconds. `schemas/analysis.schema.json` is generated from `ClipAnalysis`; a test round-trips the guide's §6.1 example.
+- Language data: `src/reelcut/lang/en.toml` and `it.toml` with the §6.2 prompts and lexicons, words a finished sentence does not end on, and caption rules (`max_chars_per_page`, `keep_with_next`). `reelcut.lang.load_language(code, dirs=None)` and `available_languages()` find languages by file name only; `[defaults] language` in the config now accepts `auto` or any code with a data file instead of a hard-coded `en | it`. A test adds a minimal Spanish file in a temp dir and runs the analysers with it.
+- `analyse_transcript(clip, words, vad, language, confidence=, params=)`: filler tagging, utterances and completeness, pauses and unaligned voice, all pure. `find_retakes(clips, threshold=0.75)`: rapidfuzz `token_set_ratio` on normalised text, union-find, winner by complete, then newest, then fewest fillers. `pack_project(title, language, clips, retakes)`: the §6.3 packed index, pinned by `tests/unit/golden/packed.md` (`REELCUT_UPDATE_GOLDEN=1` rewrites it).
+
+Verified (2026-10-24): rapidfuzz 3.14.6 `fuzz.token_set_ratio(a, b)` returns a float 0-100 and scores a word subset as 100.
+
+Deviations and why:
+
+- Completeness also treats an utterance as stopping short when its last word is in the language's `incomplete_endings` (articles, prepositions, auxiliaries), even with a full stop. The fixtures showed Whisper writes the abandoned "remember is" as "is." (ticket #4), so punctuation alone misses abandoned takes. An ellipsis counts as trailing off. "Long pause" is the utterance gap (500 ms) or the clip end.
+- A lexicon match that is shorter than 80 ms or overlaps no VAD region keeps the word but leaves `filler` null. Dropping words outside VAD is ticket #7's job (the ASR stage).
+- Start-only soft fillers also match after leading fillers ("Ehm, allora, ..." tags both).
+- Utterances with fewer than three non-filler words never join a retake cluster: `token_set_ratio` scores any subset as identical, so "Yes." would otherwise cluster with every line containing "yes" and the draft would drop real lines.
+- "Newest" is ordered by clip index, then position in the clip (a later clip is a later recording). With that total order the fewest-fillers rule only breaks exact ties, which real transcripts cannot produce; tests prove complete beats newest and newest beats fewer fillers.
+- `pauses` includes the head silence (`after_word: null`) and the tail silence; gaps under 300 ms are not recorded. The packed index shows pauses of 0.7 s or more after the word they follow and places unaligned voice after the word before it.
+- Packed index details the guide leaves open: the clip heading ends with a face position (left/centred/right from the median face centre) when face samples exist; consecutive soft fillers share one `~...~`; retake lines read `- R1: c2.s0 ≈ c1.s2 (1.00), c1.s1 ✗ (1.00) → draft keeps c2.s0` (each loser with its similarity to the winner) instead of the guide's single score; empty retake and static sections are omitted.
+- No `retakes.schema.json`: the ticket asks only for the analysis schema. The model exists for the analyze stage to write `retakes.json`.
+
+Open issues: none.
+
 ## Phase 3: ingest (ticket #5)
 
 Built:

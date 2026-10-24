@@ -129,11 +129,7 @@
         },
         "language": {
           "default": "auto",
-          "enum": [
-            "auto",
-            "en",
-            "it"
-          ],
+          "description": "auto, or the code of a language with a data file (en, it).",
           "title": "Language",
           "type": "string"
         },
