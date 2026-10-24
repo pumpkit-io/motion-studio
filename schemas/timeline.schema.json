@@ -147,6 +147,8 @@
       "additionalProperties": false,
       "properties": {
         "accent": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
           "title": "Accent",
           "type": "string"
         },
@@ -156,6 +158,8 @@
           "type": "string"
         },
         "primary": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
           "title": "Primary",
           "type": "string"
         }
@@ -230,6 +234,8 @@
           "type": "string"
         },
         "highlight_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
           "title": "Highlight Color",
           "type": "string"
         },
@@ -259,6 +265,8 @@
           "type": "integer"
         },
         "stroke_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
           "title": "Stroke Color",
           "type": "string"
         },
@@ -272,6 +280,8 @@
           "type": "string"
         },
         "text_color": {
+          "description": "#RRGGBB; #RGB is accepted and expanded.",
+          "pattern": "^#[0-9A-F]{6}$",
           "title": "Text Color",
           "type": "string"
         },

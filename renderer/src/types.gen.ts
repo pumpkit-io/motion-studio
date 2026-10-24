@@ -27,16 +27,25 @@ export interface Timeline {
   words: TimelineWord[];
 }
 export interface TimelineBrand {
+  /**
+   * #RRGGBB; #RGB is accepted and expanded.
+   */
   accent: string;
   /**
    * Relative to the workspace.
    */
   logo: string;
+  /**
+   * #RRGGBB; #RGB is accepted and expanded.
+   */
   primary: string;
 }
 export interface TimelineCaptions {
   enabled: boolean;
   font: string;
+  /**
+   * #RRGGBB; #RGB is accepted and expanded.
+   */
   highlight_color: string;
   /**
    * Words that never end a caption page.
@@ -47,8 +56,14 @@ export interface TimelineCaptions {
    */
   max_chars_per_page: number | null;
   max_words_per_page: number;
+  /**
+   * #RRGGBB; #RGB is accepted and expanded.
+   */
   stroke_color: string;
   style: "pop" | "clean" | "karaoke";
+  /**
+   * #RRGGBB; #RGB is accepted and expanded.
+   */
   text_color: string;
   uppercase: boolean;
 }

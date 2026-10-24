@@ -3,18 +3,47 @@
 Merge order, lowest first: built-in defaults < workspace < project < EDL policy.
 """
 
+import re
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+)
 
 from reelcut import lang
 from reelcut.errors import DependencyError, UserError
 from reelcut.paths import WORKSPACE_FILE, project_paths
 
 Format = Literal["9x16", "16x9", "4x5"]
+
+_HEX = re.compile(r"#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})")
+
+
+def _hex_colour(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    match = _HEX.fullmatch(value.strip())
+    if match is None:
+        raise ValueError(f"{value!r} is not a hex colour: use #RRGGBB or #RGB")
+    digits = match.group(1)
+    if len(digits) == 3:
+        digits = "".join(c * 2 for c in digits)
+    return "#" + digits.upper()
+
+
+HexColor = Annotated[
+    str,
+    BeforeValidator(_hex_colour),
+    Field(pattern=r"^#[0-9A-F]{6}$", description="#RRGGBB; #RGB is accepted and expanded."),
+]
 
 # Sections of project.toml that describe the project itself rather than override config.
 PROJECT_ONLY_SECTIONS = ("project", "clips")
@@ -71,9 +100,9 @@ class Captions(_Section):
     font: str = "Inter"
     max_words_per_page: int = Field(default=3, ge=1)
     uppercase: bool = False
-    highlight_color: str = "#FFD400"
-    text_color: str = "#FFFFFF"
-    stroke_color: str = "#000000"
+    highlight_color: HexColor = "#FFD400"
+    text_color: HexColor = "#FFFFFF"
+    stroke_color: HexColor = "#000000"
 
 
 class Music(_Section):
@@ -90,8 +119,8 @@ class Master(_Section):
 
 
 class Brand(_Section):
-    primary: str = "#111111"
-    accent: str = "#FFD400"
+    primary: HexColor = "#111111"
+    accent: HexColor = "#FFD400"
     logo: str = "library/brand/logo.png"
 
 
