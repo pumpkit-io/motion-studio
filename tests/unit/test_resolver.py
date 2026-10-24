@@ -3,7 +3,7 @@
 import pytest
 from edl_fixtures import clip, edl, timed
 
-from reelcut.analysis import Faces, FaceSample
+from reelcut.analysis import Faces, FaceSample, LanguageGuess
 from reelcut.config import Config
 from reelcut.edl import EdlError, Timeline, resolve
 
@@ -256,7 +256,19 @@ def test_the_language_comes_from_the_config_unless_it_is_auto() -> None:
 
     assert resolve([TWO_LINES], edl(("a", "c1.s0", "c1.s0")), config).timeline.language == "it"
     unknown = resolve([silent], edl(("a", "c1.s0", "c1.s0")), Config()).timeline
-    assert (unknown.language, unknown.captions.max_chars_per_page) == (None, None)
+    assert unknown.language == "en"
+
+
+def test_the_project_language_is_the_one_with_most_a_roll_speech_time() -> None:
+    # c1 has more words in English; c2's two Italian words span far more speech time.
+    english = timed("c1", *[(f"w{n}", 0.5 + n * 0.2, 0.6 + n * 0.2) for n in range(6)])
+    italian = timed("c2", ("Ciao", 0.5, 4.0), ("tutti.", 4.2, 9.0))
+    english = english.model_copy(update={"language": LanguageGuess(code="en", confidence=0.9)})
+    italian = italian.model_copy(update={"language": LanguageGuess(code="it", confidence=0.9)})
+
+    result = resolve([english, italian], edl(("a", "c1.s0", "c1.s0")), Config())
+
+    assert result.timeline.language == "it"
 
 
 def test_an_edl_language_needs_a_language_file() -> None:
