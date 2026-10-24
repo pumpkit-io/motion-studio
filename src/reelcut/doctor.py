@@ -2,20 +2,20 @@
 
 import importlib.util
 import os
-import platform
 import re
 import shutil
 import subprocess
-import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 from reelcut import APP_NAME, __version__
+from reelcut.asr import DEFAULT_MODELS, default_backend, hf_cache, model_path
+from reelcut.asr.vad import SILERO_VERSION, vad_model_path
 from reelcut.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
 from reelcut.errors import DependencyError
 from reelcut.media.ffmpeg import ffmpeg_caps
-from reelcut.paths import cache_dir, envs_dir, models_dir, renderer_dir
+from reelcut.paths import cache_dir, envs_dir, renderer_dir
 from reelcut.state import free_disk_gb, min_free_gb
 
 REQUIRED_FILTERS = (
@@ -71,6 +71,7 @@ def run_doctor(workdir: Path) -> Report:
     checks, ffmpeg = _ffmpeg_checks()
     checks += _node_checks()
     checks.append(_asr_check())
+    checks += _speech_model_checks()
     checks += _cache_checks()
     disk_check, disk = _disk_check(workdir)
     checks.append(disk_check)
@@ -170,8 +171,8 @@ def _version_of(tool: str) -> str | None:
 
 
 def _asr_check() -> Check:
-    apple = sys.platform == "darwin" and platform.machine() == "arm64"
-    module, extra = ("mlx_whisper", "mac") if apple else ("faster_whisper", "cpu")
+    ref = DEFAULT_MODELS[default_backend()]
+    module, extra = ref.python_module, ref.extra
     if importlib.util.find_spec(module) is None:
         return Check(
             "asr backend",
@@ -183,14 +184,36 @@ def _asr_check() -> Check:
     return Check("asr backend", "ok", True, module)
 
 
+def _speech_model_checks() -> list[Check]:
+    # Missing models only fail `analyze`; they stay warnings so doctor passes before `setup`.
+    setup = f"run `{APP_NAME} setup` once while online"
+    vad = vad_model_path()
+    ref = DEFAULT_MODELS[default_backend()]
+    found = model_path(ref)
+    return [
+        Check(
+            "vad model",
+            "ok" if vad.is_file() else "warn",
+            False,
+            str(vad) if vad.is_file() else f"Silero VAD {SILERO_VERSION} not in {vad.parent}",
+            None if vad.is_file() else setup,
+        ),
+        Check(
+            "asr model",
+            "ok" if found else "warn",
+            False,
+            str(found) if found else f"{ref.repo} not in {hf_cache()}",
+            None if found else setup,
+        ),
+    ]
+
+
 def _cache_checks() -> list[Check]:
     # `setup` fills these; until it has run they are warnings, not failures.
     setup = f"run `{APP_NAME} setup`"
     setup_music = f"run `{APP_NAME} setup --music`"
     renderer = renderer_dir() / __version__
-    models = models_dir()
     ace = envs_dir() / "ace-step"
-    has_models = models.is_dir() and any(models.iterdir())
     deep_filter = deep_filter_binary()
     return [
         Check(
@@ -199,13 +222,6 @@ def _cache_checks() -> list[Check]:
             False,
             str(renderer),
             None if renderer.is_dir() else setup,
-        ),
-        Check(
-            "models",
-            "ok" if has_models else "warn",
-            False,
-            str(models),
-            None if has_models else setup,
         ),
         Check(
             "ace-step env",

@@ -115,3 +115,14 @@ All four require or recommend `name` and `description` frontmatter in `SKILL.md`
 | ffmpeg `colorspace` | cannot read HLG or PQ transfers; the fallback reads them as `bt2020-10` | `ffmpeg -h filter=colorspace` |
 | ffmpeg autorotate | on by default when filtering; the output has no display matrix | ingest test with `-display_rotation 90` (input option, ffmpeg 6+) |
 | `-fps_mode cfr` + `fps=` filter | gives `avg_frame_rate` = `r_frame_rate` = project fps on the VFR fixtures | ffprobe in the fixture test |
+
+## Speech (ticket #7, 2026-10-24)
+
+| Item | Value | How checked |
+|---|---|---|
+| Silero VAD | `silero_vad.onnx` from tag v6.2.3 (latest release, 2026-09-23), `raw.githubusercontent.com/snakers4/silero-vad/v6.2.3/src/silero_vad/data/silero_vad.onnx`, SHA-256 pinned in `reelcut.asr.vad` | `gh release list`; ONNX inputs `input` [1, 64 + 512], `state` [2, 1, 128], `sr` int64; outputs probability and new state, as in `OnnxWrapper` of that tag's `utils_vad.py` |
+| mlx-whisper 0.4.3 | `transcribe(audio, path_or_hf_repo=, word_timestamps=, initial_prompt=, condition_on_previous_text=, hallucination_silence_threshold=, clip_timestamps=[start, end, ...], language=)`; words carry `word`, `start`, `end`, `probability`. Language ID: `model.detect_language(mel)` returns `(tokens, {code: prob})` for one 30 s mel segment; model loaded with `mlx_whisper.transcribe.ModelHolder.get_model(path, mx.float16)` | Read from the installed package source |
+| MLX model | `mlx-community/whisper-large-v3-turbo` @ `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` (1.6 GB `weights.safetensors`) | Hugging Face API |
+| faster-whisper 1.2.1 | `WhisperModel(path, device="cpu", compute_type="int8")`; `transcribe(..., word_timestamps=True, vad_filter=False, clip_timestamps=[...], hallucination_silence_threshold=, condition_on_previous_text=False)`; `detect_language(audio)` returns `(code, prob, [(code, prob), ...])` | Read from the installed package source |
+| CTranslate2 model | `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf`. faster-whisper's own `large-v3-turbo` alias names `mobiuslabsgmbh/...`, which Hugging Face now redirects to this repository | Hugging Face API (HTTP 307 on the old name) |
+| huggingface_hub | 2.3.0 (pulled by both backends); models go to `<cache>/models/huggingface` through `snapshot_download(cache_dir=...)` | `uv pip show` |

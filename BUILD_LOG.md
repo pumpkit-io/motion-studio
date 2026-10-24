@@ -201,3 +201,39 @@ Open issues:
 - HEIC/HEIF photos are not decoded (Pillow has no HEIF support without `pillow-heif`); ingest fails with a hint to convert them. iPhones save photos as HEIC by default.
 - `reelcut setup` does not exist yet; whichever ticket adds it should call `reelcut.audio.enhance.install_deep_filter()`. Until then, `deep-filter` can be put on PATH or the integration test installs it into the cache.
 - The `zscale` path is not exercised on the build machine (Homebrew ffmpeg lacks zscale); CI's Ubuntu ffmpeg runs it in the HLG test.
+
+## Phase 4, speech: VAD, speech-to-text and language (ticket #7)
+
+Built:
+
+- `reelcut analyze <slug> [--clip c1] [--json]` (`reelcut.analyze.analyze_project`). It calls `config.ensure_supported()` first (so `fillers_backend = "crisper"` exits 2), takes the project lock, reads `media/manifest.json` and the roles in `project.toml`, sends every clip with audio whose state record (`analyze.<id>`) is stale to one speech-to-text worker, runs the #6 analysers, and writes `analysis/<clip>.json`, `analysis/retakes.json` and `analysis/packed.md`. A re-run with nothing changed is a no-op that starts no worker; `--clip` re-transcribes one clip and repacks the project. Images and silent clips get an analysis file with no words and `language: null`.
+- `reelcut.asr`: `transcribe_clips(jobs, backend=, model=)` runs `python -m reelcut.asr.worker` as a child process while the parent holds the machine-wide heavy-model lock, so the model never loads in the reelcut process and its memory goes back to the system when the child exits. The worker runs Silero VAD, language ID and transcription for every job with one model load and reports its pid and peak RSS. `REELCUT_ASR_WORKER` replaces the worker command (the CI tests use a scripted stand-in).
+- `ASRBackend` protocol (guide §8 Phase 4) in `reelcut.asr.backends`, with `MlxWhisper` (default on arm64 macOS) and `FasterWhisper` (default elsewhere; CPU, int8). Both use the language file's filler prompt as `initial_prompt`, `word_timestamps`, `condition_on_previous_text=False` and `hallucination_silence_threshold=2.0`, and decode only speech windows through `clip_timestamps`.
+- Silero VAD through onnxruntime (`reelcut.asr.vad`): min speech 250 ms, min silence 100 ms, 30 ms pad, threshold 0.5, ported from the reference `get_speech_timestamps`.
+- Language: each clip is detected among the languages with a data file, from up to 30 s of its VAD speech; the project language is the language with the most A-roll utterance time (`reelcut.analysis.project_language`), or `defaults.language` when set, which also forces that language on every clip.
+- `reelcut setup [--json]` downloads DeepFilterNet (`install_deep_filter()`), Silero VAD and the Whisper model for this platform's backend (or the workspace's `asr.backend`/`asr.model`) into the cache; already-present items are reported, not fetched. `doctor` now has `vad model` and `asr model` checks (warn until setup has run) instead of the generic `models` check.
+
+Pinned: Silero VAD v6.2.3 (`silero_vad.onnx`, SHA-256 checked), `mlx-community/whisper-large-v3-turbo` @ `a4aaeec0`, `dropbox-dash/faster-whisper-large-v3-turbo` @ `0a363e91`. Details in `docs/dependencies.md`; licences in `THIRD_PARTY.md`.
+
+Checked (acceptance), `tests/integration/test_analyze_fixtures.py` (`slow`, `mac`, `models`), parametrised over both backends, all 11 tests pass (3.5 min, including the faster-whisper run forced through `project.toml`):
+
+- Languages: `en_talking` and `prova clip è` detected `en`, `it_talking` `it` (confidence 0.999 to 1.0 on both backends); project language `en`.
+- Silences: all 16 known silences of the EN and IT fixtures (head, between utterances, around the filler, tail) match a VAD gap within ±150 ms, so 100% against the 90% bar.
+- Retakes: in both clips the abandoned take is `complete: false`, the full take `complete: true`, and they share a cluster whose winner is complete.
+- `packed.md` for a 5 min 13 s clip (`en_talking` concatenated 15 times): about 2,040 tokens (chars/4), under 2,500.
+- Memory and lock: the worker reports a peak RSS of about 0.9 GB (mlx) and 2.0 to 2.3 GB (faster-whisper); after analyze its pid no longer exists and neither `mlx_whisper` nor `faster_whisper` is imported in the test process. With the heavy-model lock held by another thread, `analyze` prints `waiting for the heavy-model lock (test-holder ...)` and continues once it is released. The CI stand-in worker checks that the lock is held while it runs.
+- Timing on the build machine: transcribing the EN and IT fixtures (21 s each) in one worker takes about 8 s with mlx-whisper and 25 s with faster-whisper, model load included.
+
+Deviations and why:
+
+- Whisper skipped the whole last sentence of the EN fixture when decoding the full 21 s file (both backends, with or without the hallucination guard and prompt). Each backend therefore decodes VAD speech grouped into windows of at most 28 s (`clip_timestamps`), and any speech region of 0.5 s or more that still has no word is transcribed again on its own.
+- Words are fitted to VAD after transcription: a word outside every region is dropped, and a word overlapping a region is clamped to the region it overlaps most. Whisper stretched "is..." of the abandoned take across the 0.9 s pause, which hid both the pause and the incomplete utterance; clamping restores them.
+- The heavy-model lock is held by the parent for the life of the worker rather than taken inside the worker, so the stand-in worker in CI can verify it and a waiting message reaches the CLI.
+- The `ASRBackend` methods follow the guide's signatures, plus a `candidates` argument to `detect_language` so detection only picks languages reelcut has data for. Confidence is the model's own probability for the chosen language.
+- `setup --music` exits 2 with "not available in this build yet" until the music ticket (#14) implements it; `setup --crisper` exits 2 like the config value. The renderer (#13) and face models (#8) are not installed by setup yet; those tickets add their steps to `reelcut.setup.run_setup`.
+- Models live under `<cache>/models/huggingface` (Hugging Face cache layout), not the default `~/.cache/huggingface`, so `reelcut clean` and the cache directory cover them.
+
+Open issues:
+
+- On the 5-minute concatenation Whisper sometimes attaches the first word of the next take to the end of the abandoned one ("... remember is The"); the retake still clusters, but the draft would keep a stray word. Check (#15) re-transcribes and will flag it.
+- `project.toml` is an input of the analyze stage, so role finalisation (#8) writing it marks analyze stale once; the next run is then a repack, not a re-transcription (per-clip records stay fresh).
