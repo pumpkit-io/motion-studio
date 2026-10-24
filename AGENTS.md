@@ -9,6 +9,7 @@ This file is for agents working on reelcut itself. The agent that edits videos r
 - `just test`: pytest without the local-only markers, then vitest in `renderer/`. This is what CI runs.
 - `just test-all`: every test, including those marked `slow`, `mac`, `models`, `renderer` and `music`.
 - `just schema`: regenerate `schemas/` from the Pydantic contracts. `just schema-check` fails when the committed copies are stale.
+- `just fixtures`: regenerate the synthetic test media and its ground truth (macOS; see `tests/fixtures/README.md`).
 - `uv tool install --editable .`: put the `reelcut` command on your PATH from this checkout.
 
 CI (`.github/workflows/ci.yml`) runs `just lint`, `just schema-check` and `just test` on Linux for every pushed branch.

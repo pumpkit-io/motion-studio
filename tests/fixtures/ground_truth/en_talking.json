@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "clip": "en_talking.mov",
+  "language": "en",
+  "voice": "Samantha",
+  "duration_ms": 20833,
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "vfr": true
+  },
+  "utterances": [
+    {
+      "text": "Hi, welcome back to the channel.",
+      "start_ms": 800,
+      "end_ms": 2758,
+      "complete": true
+    },
+    {
+      "text": "Today, um, I want to show you how I edit my videos.",
+      "start_ms": 4258,
+      "end_ms": 7968,
+      "complete": true
+    },
+    {
+      "text": "The most important thing to remember is",
+      "start_ms": 9168,
+      "end_ms": 11255,
+      "complete": false
+    },
+    {
+      "text": "The most important thing to remember is to keep every sentence short.",
+      "start_ms": 12155,
+      "end_ms": 15707,
+      "complete": true
+    },
+    {
+      "text": "Thanks for watching, and see you next time.",
+      "start_ms": 17207,
+      "end_ms": 19828,
+      "complete": true
+    }
+  ],
+  "fillers": [
+    {
+      "text": "um",
+      "kind": "hard",
+      "start_ms": 5049,
+      "end_ms": 5368
+    }
+  ],
+  "silences": [
+    {
+      "start_ms": 0,
+      "end_ms": 800,
+      "context": "head"
+    },
+    {
+      "start_ms": 2758,
+      "end_ms": 4258,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 4749,
+      "end_ms": 5049,
+      "context": "around_filler"
+    },
+    {
+      "start_ms": 5368,
+      "end_ms": 5668,
+      "context": "around_filler"
+    },
+    {
+      "start_ms": 7968,
+      "end_ms": 9168,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 11255,
+      "end_ms": 12155,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 15707,
+      "end_ms": 17207,
+      "context": "between_utterances"
+    },
+    {
+      "start_ms": 19828,
+      "end_ms": 20833,
+      "context": "tail"
+    }
+  ],
+  "retake": {
+    "abandoned": 2,
+    "winner": 3
+  }
+}

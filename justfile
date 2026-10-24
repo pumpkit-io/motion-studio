@@ -38,4 +38,8 @@ schema-check: schema
     git diff --exit-code -- schemas renderer/src/types.gen.ts
     test -z "$(git ls-files --others --exclude-standard -- schemas renderer/src/types.gen.ts)"
 
+# Regenerate the synthetic test media and its ground truth (macOS: needs `say` and ffmpeg).
+fixtures:
+    uv run python scripts/make_fixtures.py
+
 ci: lint schema-check test
