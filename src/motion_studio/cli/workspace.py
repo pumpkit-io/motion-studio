@@ -8,8 +8,15 @@ import typer
 from motion_studio import APP_NAME
 from motion_studio.cli._output import JsonOption, emit, path_line
 from motion_studio.errors import UserError
+from motion_studio.kind import ProjectKind
 from motion_studio.paths import find_workspace, project_paths
-from motion_studio.workspace import clean_project, init_workspace, new_project, project_status
+from motion_studio.workspace import (
+    clean_project,
+    empty_raw_hint,
+    init_workspace,
+    new_project,
+    project_status,
+)
 
 Slug = Annotated[str, typer.Argument(help="Project slug: lowercase letters, digits, hyphens.")]
 
@@ -45,17 +52,23 @@ def new(
         typer.Option("--from", help="A file or directory to put in raw/. Repeatable."),
     ] = None,
     title: Annotated[str | None, typer.Option(help="Human title; defaults to the slug.")] = None,
+    kind: Annotated[
+        ProjectKind,
+        typer.Option(help="talk (a talking-head video) or product (from screen recordings)."),
+    ] = ProjectKind.TALK,
     as_json: JsonOption = False,
 ) -> None:
     """Create a project and hard-link (or copy) the given clips into its raw/ directory."""
     workspace = find_workspace()
-    project, raw = new_project(workspace, slug, [*(sources or []), *(more or [])], title=title)
-    hint = f"`{APP_NAME} ingest {slug}`" if raw else f"copy clips into {project.raw}"
+    project, raw = new_project(
+        workspace, slug, [*(sources or []), *(more or [])], title=title, kind=kind
+    )
+    hint = f"`{APP_NAME} ingest {slug}`" if raw else empty_raw_hint(project, kind)
     emit(
         as_json,
-        {"project": str(project.root), "raw": [str(p) for p in raw]},
+        {"project": str(project.root), "kind": kind.value, "raw": [str(p) for p in raw]},
         [
-            f"project {project.root}",
+            f"{kind} project {project.root}",
             *(path_line(p, "linked into raw/") for p in raw),
             f"next: {hint}",
         ],
@@ -70,7 +83,7 @@ def status(slug: Slug, as_json: JsonOption = False) -> None:
         as_json,
         report.to_json(),
         [
-            f"{report.slug}: {report.clips} clip(s) in raw/",
+            f"{report.slug} ({report.kind}): {report.clips} clip(s) in raw/",
             *(f"  {s.name.ljust(width)}  {s.status}" for s in report.stages),
             f"next: {report.next}" if report.next else f"next: {report.hint}",
         ],

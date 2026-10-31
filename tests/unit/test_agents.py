@@ -18,6 +18,7 @@ SKILLS = [
     "motion-studio-look",
     "motion-studio-music",
     "motion-studio-plan",
+    "motion-studio-product",
     "motion-studio-review",
 ]
 
@@ -131,7 +132,7 @@ WORD = re.compile(r"[a-z][a-z-]*")
 
 
 def agent_docs(ws: Path) -> list[Path]:
-    return [ws / "AGENTS.md", *sorted((ws / ".agents/skills").glob("*/SKILL.md"))]
+    return [ws / "AGENTS.md", *sorted((ws / ".agents/skills").glob("*/*.md"))]
 
 
 def mentions(doc: Path) -> list[str]:
@@ -201,6 +202,30 @@ def test_agents_md_points_to_every_skill_file_by_a_path_that_exists(workspace: P
         pointer = f".agents/skills/{skill}/SKILL.md"
         assert pointer in text, pointer
         assert (workspace / pointer).is_file()
+
+
+def test_agents_md_routes_each_project_kind_to_its_skill(workspace: Path) -> None:
+    text = (workspace / "AGENTS.md").read_text(encoding="utf-8")
+    assert "--kind product" in text
+    for kind, skill in [("talk", "motion-studio-edit"), ("product", "motion-studio-product")]:
+        line = next((ln for ln in text.splitlines() if f"`{skill}`" in ln and kind in ln), None)
+        assert line, f"no line routes {kind} projects to {skill}"
+
+
+@pytest.mark.parametrize("skill", ["motion-studio-edit", "motion-studio-plan"])
+def test_the_talk_skills_say_they_are_for_talk_projects(workspace: Path, skill: str) -> None:
+    data = frontmatter(workspace / ".agents/skills" / skill / "SKILL.md")
+    assert "talk project" in str(data["description"])
+
+
+@pytest.mark.parametrize(
+    "linked", ["motion-studio-music", "motion-studio-look", "motion-studio-review"]
+)
+def test_the_product_skill_links_the_music_look_and_review_skills(
+    workspace: Path, linked: str
+) -> None:
+    text = (workspace / ".agents/skills/motion-studio-product/SKILL.md").read_text(encoding="utf-8")
+    assert f"`{linked}`" in text
 
 
 def test_init_writes_the_library_skeleton_with_a_music_licensing_readme(workspace: Path) -> None:

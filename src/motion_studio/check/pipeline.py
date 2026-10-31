@@ -1,4 +1,8 @@
-"""`motion-studio check`: judge a render and say what to change in the EDL when it cannot ship."""
+"""`motion-studio check`: judge a render and say what to change in the EDL when it cannot ship.
+
+A talk render is re-transcribed and its cuts diffed; a product render, which has no speech, is
+measured and its masks and highlights read off the timeline instead.
+"""
 
 import json
 from collections.abc import Callable, Sequence
@@ -11,11 +15,17 @@ from motion_studio.analysis.models import ClipAnalysis, Word
 from motion_studio.asr import SpeechJob, resolve_backend, transcribe_clips
 from motion_studio.check.diff import CLIP_WINDOW_MS, Miss, WordDiff, diff_words
 from motion_studio.check.measure import Measurement, Stretch, measure
+from motion_studio.check.product import (
+    cursor_findings,
+    longest_middle_scenes,
+    masked_regions,
+    still_scenes,
+)
 from motion_studio.check.report import Finding, Severity, markdown, verdict
-from motion_studio.check.stills import Cut, cuts_sheet
+from motion_studio.check.stills import Cut, contact_sheet, cuts_sheet
 from motion_studio.config import Config, Edit, load_config
-from motion_studio.edl import Edl, Timeline
-from motion_studio.edl.models import TimelineBroll, TimelineImage
+from motion_studio.edl import Timeline
+from motion_studio.edl.models import ProductEdl, TalkEdl, TimelineBroll, TimelineImage
 from motion_studio.errors import MotionStudioError, UserError
 from motion_studio.media.ffmpeg import run_ffmpeg
 from motion_studio.paths import ProjectPaths, project_paths
@@ -40,6 +50,10 @@ TRUE_PEAK_TOLERANCE_DB = 0.5
 FINAL_TRUE_PEAK_TOLERANCE_DB = 0.05
 # A detected stretch mostly inside an image segment is the still image, not a defect.
 INTENTIONAL_SHARE = 0.5
+# Laptop and phone speakers barely reproduce the bass, so a mix this bass-heavy sounds empty.
+SMALL_SPEAKER_DB = 10.0
+# Bass this far under the loudest band is too faint to mask anything, whatever the top does.
+AUDIBLE_BASS_DB = 30.0
 
 
 @dataclass
@@ -52,6 +66,7 @@ class CheckReport:
     report: Path
     report_json: Path
     cuts_sheet: Path
+    contact_sheet: Path | None = None
     warnings: list[str] = field(default_factory=lambda: list[str]())
 
     @property
@@ -70,6 +85,7 @@ class CheckReport:
             "report": str(self.report),
             "report_json": str(self.report_json),
             "cuts_sheet": str(self.cuts_sheet),
+            "contact_sheet": str(self.contact_sheet) if self.contact_sheet else None,
             "warnings": self.warnings,
         }
 
@@ -103,10 +119,14 @@ def check_project(
             if str(output_path(project, target, f.name).relative_to(project.root)) in outputs
         ]
         edl = load_edl(project)
-        config = load_config(workspace, slug, edl_policy=edl.policy.model_dump(exclude_none=True))
+        policy = edl.policy.model_dump(exclude_none=True) if isinstance(edl, TalkEdl) else None
+        config = load_config(workspace, slug, edl_policy=policy)
         config.ensure_supported()
         try:
-            report = _check(project, timeline, edl, config, formats, target, step, warn)
+            if isinstance(edl, TalkEdl):
+                report = _check(project, timeline, edl, config, formats, target, step, warn)
+            else:
+                report = _check_product(project, timeline, edl, config, formats, target, step)
         except MotionStudioError as exc:
             mark_failed(project, record, exc.message)
             raise
@@ -119,7 +139,12 @@ def check_project(
                 project,
                 record,
                 inputs,
-                outputs=[report.report, report.report_json, report.cuts_sheet],
+                outputs=[
+                    report.report,
+                    report.report_json,
+                    report.cuts_sheet,
+                    *([report.contact_sheet] if report.contact_sheet else []),
+                ],
             )
     return report
 
@@ -127,7 +152,7 @@ def check_project(
 def _check(
     project: ProjectPaths,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     config: Config,
     formats: list[str],
     target: RenderTarget,
@@ -149,22 +174,13 @@ def _check(
     metrics["words"] = {"expected": diff.expected, "heard": diff.heard, "matched": diff.matched}
 
     images = [(e.start / fps, e.end / fps) for e in timeline.events if e.type == "image"]
-    measured: dict[str, Measurement] = {}
-    for fmt in formats:
-        step(f"measuring {fmt}")
-        m = measure(output_path(project, target, fmt))
-        measured[fmt] = m
-        findings += _media_findings(fmt, m, config, edl, target, project.slug, images)
+    measured = _measure_formats(
+        project, edl, config, formats, target, step, images, findings, music_only=False
+    )
     first = measured[formats[0]]
-    max_duration = edl.max_duration_s or config.defaults.max_duration_s
-    metrics["duration_s"] = round(first.duration_s, 3)
-    metrics["max_duration_s"] = max_duration
+    max_duration = _shared_metrics(measured, first, edl, config, metrics)
     if first.duration_s > max_duration + 1 / fps:
         findings.append(_over_length(first.duration_s, max_duration, timeline))
-    metrics["loudness"] = {
-        fmt: {"integrated_lufs": m.integrated_lufs, "true_peak_db": m.true_peak_db, "lra": m.lra}
-        for fmt, m in measured.items()
-    }
 
     peak_wps = _caption_density(timeline, findings)
     metrics["caption_peak_words_per_s"] = peak_wps
@@ -182,29 +198,158 @@ def _check(
         project.check / "cuts.png",
     )
 
-    order = {"blocking": 0, "warning": 1, "info": 2}
-    findings.sort(key=lambda f: order[f.severity])
-    report = project.check / "report.md"
-    report_json = project.check / "report.json"
+    notes = [
+        f"Words were re-transcribed from build/voice_{formats[0]}.wav (the voice before music; "
+        f"every format shares it). Cut stills come from the {formats[0]} file."
+    ]
     result = CheckReport(
         stage=stage,
         formats=formats,
         findings=findings,
         metrics=metrics,
         cuts_s=[round(c / 1000, 3) for c in cuts_ms],
-        report=report,
-        report_json=report_json,
+        report=project.check / "report.md",
+        report_json=project.check / "report.json",
         cuts_sheet=sheet,
     )
-    notes = [
-        f"Words were re-transcribed from build/voice_{formats[0]}.wav (the voice before music; "
-        f"every format shares it). Cut stills come from the {formats[0]} file."
-    ]
-    report.write_text(
-        markdown(f"{project.slug} {stage}", findings, _metric_rows(metrics), notes),
-        encoding="utf-8",
+    return _write_report(project, result, _metric_rows(metrics), notes)
+
+
+def _check_product(
+    project: ProjectPaths,
+    timeline: Timeline,
+    edl: ProductEdl,
+    config: Config,
+    formats: list[str],
+    target: RenderTarget,
+    step: Callable[[str], None],
+) -> CheckReport:
+    stage = target.stage
+    fps = timeline.fps
+    slug = project.slug
+    scenes = timeline.scenes
+    project.check.mkdir(parents=True, exist_ok=True)
+    findings: list[Finding] = []
+    metrics: dict[str, Any] = {"scenes": len(scenes), "cuts": len(scenes) - 1}
+
+    measured = _measure_formats(
+        project, edl, config, formats, target, step, still_scenes(timeline), findings,
+        music_only=True,
+    )  # fmt: skip
+    first = measured[formats[0]]
+    max_duration = _shared_metrics(measured, first, edl, config, metrics)
+    if first.duration_s > max_duration + 1 / fps:
+        over = first.duration_s - max_duration
+        findings.append(
+            Finding(
+                "blocking",
+                "over_duration",
+                f"the video is {first.duration_s:.1f} s, {over:.1f} s over max_duration_s "
+                f"{max_duration:g}",
+                f"shorten or remove scenes by at least {over:.1f} s (longest in the middle: "
+                f"{longest_middle_scenes(timeline)}); keep the intro and the outro",
+            )
+        )
+    masks = masked_regions(timeline)
+    metrics["masks"] = [m.to_json() for m in masks]
+    cursors = {a.clip.id: a.cursor for a in load_analyses(project) if a.clip.role == "screen"}
+    findings += cursor_findings(timeline, cursors, slug)
+    findings += _event_findings(timeline)
+
+    video = output_path(project, target, formats[0])
+    size = video_size(video)
+    title = f"{slug} {stage} {formats[0]}"
+    step("drawing the contact sheet")
+    contact, warnings = contact_sheet(
+        video, size, first.duration_s, title, project.check / "contact.png"
     )
-    report_json.write_text(
+    cuts = [
+        Cut(k, scene.start / fps, scenes[k - 1].id, scene.id)
+        for k, scene in enumerate(scenes[1:], start=1)
+    ]
+    sheet = cuts_sheet(
+        video, size, first.duration_s, fps, cuts, f"{title}: {len(cuts)} cuts",
+        project.check / "cuts.png",
+    )  # fmt: skip
+
+    look = f"`{APP_NAME} look {slug} --at <scene | marker | seconds>`"
+    notes = [
+        f"No speech to re-transcribe: a product video is music only. Stills come from the "
+        f"{formats[0]} file. For any moment you are unsure of, run {look}."
+    ]
+    sections = [("Masked regions", [m.line(slug) for m in masks] or ["none"])]
+    result = CheckReport(
+        stage=stage,
+        formats=formats,
+        findings=findings,
+        metrics=metrics,
+        cuts_s=[c.t for c in cuts],
+        report=project.check / "report.md",
+        report_json=project.check / "report.json",
+        cuts_sheet=sheet,
+        contact_sheet=contact,
+        warnings=warnings,
+    )
+    rows = _product_metric_rows(metrics)
+    return _write_report(project, result, rows, notes, sections)
+
+
+def _measure_formats(
+    project: ProjectPaths,
+    edl: TalkEdl | ProductEdl,
+    config: Config,
+    formats: list[str],
+    target: RenderTarget,
+    step: Callable[[str], None],
+    still: list[tuple[float, float]],
+    findings: list[Finding],
+    *,
+    music_only: bool,
+) -> dict[str, Measurement]:
+    measured: dict[str, Measurement] = {}
+    for fmt in formats:
+        step(f"measuring {fmt}")
+        m = measure(output_path(project, target, fmt))
+        measured[fmt] = m
+        findings += _media_findings(
+            fmt, m, config, edl, target, project.slug, still, music_only=music_only
+        )
+    return measured
+
+
+def _shared_metrics(
+    measured: dict[str, Measurement],
+    first: Measurement,
+    edl: TalkEdl | ProductEdl,
+    config: Config,
+    metrics: dict[str, Any],
+) -> float:
+    """Fill in the duration, loudness and band metrics; return the length limit."""
+    max_duration = edl.max_duration_s or config.defaults.max_duration_s
+    metrics["duration_s"] = round(first.duration_s, 3)
+    metrics["max_duration_s"] = max_duration
+    metrics["loudness"] = {
+        fmt: {"integrated_lufs": m.integrated_lufs, "true_peak_db": m.true_peak_db, "lra": m.lra}
+        for fmt, m in measured.items()
+    }
+    metrics["bands"] = {fmt: m.bands for fmt, m in measured.items()}
+    return max_duration
+
+
+def _write_report(
+    project: ProjectPaths,
+    result: CheckReport,
+    rows: list[tuple[str, str]],
+    notes: list[str],
+    sections: list[tuple[str, list[str]]] | None = None,
+) -> CheckReport:
+    order = {"blocking": 0, "warning": 1, "info": 2}
+    result.findings.sort(key=lambda f: order[f.severity])
+    title = f"{project.slug} {result.stage}"
+    result.report.write_text(
+        markdown(title, result.findings, rows, notes, sections or []), encoding="utf-8"
+    )
+    result.report_json.write_text(
         json.dumps(result.to_json(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
     return result
@@ -253,7 +398,7 @@ def _source_words(analyses: Sequence[ClipAnalysis]) -> dict[str, tuple[list[Word
 def _word_finding(
     miss: Miss,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     policy: Edit,
     words: dict[str, tuple[list[Word], int]],
     cuts_ms: list[int],
@@ -278,7 +423,7 @@ def _word_finding(
 def _clip_fix(
     miss: Miss,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     policy: Edit,
     words: dict[str, tuple[list[Word], int]],
 ) -> str:
@@ -319,11 +464,14 @@ def _media_findings(
     fmt: str,
     m: Measurement,
     config: Config,
-    edl: Edl,
+    edl: TalkEdl | ProductEdl,
     target: RenderTarget,
     slug: str,
-    images: list[tuple[float, float]],
+    still: list[tuple[float, float]],
+    *,
+    music_only: bool,
 ) -> list[Finding]:
+    """`still` holds the output spans where a black or frozen picture is intended."""
     found: list[Finding] = []
     master = config.master
     final = target is RenderTarget.FINAL
@@ -350,9 +498,25 @@ def _media_findings(
                 fix,
             )
         )
-    fix = "check the B-roll's asset_in_s and duration, and the segments around it"
+    audible_bass = m.bands["below_150_hz"] >= max(m.bands.values()) - AUDIBLE_BASS_DB
+    if audible_bass and m.bass_over_top_db > SMALL_SPEAKER_DB:
+        # With no voice to carry it, a bass-heavy music-only mix is near silent on a laptop.
+        found.append(
+            Finding(
+                "blocking" if music_only else "warning",
+                "small_speaker",
+                f"{fmt}: energy above 1 kHz is {m.bass_over_top_db:.1f} dB below the energy "
+                f"under 150 Hz (over {SMALL_SPEAKER_DB:g}): laptop and phone speakers will "
+                "make it sound faint",
+                _small_speaker_fix(config, edl, target, slug),
+            )
+        )
+    if music_only:
+        fix = "check the footage scene's from and to, and the recording around them"
+    else:
+        fix = "check the B-roll's asset_in_s and duration, and the segments around it"
     for s in m.black:
-        if not _intentional(s, images):
+        if not _intentional(s, still):
             found.append(
                 Finding(
                     "blocking",
@@ -362,7 +526,7 @@ def _media_findings(
                 )
             )
     for s in m.frozen:
-        if not _intentional(s, images):
+        if not _intentional(s, still):
             found.append(
                 Finding(
                     "warning",
@@ -374,7 +538,9 @@ def _media_findings(
     return found
 
 
-def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+def _loudness_fix(
+    config: Config, edl: TalkEdl | ProductEdl, target: RenderTarget, slug: str
+) -> str:
     """Mastering is automatic, so the EDL lever is the music bed's level."""
     rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
     bug = "if it persists, report it as a motion-studio bug"
@@ -384,8 +550,24 @@ def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> 
     return f"lower music.gain_db in edl.json (now {gain:g}) and {rerender}; {bug}"
 
 
-def _intentional(stretch: Stretch, images: list[tuple[float, float]]) -> bool:
-    inside = sum(max(0.0, min(stretch.end, b) - max(stretch.start, a)) for a, b in images)
+def _small_speaker_fix(
+    config: Config, edl: TalkEdl | ProductEdl, target: RenderTarget, slug: str
+) -> str:
+    rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
+    mode = edl.music.mode or config.music.mode
+    if mode == "library":
+        return f"pick a brighter library track (music.track) and {rerender}"
+    if mode == "generate":
+        return f"ask for brighter instruments in music.prompt, run music again and {rerender}"
+    if isinstance(edl, ProductEdl):
+        return (
+            f"give the video a brighter music bed (music.mode generate or library) and {rerender}"
+        )
+    return "the voice itself is bass-heavy: check the microphone and the source audio"
+
+
+def _intentional(stretch: Stretch, still: list[tuple[float, float]]) -> bool:
+    inside = sum(max(0.0, min(stretch.end, b) - max(stretch.start, a)) for a, b in still)
     return inside >= INTENTIONAL_SHARE * max(stretch.duration, 1e-6)
 
 
@@ -496,7 +678,14 @@ def _metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
             f"{words['matched']} of {words['expected']} matched ({words['heard']} heard)",
         ),
         ("caption peak", f"{metrics['caption_peak_words_per_s']:.2f} words/s"),
+        *_audio_rows(metrics),
+        ("clip window", f"{CLIP_WINDOW_MS} ms either side of a cut"),
     ]
+    return rows
+
+
+def _audio_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
     for fmt, m in metrics["loudness"].items():
         rows.append(
             (
@@ -505,5 +694,23 @@ def _metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
                 f"LRA {m['lra']:.1f} LU",
             )
         )
-    rows.append(("clip window", f"{CLIP_WINDOW_MS} ms either side of a cut"))
+    for fmt, bands in metrics["bands"].items():
+        rows.append(
+            (
+                f"bands {fmt}",
+                f"below 150 Hz {bands['below_150_hz']:.1f} dB, "
+                f"150 Hz-1 kHz {bands['150_hz_to_1_khz']:.1f} dB, "
+                f"1-5 kHz {bands['1_to_5_khz']:.1f} dB, "
+                f"above 5 kHz {bands['above_5_khz']:.1f} dB",
+            )
+        )
     return rows
+
+
+def _product_metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
+    rows = [
+        ("duration", f"{metrics['duration_s']:.2f} s (max {metrics['max_duration_s']:g} s)"),
+        ("scenes", str(metrics["scenes"])),
+        ("masked regions", str(len(metrics["masks"]))),
+    ]
+    return rows + _audio_rows(metrics)

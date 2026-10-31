@@ -1,14 +1,16 @@
 ---
 name: motion-studio-edit
-description: End-to-end workflow for editing raw talking-head footage into short social videos (Instagram Reels, X) with motion-studio. Use whenever the user asks to edit, cut, trim or produce a video, reel or short from files in a motion-studio workspace.
+description: End-to-end workflow for a talk project, editing raw talking-head footage into short social videos (Instagram Reels, X) with motion-studio. Use whenever the user asks to edit, cut, trim or produce a reel or short from footage of someone speaking. Product videos made from screen recordings follow motion-studio-product instead.
 ---
 
-# Editing a video with motion-studio
+# Editing a talk video with motion-studio
+
+This skill is for talk projects. When `motion-studio status <slug>` reports a product project, or the user wants a video of their product's screens, follow `motion-studio-product` instead.
 
 Run every command from the workspace root. Each command prints the paths it wrote; add `--json` when you want to parse the result. Exit codes: 0 OK, 1 a fixable EDL or input error (read the message and its hint, fix, rerun), 2 a missing dependency (run `motion-studio doctor`; when it lists a missing model or the renderer, `motion-studio doctor --fix` downloads it, otherwise tell the user what it reports), 3 an internal error (report it to the user with the message).
 
 ## 0. Orient
-- `motion-studio status <slug>`. If the project does not exist, create it with `motion-studio new <slug> --from <paths>`. If it reports 0 clips in `raw/`, ask the user to copy their takes into `projects/<slug>/raw/` and wait; files added there later are picked up by `motion-studio ingest <slug>`.
+- `motion-studio status <slug>`. If the project does not exist, create it with `motion-studio new <slug> --from <paths>` (a talk project, the default). If it reports 0 clips in `raw/`, ask the user to copy their takes into `projects/<slug>/raw/` and wait; files added there later are picked up by `motion-studio ingest <slug>`.
 - Read `projects/<slug>/notes.md` if it exists, and the effective config (`motion-studio config show <slug>`).
 - Note the user's requests: target length, formats, tone, must-keep lines, CTA.
 

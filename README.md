@@ -60,7 +60,7 @@ Every command is in [docs/cli.md](docs/cli.md); the EDL format is in [docs/edl.m
 
 ## Supported agents
 
-`motion-studio init` writes `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`, and installs five skills (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`) where each agent looks for them:
+`motion-studio init` writes `AGENTS.md`, `CLAUDE.md` and `GEMINI.md`, and installs six skills (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-product`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`) where each agent looks for them:
 
 | Agent | Skills | Instructions |
 |---|---|---|

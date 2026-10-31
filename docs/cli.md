@@ -50,17 +50,19 @@ $ motion-studio setup [OPTIONS]
 ```
 
 * `--music`: Also create the ACE-Step music environment.
+* `--record`: Also install Playwright and Chromium for `record web`.
 * `--crisper`: CrisperWhisper fillers backend (not in v0.1.0).
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Plain `setup` installs, into the cache (`~/Library/Caches/motion-studio` on macOS, `~/.cache/motion-studio` on Linux, or `$MOTION_STUDIO_CACHE_DIR`): the DeepFilterNet binary, the Silero VAD model, both face models, the Whisper model for this platform's backend, and the Remotion renderer with its headless browser (about 570 MB). `--music` adds the ACE-Step 1.5 environment and weights (9.4 GB of weights; the first run took 19 minutes on the build machine) and prints the weights' licence. Items already present are reported, not fetched again. `--crisper` exits 2: CrisperWhisper is on `ROADMAP.md`.
+Plain `setup` installs, into the cache (`~/Library/Caches/motion-studio` on macOS, `~/.cache/motion-studio` on Linux, or `$MOTION_STUDIO_CACHE_DIR`): the DeepFilterNet binary, the Silero VAD model, both face models, the Whisper model for this platform's backend, and the Remotion renderer with its headless browser (about 570 MB). `--record` adds Playwright 1.64.1 and its headless Chromium (about 210 MB) under `recorder/` in the cache, for `record web`. `--music` adds the ACE-Step 1.5 environment and weights (9.4 GB of weights; the first run took 19 minutes on the build machine) and prints the weights' licence. Items already present are reported, not fetched again. `--crisper` exits 2: CrisperWhisper is on `ROADMAP.md`.
 
 When the cache from before the rename is still there (in the platform cache directory under the previous name, or wherever the previous name's `_CACHE_DIR` variable points) and the new one holds no files apart from empty lock files, `setup` exits 1 before downloading anything and prints the one-line command that adopts it, since the old cache can hold 16 GB. For the platform default that command is an `mv` into the new default location, after it clears the empty folders and lock files that commands lay down there. It stops without moving anything when that location holds anything else by then. For a location the old variable chose, it is `export MOTION_STUDIO_CACHE_DIR=<that path>`, so nothing crosses volumes. Put that `export` in your shell profile so it lasts past the current shell. Run that command, or delete the old directory to download everything again. Nothing is moved for you, and a set `$MOTION_STUDIO_CACHE_DIR` skips the check.
 
 ```console
 $ motion-studio setup
 $ motion-studio setup --music
+$ motion-studio setup --record
 ```
 
 ## `motion-studio doctor`
@@ -77,7 +79,7 @@ $ motion-studio doctor [OPTIONS]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the command that adopts it, the same `mv` or `export` as `setup` prints (doctor never moves it).
+Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the command that adopts it, the same `mv` or `export` as `setup` prints (doctor never moves it). The `vhs` and `ttyd` lines warn when either is missing, since only `record terminal` needs them; the fix is `brew install vhs` (which brings ttyd) with a warning that Homebrew may upgrade ffmpeg too, and doctor never runs it, not even with `--fix`.
 
 `--fix` runs the installs the build guide calls safe: when the renderer, the speech or face models or DeepFilterNet are missing, it runs the same downloads as plain `setup`, then prints the checks again. It never runs brew, apt or npm for system tools such as ffmpeg and node, and never fetches ACE-Step (`setup --music`); their fixes stay on their lines. With `--json` the result also carries `fixed` (what it installed) and `fix_error`.
 
@@ -95,7 +97,7 @@ $ motion-studio init [OPTIONS] {directory}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Also writes `GEMINI.md` and installs the five editing skills into `.claude/skills/` and `.agents/skills/` (see `docs/agents.md`).
+Also writes `GEMINI.md` and installs the six editing skills into `.claude/skills/` and `.agents/skills/` (see `docs/agents.md`).
 
 ```console
 $ motion-studio init ~/Videos/reels
@@ -113,13 +115,17 @@ $ motion-studio new [OPTIONS] {slug} [more]...
 * `more...`: More files or directories, as in `--from a.mov b.mov`.
 * `--from <path>`: A file or directory to put in raw/. Repeatable.
 * `--title <str>`: Human title; defaults to the slug.
+* `--kind [talk|product]`: talk (a talking-head video) or product (from screen recordings).  [default: talk]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
 ```console
 $ motion-studio new launch-day --from ~/Desktop/takes/ --title "Launch day"
 $ motion-studio new launch-day --from take1.mov take2.mov broll.mp4 logo.png
+$ motion-studio new launch --kind product --from demo.mp4 demo.markers.json post.png
 ```
+
+The kind is written to `project.toml` as `[project] kind` and never changes or gets guessed from the footage (ADR 0004). A `project.toml` without one is a talk project. In a product project every video is a screen recording and ingest, analyze and the packed index follow the product layout; `words` exits 1 there.
 
 ## `motion-studio status`
 
@@ -133,7 +139,7 @@ $ motion-studio status [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Stages are `ingest`, `analyze`, `plan`, `music`, `preview`, `check` and `final`; each is `pending`, `done`, `stale` (an input changed since it ran) or `failed`.
+The first line names the project's kind, as in `launch (product): 2 clip(s) in raw/`. Stages are `ingest`, `analyze`, `plan`, `music`, `preview`, `check` and `final`; each is `pending`, `done`, `stale` (an input changed since it ran) or `failed`.
 
 ## `motion-studio clean`
 
@@ -193,6 +199,125 @@ It prints a line for each change (`renamed`, `agents_md` and `removed` under `--
 $ motion-studio agents sync --targets claude,codex
 ```
 
+## Recording
+
+## `motion-studio record web`
+
+Run a recording script in headless Chromium; write raw/<name>.mp4 and its markers.
+
+```console
+$ motion-studio record web [OPTIONS] {slug} {script}
+```
+
+* `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
+* `script`: Recording script: an ES module (.mjs).  [required]
+* `--name <str>`: Clip name in raw/; defaults to the script's file name.
+* `--viewport <str>`: Browser viewport, WIDTHxHEIGHT.  [default: 1600x900]
+* `--json`: Print machine-readable JSON.
+* `--help`: Show this message and exit.
+
+For product projects only; a talk project exits 1. The script drives the creator's product, not motion-studio's rendering, so writing it does not break the rule that the agent edits data. The recorder runs it in Node against headless Chromium at the viewport size (1600x900 fills a browser frame on a 1920-wide canvas at 1:1, with room to zoom), captures the page through the Chrome DevTools screencast as JPEG frames at quality 95 with their timestamps, and encodes `raw/<name>.mp4` at a constant 30 fps (H.264, CRF 12) together with its markers sidecar `raw/<name>.markers.json` (see [the markers sidecar](#the-markers-sidecar)). The screencast only sends a frame when the page changes, so a page waiting on slow work holds its last frame for as long as the wait lasts and the edit can cut it at the markers. Nothing needs macOS screen-recording permission. Run `ingest` next.
+
+A script that throws, or ends without opening a page, exits 1 with its error and the script's lines from the stack, and adds nothing to `raw/`. An existing `raw/<name>.mp4` or sidecar exits 1; pass `--name` for another take. The name (`--name`, or the script's file stem) must be a plain file name: no `/`, no `..` and no leading dot, or the command exits 1. An element whose box is empty, or rounds to zero pixels, is left out of its marker with a warning, which is also recorded in `state.json` under `record.<name>`, and the take is kept. Missing Node, Playwright or its Chromium exits 2 with the `setup --record` hint. Recording refuses to start (exit 1) while another command holds a heavy model (speech-to-text, faces or music), since a busy machine drops frames; it does not take that lock itself.
+
+The script's default export receives the helper library, `r`:
+
+```js
+// takes/brief.mjs
+export const contextOptions = { storageState: 'demo-kit/state.json' }; // optional, for newContext
+
+export default async function take(r) {
+  await r.goto('http://localhost:5173/new');          // the first page starts the capture once loaded
+  await r.mark('new_page');
+  await r.type('textarea', 'Write a post about ADRs', { delay: 30 });
+  await r.click('button:has-text("Write the post")', { park: 'main' });
+  await r.mark('brief_sent');
+  await r.page.getByText('V1').waitFor({ timeout: 60_000 });   // slow work keeps recording
+  await r.mark('v1_shown', { post: '[data-testid=post]', hook: r.page.getByText('Most developers').first() });
+  await r.park('[data-testid=post]');
+  await r.wait(2000);
+}
+```
+
+| Helper | What it does |
+|---|---|
+| `r.goto(url, options?)` | Open a page (`page.goto` with `waitUntil: 'load'`). The first one starts the capture. |
+| `r.startCapture()` | Start the capture on the page as it is, for a script that loads it another way. |
+| `r.moveTo(target, {offset, ms, park}?)` | Glide the fake cursor to an element's centre (plus `offset: {x, y}`) or to a point `{x, y}`, eased in and out over `ms` (default from the distance, 300 to 1100 ms). |
+| `r.click(target, {offset, ms, park}?)` | Glide there and click; the cursor shrinks and a ripple spreads under it. |
+| `r.type(target, text, {delay, park}?)` | Click `target` (or skip with `null`) and type key by key, `delay` ms apart (default 45). |
+| `r.press(key, {park}?)` | Press one key, such as `Enter`. |
+| `r.park(region, {margin}?)` | Move the cursor just outside `region` plus `margin` pixels (default 60), along the shortest way that stays on screen. A cursor already clear stays put. |
+| `r.mark(name, elements?)` | Record marker `name` now, on the clip's clock, and the on-screen box of each element in `{name: target}`. Await it. The take fails when an element is not visible or a name repeats. |
+| `r.wait(ms)` | Wait while the capture runs. |
+| `r.page`, `r.context` | The Playwright page and browser context, for waits and anything the helpers do not cover. |
+| `r.viewport`, `r.cursor` | The viewport size, and where the cursor is now. |
+
+A target is a CSS or Playwright selector string, a Playwright `Locator`, or a box `{x, y, w, h}` in viewport pixels (a point `{x, y}` for `moveTo` and `click`). A selector must match one element. `park` on `moveTo`, `click`, `type` and `press` parks off that region after the action, so the cursor never rests on the text the shot is about. Marker and element names use letters, digits, `_` and `-` and become IDs: `c2.m.v1_shown`, `c2.e.post`. The fake cursor is part of the page, so it shows in the frames, and every move and press goes into the sidecar's cursor track.
+
+```console
+$ motion-studio record web launch takes/brief.mjs
+$ motion-studio record web launch takes/brief.mjs --name brief-take2
+```
+
+## `motion-studio record terminal`
+
+Run a vhs tape in a clean shell; write raw/<name>.mp4 and its markers.
+
+```console
+$ motion-studio record terminal [OPTIONS] {slug} {tape}
+```
+
+* `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
+* `tape`: vhs tape (.tape), with Launch and Mark lines.  [required]
+* `--name <str>`: Clip name in raw/; defaults to the tape's file name.
+* `--size <str>`: Terminal frame, WIDTHxHEIGHT, both even.  [default: 1600x900]
+* `--cwd <path>`: Folder the shell starts in; defaults to the tape's folder.
+* `--json`: Print machine-readable JSON.
+* `--help`: Show this message and exit.
+
+For product projects only; a talk project exits 1. It records a real CLI session, such as Claude Code using an MCP server, from a [vhs](https://github.com/charmbracelet/vhs) tape. Like a recording script, the tape drives the creator's product, so writing it does not break the rule that the agent edits data. The recorder wraps the tape in one it generates:
+
+1. Its own `Output`, `Set Shell bash`, `Set Width`/`Height` from `--size` and `Set Framerate 30`, then the tape's leading `Set` and `Require` lines.
+2. A hidden preamble. The shell starts in `--cwd` with every inherited `CLAUDE*` variable, `VIRTUAL_ENV` and `PROMPT_COMMAND` removed (and unset again in the shell), a plain `❯ ` prompt and a cleared screen.
+3. The `Launch` command, also hidden: the recorder puts a wrapper named after the command first on `PATH`, so the screen shows only `❯ claude`, never the arguments, paths or keys. For `claude` it waits 7 s, accepts the folder-trust prompt (which focuses "No, exit") with Down and Enter, and waits 5 s more; in an already trusted folder those keys do nothing. Any other command gets 2 s.
+4. The rest of the tape, on camera.
+
+vhs writes the terminal's frames and the recorder encodes them unscaled into `raw/<name>.mp4`: 30 fps constant frame rate, H.264 CRF 12, the terminal centred on a `--size` frame filled with the theme's background. vhs's own video settings (`WindowBar`, `Margin`, `BorderRadius`) do not apply; the renderer's terminal device frame draws the window. The markers sidecar `raw/<name>.markers.json` (see [the markers sidecar](#the-markers-sidecar)) has the frame size and one marker per `Mark` line, timed to the frame on screen when vhs reached it, with no element boxes and no cursor track. As with `record web`, the name (`--name`, or the tape's file stem) must be a plain file name. Run `ingest` next.
+
+The tape is ordinary vhs, plus two lines the recorder consumes:
+
+| Line | What it does |
+|---|---|
+| `Launch <command> [args...]` | Start the command in the hidden preamble through a short wrapper. At most one, before every command but `Set` and `Require`. A command with a `/` and any argument naming an existing file are relative to the tape's folder and passed as absolute paths; a bare command is looked up on `PATH`. |
+| `Mark <name>` | Record marker `name` at this point of the tape. Names are unique and use letters, digits, `_` and `-`, so `Mark v1_shown` becomes `c2.m.v1_shown`. A `Mark` between `Hide` and `Show` exits 1. |
+
+```
+# takes/terminal.tape
+Set FontSize 24
+Set Theme "Catppuccin Mocha"
+Set TypingSpeed 28ms
+Launch claude --strict-mcp-config --mcp-config demo-kit/own-mcp.json --allowedTools 'mcp__pumpkit__*'
+Mark ready
+Type "Write a post with pumpkit: ship it in a week"
+Enter
+Mark brief_sent
+Sleep 50s
+Mark v1_shown
+Type "Make the hook punchier"
+Enter
+Sleep 50s
+Mark v2_shown
+```
+
+Keep keys in files passed by path, such as an MCP config for `--mcp-config`; the path stays inside the wrapper. Claude Code shows the folder it runs in, so pass a `--cwd` with a clean name (not a scratchpad). Use fixed `Sleep`s for model calls rather than `Wait`, whose screen regexes break as the output scrolls; the edit cuts the waits at the markers. `Mark` and `Launch` only work in the tape itself, not in a `Source`d one.
+
+The tape's own `Output`, or a `Set` of `Shell`, `Framerate`, `Width` or `Height`, exits 1 naming the line, as do a bad `Mark` or `Launch` and anything `vhs validate` rejects (with its message, on the tape's line numbers). A tape that fails while running exits 1 with vhs's output, and an existing clip exits 1 as for `record web`; nothing is added to `raw/`. Missing `vhs` or `ttyd` exits 2 naming them with the install line; `doctor` lists both and never installs them, since Homebrew's `brew install vhs` can upgrade ffmpeg as a side effect. Recording refuses to start while another command holds a heavy model, as `record web` does.
+
+```console
+$ motion-studio record terminal launch takes/terminal.tape --cwd ~/pumpkit-demo
+```
+
 ## Ingest and analysis
 
 ## `motion-studio ingest`
@@ -209,6 +334,8 @@ $ motion-studio ingest [OPTIONS] {slug}
 
 Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image (HEIC and HEIF become PNG, decoded with `sips` on macOS or `heif-convert` from libheif elsewhere; with neither installed they are skipped with a warning), and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
 
+In a product project every video is a screen recording (role `screen`, IDs `c1`, `c2`, ...). It gets a mezzanine but no voice files, and ingest draws it once at one frame per second into `contact/<id>.png`; that sheet does not count against the look budget. A recording longer than 180 s is drawn in 180 evenly spaced frames, with a warning. A `<name>.markers.json` file in `raw/` is the markers sidecar of the clip `<name>.<ext>` beside it, not a clip of its own.
+
 ## `motion-studio analyze`
 
 Transcribe speech, find shots, static stretches and faces, and write the indexes.
@@ -223,6 +350,25 @@ $ motion-studio analyze [OPTIONS] {slug}
 * `--help`: Show this message and exit.
 
 Writes `analysis/<id>.json` per clip, `analysis/retakes.json`, `analysis/packed.md` (the index the agent reads first), `analysis/assets.md` and a contact sheet `contact/<id>.png` per B-roll clip and image. Descriptions written into `assets.md` survive re-analysis.
+
+In a product project analyze loads no speech-to-text or face model and writes no `retakes.json`. For each screen recording it finds shots and static stretches and reads its markers sidecar, if there is one. `packed.md` then lists each recording's length, frame size, markers (`c1.m.<name>`), the element boxes captured at each marker (`c1.e.<name> x,y wxh`, in mezzanine pixels) and static stretches. A recording without a sidecar says so; it can only be addressed in source seconds.
+
+### The markers sidecar
+
+The recorders write it, and you can write one by hand for footage you bring. `schemas/markers.schema.json` is its contract. Times are seconds from the clip's first frame; boxes and the cursor are pixels of a `width` x `height` frame, the size the clip was recorded at, and analyze scales them to the mezzanine. Marker names are unique, element names are unique within a marker, and both use letters, digits, `_` and `-`. A sidecar that does not validate makes analyze exit 1 naming the file and the problem.
+
+```json
+{
+  "schema_version": 1,
+  "width": 1600,
+  "height": 900,
+  "markers": [
+    {"name": "brief_sent", "t": 2.4},
+    {"name": "v1_shown", "t": 9.8, "elements": [{"name": "post", "x": 420, "y": 180, "w": 760, "h": 300}]}
+  ],
+  "cursor": [{"t": 0.0, "x": 800, "y": 450}, {"t": 2.3, "x": 1210, "y": 640, "down": true}]
+}
+```
 
 ## Looking at footage
 
@@ -245,27 +391,41 @@ $ motion-studio words talk c1.s4
 $ motion-studio words talk c1.w40 c1.w60
 ```
 
+`words` is for talk projects; on a product project it exits 1 and points to the markers in `packed.md`.
+
 ## `motion-studio look`
 
-Draw frames, waveform, word labels and face boxes for T0 to T1 of CLIP into one PNG.
+Draw T0 to T1 of CLIP (frames, waveform, words, faces), or stills of the render with --at.
 
 ```console
-$ motion-studio look [OPTIONS] {slug} {clip} {t0} {t1}
+$ motion-studio look [OPTIONS] {slug} [clip] [t0] [t1]
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `clip`: Clip ID, e.g. c1.  [required]
-* `t0`: Start, in source seconds.  [required]
-* `t1`: End, in source seconds.  [required]
+* `clip`: Clip ID, e.g. c1.
+* `t0`: Start, in source seconds.
+* `t1`: End, in source seconds.
+* `--at <str>`: A scene ID, marker or output time of the latest render; repeat for more stills.
 * `--frames <int>`: Frames across the range.  [default: 8]
 * `--out <path>`: Write the PNG here instead of contact/.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each sheet counts against the look budget (`[edit] look_budget`, default 8). Past it, `look` still writes the sheet and prints a warning.
+Pass either a source range (`clip`, `t0` and `t1`) or `--at`, not both. `--frames` and `--out` apply to the range.
+
+`--at` writes one still of the latest render per value, to `contact/at_<value>.png`, at the render's resolution up to 1600 px wide. The latest render is whichever of the preview and the final was rendered last; its first format is used. Each value is one of:
+
+* a scene ID (product projects), such as `step1`: the scene's middle frame;
+* a marker of a screen recording, such as `c2.m.v1_shown`: the frame where a footage scene shows that moment of the recording, at the scene's rate (the first such scene when several play it);
+* output seconds, such as `12.5` or `12.5s`: the frame on screen then.
+
+The stills print with their frame number, output time and scene. With no render, or one older than `build/timeline.json`, `--at` exits 1 and points to `render`; a marker no footage scene shows exits 1 and names the scenes that play its recording.
+
+Each `look` call counts once against the look budget (`[edit] look_budget`, default 8), whatever the number of `--at` values. Past it, `look` still writes the sheet or the stills and prints a warning.
 
 ```console
 $ motion-studio look talk c1 12.0 18.5 --frames 6
+$ motion-studio look launch --at step1 --at c2.m.v1_shown --at 21.5
 ```
 
 ## `motion-studio look-asset`
@@ -287,7 +447,7 @@ Does not count against the look budget.
 
 ## `motion-studio plan draft`
 
-Write a deterministic baseline edl.json: all usable speech in source order.
+Write a deterministic baseline edl.json: all usable speech, or a scene per recording.
 
 ```console
 $ motion-studio plan draft [OPTIONS] {slug}
@@ -298,7 +458,7 @@ $ motion-studio plan draft [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The draft keeps retake winners, drops hard fillers, tightens pauses and adds a neutral instrumental music prompt. It refuses to overwrite an existing `edl.json` without `--force`.
+On a talk project the draft keeps retake winners, drops hard fillers, tightens pauses and adds a neutral instrumental music prompt. On a product project it writes an intro title card, a numbered title card and a footage scene per screen recording (first to last marker), a proof scene per image and a logo outro, on the bed's beat grid from `build/music.json` or on 120 bpm before music; `--json` adds `scenes`, `scene_ids`, `grid` and `rationale`. The EDL reference's "The draft" section has the details. It refuses to overwrite an existing `edl.json` without `--force`.
 
 ## `motion-studio plan validate`
 
@@ -314,9 +474,21 @@ $ motion-studio plan validate [OPTIONS] {slug}
 
 Prints the duration, words kept, fillers removed, the hook text, event counts and each warning with a fix. An error (exit 1) names the problem and a fix in EDL terms, for example `anchor to c1.w57` when an event points at a dropped word.
 
+On a product project the EDL holds `scenes` (`"kind": "product"`, see `docs/edl.md`), and the summary prints the scene count, the duration, the beat grid the scenes sit on (120 bpm until `music` has written a bed, then the bed's beats) and the count of each scene type:
+
+```console
+$ motion-studio plan validate launch
+✓ edl.json valid · product · 3 scenes · 16x9
+Duration 7.0s (limit 60s) · grid 120 bpm, steady (no music yet)
+Scenes: 2 title_card · 1 footage
+→ projects/launch/build/timeline.json
+```
+
+`--json` adds `grid` (`bpm`, `beats_per_bar`, `from_music`) and `scene_types`. Run it again after `music` so the scenes move onto the bed's beats.
+
 ## `motion-studio docs edl`
 
-Print the EDL reference: segments, references, drops, events and music.
+Print the EDL reference: talk segments and events, product scenes, and music.
 
 ```console
 $ motion-studio docs edl [OPTIONS]
@@ -325,7 +497,7 @@ $ motion-studio docs edl [OPTIONS]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The same text as `docs/edl.md`.
+The same text as `docs/edl.md`, product EDLs included (the "Product EDLs" section).
 
 ## Music, render and check
 
@@ -338,10 +510,24 @@ $ motion-studio music [OPTIONS] {slug}
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
+* `--candidates INTEGER RANGE`: Generate this many seeds, from the EDL's seed up, in one model load.  [1<=x<=4]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The mode, prompt, BPM and seed come from the EDL's `music` block, falling back to `[music]` in the config. `generate` needs `motion-studio setup --music` and retries up to three seeds when the bed has vocals. `library` picks a licensed track from `library/music/tags.json` and refuses one without a licence. `none` removes the bed. `build/music.json` records the prompt, seed, model, licence, BPM and beats. Run `plan validate` again afterwards so overlays snap to the beats.
+The mode, prompt, BPM and seed come from the EDL's `music` block, falling back to `[music]` in the config. `generate` needs `motion-studio setup --music` and retries up to three seeds when the bed has vocals. `library` picks a licensed track from `library/music/tags.json` and refuses one without a licence. `none` removes the bed. Every generated bed is shaped for laptop and phone speakers (a high-pass at 35 Hz, a 4 dB low-shelf cut at 120 Hz, 3 dB of presence at 3 kHz and of air above 7 kHz, gentle compression); a library track is left as licensed. `build/music.json` records the prompt, seed, model, licence and BPM, and the bed's analysis (schema: `schemas/music.schema.json`). Times are seconds from the start of the bed, which is output time zero. Run `plan validate` again afterwards so overlays snap to the beats.
+
+A `preset` in the music block supplies the prompt, and for `launch` the tempo, unless `prompt` or `bpm` are set: `tech`, `story`, `energetic` and `explainer` are the talk moods of the music skill, and `launch` is fast future house at 124 bpm with a build and a drop to land a logo on.
+
+On a product project the bed's length comes from the scenes: their total on the requested tempo (120 bpm when unset), plus 3 s. Sizing on the requested tempo rather than the bed's own beats keeps the length, and so the generated beds, steady when `plan validate` moves the scenes onto the bed.
+
+A bed generated before shaping existed is shaped on the next run instead of being generated again; if that bed is gone, it is generated again with a one-line warning. Generated beds are kept by seed in `build/music-candidates/` for as long as the prompt, BPM, length, model and shaping stay the same, so changing the EDL's `seed` back to one already made reuses it without loading the model. `--candidates N` (1 to 4) makes seeds `seed` to `seed + N - 1` one after another in one ACE-Step process, so the model loads once, and lists each in `music.json`'s `candidates` with its `detected_bpm`, `tempo_from` and `hits` (a bed with vocals is listed as not `accepted`). The bed is still the EDL's seed: set `music.seed` to the one you want and run `music` again. Before each generation the free memory is checked (2 GB by default, `MOTION_STUDIO_MIN_FREE_MEMORY_GB` changes it); below it the run stops with exit 1, naming the candidate it would have made, and keeps those already made, so running the command again only makes the rest. When the free memory cannot be read, the run goes on unguarded with a one-line warning, recorded in `state.json`. `--json` reports `model_loads`, the ACE-Step processes started (0 when every bed was already made). `--candidates` with mode `library` or `none` exits 1.
+
+`music.align` (product EDLs, generated beds) fits the bed to the video: `{"hit": "drop", "at": "logo"}` lands the bed's `drop` on the start of scene `logo`, within a frame, and makes the bed exactly as long as the scenes. Before the hit, the bed's head is trimmed; when the hit comes too early, whole bars just before the first phrase boundary (a section change) are repeated, up to four at a time. After the hit, whole bars are repeated before the last section, or cut just before it, so the natural ending lands within a bar of the end; when there is no room to cut, the bed stops on a bar line and its last beat echoes out, halving each beat, over the last 4 beats. Every edit sits on a bar line under a 30 ms crossfade, so the beat grid runs on unbroken. Scene starts sit on the bed's beats, and the bed's beats depend on where the hit lands, so the stage settles the scene's start on a grid with a beat at zero before it fits the bed. `music.json` then carries the fitted bed's grid, sections and hits, and `align` records the hit, the scene and its start `at_s`, the hit's time in the generated bed (`hit_in_bed_s`), where the fitted bed starts in it (`starts_at_s`), each edit (`at_s`, `bars` repeated or cut, `crossfade_ms`) and the `ending` (`natural` or `echo`). A bed without the named hit exits 1 listing the hits it has. Any change to the EDL makes an aligned bed stale; fitting again is quick and never regenerates.
+
+* `detected_bpm`: the measured tempo. librosa's estimate (`tracker_bpm`) comes from coarse bins, so motion-studio refines it within 4% against the onsets, then cross-checks it against the period of the section changes: when the changes put the bars more than 1.5% apart from the onset tempo, they win. `tempo_from` says which (`onsets` or `sections`), and the command prints the correction.
+* `beats` and `bars`: the beat grid on the corrected tempo, every beat and every downbeat up to the end of the timeline (`beats_per_bar` is 4). The downbeat is the beat most section changes fall on.
+* `sections`: the whole bed cut where its band levels change for at least a bar, in order, each with `start_s`, `end_s` and `energy_db` (its level against the loudest section, which is 0). Changes are snapped to the nearest bar line within a beat, else to the nearest beat. Trailing silence is left out.
+* `hits`: named section hits, each with `name` and `time_s`, listed only when the bed has them. `intro_end` is the end of the first section, `drop` the start of the loudest section, `build` the start of the section before the drop when an intro precedes it, and `ending` the start of the last section when it comes after the drop and is at least 3 dB quieter, else the point where the music falls silent.
 
 ## `motion-studio render`
 
@@ -359,7 +545,11 @@ $ motion-studio render [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Previews go to `preview/<format>.mp4`, finals to `final/<slug>_<format>.mp4`, mastered to −14 LUFS integrated and −1.5 dBTP true peak by default (`[master]`). Render validates the EDL first when the plan stage is not done.
+Previews go to `preview/<format>.mp4`, finals to `final/<slug>_<format>.mp4`, mastered to −14 LUFS integrated and −1.5 dBTP true peak by default (`[master]`): mastering measures the integrated loudness, applies one fixed gain to the target and then a 4x-oversampled true-peak limiter, so a mix with loud peaks reaches the target loudness without clipping. Render validates the EDL first when the plan stage is not done.
+
+A product project renders in 16x9 only, with no A-roll to cut: Remotion's `Product` composition draws each scene on the brand's backdrop (`[brand] primary` and `accent`, the caption font): kinetic text, title cards, footage in a browser or terminal frame with its camera moves, highlights, masks, caption pills and flashes, proof shots, and the logo outro with the `[brand]` wordmark and mascot. The render has no voice, so the mix carries the music bed alone, and `cuts_s` lists the scene starts.
+
+Every final also gets a share copy, `final/<slug>_<format>_share.mp4`, for both project kinds: the final at its own resolution, under 30 MiB and with `+faststart`, so it can be sent through chat tools and opened on a phone. A final already under 30 MiB is copied as it is, so the name is always there; a larger one has its video re-encoded at the bitrate that fits (two-pass x264) and its mastered audio copied. Render prints each share copy's path and size. A change to the share copy alone redoes the share copies without rendering the finals again. A final too long to fit (more than about seven minutes, with the default 320 kb/s audio) fails with exit 1 after the final itself is written; send the final or shorten the edit.
 
 ```console
 $ motion-studio render talk --preview
@@ -368,7 +558,7 @@ $ motion-studio render talk --final --format 9x16 --format 16x9
 
 ## `motion-studio check`
 
-Re-transcribe, measure and look at a render; exit 1 when anything blocks delivery.
+Re-transcribe (talk), measure and look at a render; exit 1 when anything blocks delivery.
 
 ```console
 $ motion-studio check [OPTIONS] {slug}
@@ -380,7 +570,9 @@ $ motion-studio check [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`, and on `--final` also `loudness` (integrated loudness more than 1 LU off `[master] integrated_lufs`) and `true_peak` (above `[master] true_peak_db`). Warnings: `loudness` and `true_peak` on a preview (true peak only from 0.5 dB over), `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
+Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`, and on `--final` also `loudness` (integrated loudness more than 1 LU off `[master] integrated_lufs`) and `true_peak` (above `[master] true_peak_db`). Warnings: `loudness` and `true_peak` on a preview (true peak only from 0.5 dB over), `small_speaker` (energy above 1 kHz more than 10 dB below the energy under 150 Hz, so the mix sounds faint on laptop and phone speakers), `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. The metrics give each format's energy in four bands: below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz and above 5 kHz (`bands` in `--json`, in dB full scale). Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
+
+On a product project `check` loads no speech model: a product video is music only, so there is nothing to re-transcribe and no `clipped_cut`. It measures loudness, true peak, the four bands, black and frozen frames and duration, and writes `check/contact.png` (one frame of the render per second, stamped with its output time) next to `check/cuts.png` (the frames either side of every scene cut). `small_speaker` blocks here, on previews and finals alike, because with no voice to carry it a bass-heavy mix is near silent on a laptop. Black and frozen stretches mostly inside a scene other than footage (a title card, kinetic text, a proof or the outro) are taken as intended. The report lists every masked region under "Masked regions", with the scene, the element or box, the output frames it covers (end inclusive) and a `look --at` command for its middle frame; `--json` has them in `metrics.masks` (`start` and `end` are output frames, end exclusive). The warning `cursor_over_target` fires when the recorded cursor track sits inside a highlight's box while the highlight shows (the cursor's last position before the highlight starts counts); terminal footage has no cursor and is skipped. `over_duration` names the longest scenes between the intro and the outro. For any moment the sheets leave unclear, run `motion-studio look <slug> --at <scene | marker | seconds>`, which every mask line and cursor warning spells out.
 
 ## Environment variables
 
@@ -393,6 +585,7 @@ Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames e
 | `MOTION_STUDIO_DEEP_FILTER` | Path of a `deep-filter` binary to use instead of the cached one. |
 | `MOTION_STUDIO_RENDERER_DIR` | Use this Remotion project instead of the installed renderer. |
 | `MOTION_STUDIO_MUSIC_TIMEOUT_S` | Timeout for one ACE-Step generation. |
+| `MOTION_STUDIO_MIN_FREE_MEMORY_GB` | Free memory needed before each ACE-Step generation (default 2; 0 turns the check off). |
 
 Variables with the previous name's prefix are no longer read: when one is set, every command prints a one-line warning naming its `MOTION_STUDIO_` replacement with the same value (`set MOTION_STUDIO_CACHE_DIR=<path> instead`). When the previous name's `_CACHE_DIR` holds the previous default location, the warning says to unset it instead, and `doctor` prints the `mv` that adopts that cache.
 

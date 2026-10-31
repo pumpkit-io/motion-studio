@@ -29,6 +29,7 @@ def ingest(slug: Slug, as_json: JsonOption = False) -> None:
         lines.append(path_line(root / clip.mezzanine, detail, written=fresh))
         if fresh:
             lines += [path_line(root / p) for p in (clip.audio, clip.audio_16k) if p]
+    lines += [path_line(sheet, "contact sheet, 1 fps") for sheet in report.sheets]
     lines.append(path_line(report.project.media / MANIFEST, "manifest", written=not report.noop))
     lines.append(f"next: `{APP_NAME} analyze {slug}`")
     emit(as_json, report.to_json(), lines)

@@ -284,3 +284,66 @@ def test_loudness_off_target_blocks_a_final_but_only_warns_on_a_preview(
     blocking = {i["code"]: i for i in body["issues"] if i["severity"] == "blocking"}
     assert {"loudness", "true_peak"} <= set(blocking)
     assert "render demo --final" in blocking["loudness"]["fix"]
+
+
+def replace_voice(project: Path, expression: str) -> None:
+    """Swap the demo voice for an `aevalsrc` expression, keeping its length."""
+    voice = project / "media" / "c1.wav"
+    duration = run_ffprobe(
+        ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", voice]
+    ).strip()
+    run_ffmpeg(
+        [
+            "-y", "-f", "lavfi", "-i", f"aevalsrc={expression}:s=48000:d={duration}",
+            "-ac", "1", "-c:a", "pcm_s16le", voice,
+        ]
+    )  # fmt: skip
+
+
+BANDS = {"below_150_hz", "150_hz_to_1_khz", "1_to_5_khz", "above_5_khz"}
+
+
+def test_check_reports_four_bands_and_warns_on_a_bass_heavy_render(demo: Path, asr: Path) -> None:
+    # A 60 Hz hum with a 2 kHz tone 26 dB under it: far more than 10 dB of bass over the top.
+    replace_voice(demo, "0.5*sin(2*PI*60*t)+0.025*sin(2*PI*2000*t)")
+    render("--preview")
+    hear(asr, timeline(demo)["words"])
+
+    code, body = check("--preview")
+
+    assert code == 0, body
+    bands = body["metrics"]["bands"]
+    assert set(bands) == {"9x16", "16x9"}
+    for fmt in bands.values():
+        assert set(fmt) == BANDS
+        assert fmt["below_150_hz"] - fmt["1_to_5_khz"] > 20
+    warnings = [i for i in body["issues"] if i["code"] == "small_speaker"]
+    assert [w["severity"] for w in warnings] == ["warning", "warning"]
+    assert "1 kHz" in warnings[0]["message"] and "150 Hz" in warnings[0]["message"]
+    assert "below 150 Hz" in (demo / "check" / "report.md").read_text(encoding="utf-8")
+
+
+def test_a_render_with_as_much_top_as_bass_has_no_small_speaker_warning(
+    demo: Path, asr: Path
+) -> None:
+    replace_voice(demo, "0.2*sin(2*PI*80*t)+0.2*sin(2*PI*400*t)+0.2*sin(2*PI*2500*t)")
+    render("--preview", "--format", "16x9")
+    hear(asr, timeline(demo)["words"])
+
+    _, body = check("--preview")
+
+    assert "small_speaker" not in codes(body, "warning")
+    bands = body["metrics"]["bands"]["16x9"]
+    assert abs(bands["below_150_hz"] - bands["1_to_5_khz"]) < 3
+
+
+def test_a_voice_with_neither_bass_nor_top_has_no_small_speaker_warning(
+    demo: Path, asr: Path
+) -> None:
+    render("--preview", "--format", "16x9")
+    hear(asr, timeline(demo)["words"])
+
+    _, body = check("--preview")
+
+    # The demo voice is a bare 220 Hz tone: both bands the rule compares are near silence.
+    assert "small_speaker" not in codes(body, "warning")

@@ -9,8 +9,8 @@ from hypothesis import strategies as st
 
 from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
 from motion_studio.config import Config, Defaults
-from motion_studio.edl import Edl, Timeline, resolve
-from motion_studio.edl.models import Run
+from motion_studio.edl import Timeline, resolve
+from motion_studio.edl.models import Run, TalkEdl
 from motion_studio.lang import load_language
 
 ENGLISH = load_language("en")
@@ -20,7 +20,7 @@ TOKENS = ["hello", "world.", "um", "uh", "like", "so", "great", "really", "the"]
 @dataclass
 class Edit:
     clips: list[ClipAnalysis]
-    edl: Edl
+    edl: TalkEdl
     config: Config
 
 
@@ -64,7 +64,7 @@ def edits(draw: st.DrawFn, min_gap_ms: int = 70) -> Edit:
         "drop_fillers": draw(st.sampled_from(["none", "hard", "hard+soft"])),
         "jumpcut_punch": draw(st.booleans()),
     }
-    edl = Edl.model_validate(
+    edl = TalkEdl.model_validate(
         {"segments": order, "drop_words": drop_words, "policy": policy, "music": {"mode": "none"}}
     )
     config = Config(defaults=Defaults(fps=draw(st.sampled_from([24, 25, 30, 60]))))

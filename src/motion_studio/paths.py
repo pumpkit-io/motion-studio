@@ -13,6 +13,8 @@ from motion_studio.errors import UserError
 WORKSPACE_FILE = f"{APP_NAME}.toml"
 PROJECTS_DIR = "projects"
 CACHE_ENV = f"{ENV_PREFIX}_CACHE_DIR"
+# A recording's markers sidecar sits next to it in raw/: `demo.mp4` and `demo.markers.json`.
+MARKERS_SUFFIX = ".markers.json"
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
@@ -130,7 +132,7 @@ class ProjectPaths:
         )
 
     def asset_sheet(self, clip_id: str) -> Path:
-        """The contact sheet of one B-roll clip or image, which assets.md links to."""
+        """The contact sheet of one B-roll clip, image or screen recording, made once per clip."""
         return self.contact / f"{clip_id}.png"
 
     def require(self) -> "ProjectPaths":

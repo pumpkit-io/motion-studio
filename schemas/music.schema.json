@@ -1,0 +1,574 @@
+{
+  "$defs": {
+    "Attempt": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "speech_ratio": {
+          "title": "Speech Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "seed",
+        "speech_ratio",
+        "accepted"
+      ],
+      "title": "Attempt",
+      "type": "object"
+    },
+    "MusicAlignment": {
+      "additionalProperties": false,
+      "description": "How the bed was fitted: which hit landed where, the phrase edits and the ending.",
+      "properties": {
+        "at": {
+          "description": "The scene the hit lands on.",
+          "title": "At",
+          "type": "string"
+        },
+        "at_s": {
+          "description": "The scene's start, in output seconds.",
+          "title": "At S",
+          "type": "number"
+        },
+        "edits": {
+          "items": {
+            "$ref": "#/$defs/MusicEdit"
+          },
+          "title": "Edits",
+          "type": "array"
+        },
+        "ending": {
+          "description": "natural, or echo when the bed stops on a bar.",
+          "enum": [
+            "natural",
+            "echo"
+          ],
+          "title": "Ending",
+          "type": "string"
+        },
+        "hit": {
+          "enum": [
+            "intro_end",
+            "build",
+            "drop",
+            "ending"
+          ],
+          "title": "Hit",
+          "type": "string"
+        },
+        "hit_in_bed_s": {
+          "description": "The hit in the generated bed, before fitting.",
+          "title": "Hit In Bed S",
+          "type": "number"
+        },
+        "starts_at_s": {
+          "description": "Where in the generated bed the fitted bed starts.",
+          "title": "Starts At S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "hit",
+        "at",
+        "at_s",
+        "hit_in_bed_s",
+        "starts_at_s",
+        "ending"
+      ],
+      "title": "MusicAlignment",
+      "type": "object"
+    },
+    "MusicCandidate": {
+      "additionalProperties": false,
+      "description": "One generated bed, kept so the EDL's `seed` can pick it without generating again.",
+      "properties": {
+        "accepted": {
+          "description": "False when the bed had vocals.",
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "detected_bpm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detected Bpm"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "elapsed_s": {
+          "description": "Generation wall time, with the model load if any.",
+          "title": "Elapsed S",
+          "type": "number"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/MusicHit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The shaped bed relative to the project; null if vocals.",
+          "title": "Path"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "speech_ratio": {
+          "title": "Speech Ratio",
+          "type": "number"
+        },
+        "tempo_from": {
+          "anyOf": [
+            {
+              "enum": [
+                "onsets",
+                "sections"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tempo From"
+        }
+      },
+      "required": [
+        "seed",
+        "path",
+        "speech_ratio",
+        "accepted",
+        "duration_s",
+        "elapsed_s"
+      ],
+      "title": "MusicCandidate",
+      "type": "object"
+    },
+    "MusicEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "at_s": {
+          "description": "Output seconds, on a bar line.",
+          "title": "At S",
+          "type": "number"
+        },
+        "bars": {
+          "description": "Bars repeated (positive) or cut (negative).",
+          "title": "Bars",
+          "type": "integer"
+        },
+        "crossfade_ms": {
+          "title": "Crossfade Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "at_s",
+        "bars",
+        "crossfade_ms"
+      ],
+      "title": "MusicEdit",
+      "type": "object"
+    },
+    "MusicHit": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "intro_end",
+            "build",
+            "drop",
+            "ending"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "time_s": {
+          "description": "Seconds from the start of the bed.",
+          "title": "Time S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "time_s"
+      ],
+      "title": "MusicHit",
+      "type": "object"
+    },
+    "MusicSection": {
+      "additionalProperties": false,
+      "properties": {
+        "end_s": {
+          "title": "End S",
+          "type": "number"
+        },
+        "energy_db": {
+          "description": "Mean level relative to the loudest section (0).",
+          "title": "Energy Db",
+          "type": "number"
+        },
+        "start_s": {
+          "title": "Start S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_s",
+        "end_s",
+        "energy_db"
+      ],
+      "title": "MusicSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`build/music.json`: what the bed is, how to reproduce it and how to credit it.",
+  "properties": {
+    "align": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MusicAlignment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "attempts": {
+      "items": {
+        "$ref": "#/$defs/Attempt"
+      },
+      "title": "Attempts",
+      "type": "array"
+    },
+    "attribution": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attribution"
+    },
+    "bars": {
+      "description": "Downbeats in output s.",
+      "items": {
+        "type": "number"
+      },
+      "title": "Bars",
+      "type": "array"
+    },
+    "beats": {
+      "description": "Output s.",
+      "items": {
+        "type": "number"
+      },
+      "title": "Beats",
+      "type": "array"
+    },
+    "beats_per_bar": {
+      "default": 4,
+      "title": "Beats Per Bar",
+      "type": "integer"
+    },
+    "bpm": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Requested BPM, or the track's.",
+      "title": "Bpm"
+    },
+    "candidates": {
+      "description": "Every bed generated for this prompt, bpm and length; `seed` picks one.",
+      "items": {
+        "$ref": "#/$defs/MusicCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
+    },
+    "credits": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Credits file, relative to project.",
+      "title": "Credits"
+    },
+    "detected_bpm": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Measured tempo, cross-checked against the section changes.",
+      "title": "Detected Bpm"
+    },
+    "duration_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration S"
+    },
+    "elapsed_s": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Generation wall time.",
+      "title": "Elapsed S"
+    },
+    "hits": {
+      "description": "intro_end, build, drop and ending, each only when the bed has it.",
+      "items": {
+        "$ref": "#/$defs/MusicHit"
+      },
+      "title": "Hits",
+      "type": "array"
+    },
+    "licence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Licence"
+    },
+    "licence_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Licence Source"
+    },
+    "mode": {
+      "enum": [
+        "generate",
+        "library",
+        "none"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The bed relative to the project; null for none.",
+      "title": "Path"
+    },
+    "preset": {
+      "anyOf": [
+        {
+          "enum": [
+            "tech",
+            "story",
+            "energetic",
+            "explainer",
+            "launch"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preset"
+    },
+    "prompt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prompt"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "sections": {
+      "description": "The whole bed, in order.",
+      "items": {
+        "$ref": "#/$defs/MusicSection"
+      },
+      "title": "Sections",
+      "type": "array"
+    },
+    "seed": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The seed of the accepted generation.",
+      "title": "Seed"
+    },
+    "source_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Url"
+    },
+    "tempo_from": {
+      "anyOf": [
+        {
+          "enum": [
+            "onsets",
+            "sections"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "onsets, or sections when the section period corrected it.",
+      "title": "Tempo From"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "track": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Track"
+    },
+    "tracker_bpm": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "librosa's coarse estimate.",
+      "title": "Tracker Bpm"
+    }
+  },
+  "required": [
+    "mode",
+    "path"
+  ],
+  "title": "MusicInfo",
+  "type": "object"
+}

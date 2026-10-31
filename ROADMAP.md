@@ -7,10 +7,15 @@ Ideas beyond v0.1.0, in no particular order.
 - FCPXML / OpenTimelineIO export for finishing in DaVinci Resolve or Final Cut. The timeline is the hook for it.
 - Optional Gemini video pass for "visually interesting moment" detection (opt-in, paid).
 - Multi-speaker (diarization) and podcast clipping.
-- Licensed SFX library support (whooshes, pops) with the same licence tracking as music.
+- Licensed SFX library support (whooshes, pops) with the same licence tracking as music. Product videos need it most: whooshes on cuts were left out of the first launch video for lack of one.
 - Smoothed face tracking within long single-shot segments.
 - Auto-chaptering a long recording into several shorts.
 - More languages via `lang/*.toml` contributions.
+
+## Product videos
+
+- Vertical product videos (9x16 and 4x5). Product EDLs render in 16x9 only, and `plan validate` rejects other formats with `product_format`.
+- A phone device frame, for mobile apps.
 
 ## Speech-to-text backends
 

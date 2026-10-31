@@ -14,7 +14,8 @@ from motion_studio import APP_NAME
 from motion_studio.agents import TARGETS, sync_skills
 from motion_studio.config import load_config
 from motion_studio.errors import UserError
-from motion_studio.paths import WORKSPACE_FILE, ProjectPaths, project_paths
+from motion_studio.kind import ProjectKind, project_kind
+from motion_studio.paths import MARKERS_SUFFIX, WORKSPACE_FILE, ProjectPaths, project_paths
 from motion_studio.state import STAGES, State, load_state, project_lock, save_state, stage_status
 from motion_studio.target import RenderTarget
 
@@ -53,7 +54,12 @@ def init_workspace(target: Path) -> list[Path]:
 
 
 def new_project(
-    workspace: Path, slug: str, sources: list[Path], *, title: str | None = None
+    workspace: Path,
+    slug: str,
+    sources: list[Path],
+    *,
+    title: str | None = None,
+    kind: ProjectKind = ProjectKind.TALK,
 ) -> tuple[ProjectPaths, list[Path]]:
     """Create the project tree and hard-link (or copy) `sources` into raw/.
 
@@ -70,7 +76,7 @@ def new_project(
     project.root.mkdir(parents=True)
     for directory in project.directories:
         directory.mkdir()
-    meta: dict[str, Any] = {"project": {"title": title or slug}, "clips": {}}
+    meta: dict[str, Any] = {"project": {"title": title or slug, "kind": kind.value}, "clips": {}}
     project.project_toml.write_text(tomli_w.dumps(meta), encoding="utf-8")
     project.notes.write_text(f"# Notes: {title or slug}\n", encoding="utf-8")
     save_state(project, State())
@@ -113,6 +119,7 @@ class StageLine:
 @dataclass(frozen=True)
 class ProjectStatus:
     slug: str
+    kind: ProjectKind
     clips: int
     stages: list[StageLine]
     next: str | None
@@ -121,6 +128,7 @@ class ProjectStatus:
     def to_json(self) -> dict[str, Any]:
         return {
             "slug": self.slug,
+            "kind": self.kind.value,
             "clips": self.clips,
             "stages": [s.__dict__ for s in self.stages],
             "next": self.next,
@@ -132,7 +140,12 @@ def project_status(workspace: Path, slug: str) -> ProjectStatus:
     project = project_paths(workspace, slug).require()
     config = load_config(workspace, slug)
     state = load_state(project)
-    clips = sum(1 for p in project.raw.iterdir() if not p.name.startswith("."))
+    kind = project_kind(project)
+    clips = sum(
+        1
+        for p in project.raw.iterdir()
+        if not p.name.startswith(".") and not p.name.endswith(MARKERS_SUFFIX)
+    )
     lines: list[StageLine] = []
     for stage in STAGES:
         status = (
@@ -144,10 +157,23 @@ def project_status(workspace: Path, slug: str) -> ProjectStatus:
         finished = record.finished_at.isoformat() if record and record.finished_at else None
         lines.append(StageLine(stage, status, finished))
     if clips == 0:
-        return ProjectStatus(slug, 0, lines, None, f"copy clips into {project.raw}")
+        return ProjectStatus(slug, kind, 0, lines, None, empty_raw_hint(project, kind))
     todo = next((line.name for line in lines if line.status not in ("done", "skipped")), None)
     command = _next_command(project, todo) if todo else None
-    return ProjectStatus(slug, clips, lines, command, None if command else "all stages are done")
+    return ProjectStatus(
+        slug, kind, clips, lines, command, None if command else "all stages are done"
+    )
+
+
+def empty_raw_hint(project: ProjectPaths, kind: ProjectKind) -> str:
+    """What to do next in a project with nothing in raw/ yet."""
+    if kind is ProjectKind.PRODUCT:
+        slug = project.slug
+        return (
+            f"record with `{APP_NAME} record web {slug} <script.mjs>` or "
+            f"`{APP_NAME} record terminal {slug} <tape>`, or copy recordings into {project.raw}"
+        )
+    return f"copy clips into {project.raw}"
 
 
 def _next_command(project: ProjectPaths, stage: str) -> str:

@@ -157,17 +157,59 @@
           "title": "Logo",
           "type": "string"
         },
+        "mascot": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "gif": "#/$defs/TimelineGifMascot",
+                  "sprite": "#/$defs/TimelineMascot"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/TimelineMascot"
+                },
+                {
+                  "$ref": "#/$defs/TimelineGifMascot"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Product videos only.",
+          "title": "Mascot"
+        },
         "primary": {
           "description": "#RRGGBB; #RGB is accepted and expanded.",
           "pattern": "^#[0-9A-F]{6}$",
           "title": "Primary",
           "type": "string"
+        },
+        "wordmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wordmark image relative to the workspace; product videos only.",
+          "title": "Wordmark"
         }
       },
       "required": [
         "primary",
         "accent",
-        "logo"
+        "logo",
+        "wordmark",
+        "mascot"
       ],
       "title": "TimelineBrand",
       "type": "object"
@@ -220,6 +262,84 @@
         "mode"
       ],
       "title": "TimelineBroll",
+      "type": "object"
+    },
+    "TimelineCameraKey": {
+      "additionalProperties": false,
+      "description": "Where a camera move starts and what it frames, in the footage's pixels.",
+      "properties": {
+        "cx": {
+          "description": "Footage x the camera centres on.",
+          "title": "Cx",
+          "type": "number"
+        },
+        "cy": {
+          "description": "Footage y the camera centres on.",
+          "title": "Cy",
+          "type": "number"
+        },
+        "ease": {
+          "enum": [
+            "smooth",
+            "snap"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "frame": {
+          "description": "Output frame where the move starts.",
+          "title": "Frame",
+          "type": "integer"
+        },
+        "zoom": {
+          "description": "1 is the whole frame, at rest.",
+          "title": "Zoom",
+          "type": "number"
+        }
+      },
+      "required": [
+        "frame",
+        "cx",
+        "cy",
+        "zoom",
+        "ease"
+      ],
+      "title": "TimelineCameraKey",
+      "type": "object"
+    },
+    "TimelineCaptionPill": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "caption_pill",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "scene",
+        "start",
+        "end",
+        "text"
+      ],
+      "title": "TimelineCaptionPill",
       "type": "object"
     },
     "TimelineCaptions": {
@@ -311,6 +431,292 @@
       "title": "TimelineCaptions",
       "type": "object"
     },
+    "TimelineFlash": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "strength": {
+          "description": "Opacity at start, fading to 0 at end.",
+          "title": "Strength",
+          "type": "number"
+        },
+        "type": {
+          "const": "flash",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "scene",
+        "start",
+        "end",
+        "strength"
+      ],
+      "title": "TimelineFlash",
+      "type": "object"
+    },
+    "TimelineFootage": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Address"
+        },
+        "camera": {
+          "description": "In frame order.",
+          "items": {
+            "$ref": "#/$defs/TimelineCameraKey"
+          },
+          "title": "Camera",
+          "type": "array"
+        },
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "device_frame": {
+          "enum": [
+            "browser",
+            "terminal"
+          ],
+          "title": "Device Frame",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "height": {
+          "description": "Pixel height of the footage.",
+          "title": "Height",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "rate": {
+          "description": "Playback speed that fits src_in_s to src_out_s in the scene.",
+          "title": "Rate",
+          "type": "number"
+        },
+        "src": {
+          "description": "The recording's mezzanine, relative to the project.",
+          "title": "Src",
+          "type": "string"
+        },
+        "src_in_s": {
+          "description": "Source seconds of the scene's first frame.",
+          "title": "Src In S",
+          "type": "number"
+        },
+        "src_out_s": {
+          "description": "Source seconds where the scene ends.",
+          "title": "Src Out S",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "footage",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "Pixel width of the footage.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "clip",
+        "src",
+        "width",
+        "height",
+        "src_in_s",
+        "src_out_s",
+        "rate",
+        "device_frame",
+        "address",
+        "camera"
+      ],
+      "title": "TimelineFootage",
+      "type": "object"
+    },
+    "TimelineGifMascot": {
+      "additionalProperties": false,
+      "properties": {
+        "gif": {
+          "description": "Animated GIF, relative to the workspace; plays at its own delays.",
+          "title": "Gif",
+          "type": "string"
+        },
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        },
+        "type": {
+          "const": "gif",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "The GIF's pixel size.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "gif",
+        "width",
+        "height"
+      ],
+      "title": "TimelineGifMascot",
+      "type": "object"
+    },
+    "TimelineHeadlineWord": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "description": "Drawn in the brand accent colour.",
+          "title": "Accent",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "accent"
+      ],
+      "title": "TimelineHeadlineWord",
+      "type": "object"
+    },
+    "TimelineHighlight": {
+      "additionalProperties": false,
+      "description": "A box drawn on the footage, so it follows the camera.",
+      "properties": {
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The element ID targeted, or null for a box.",
+          "title": "Element"
+        },
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "src_end_s": {
+          "description": "Source seconds where it ends.",
+          "title": "Src End S",
+          "type": "number"
+        },
+        "src_start_s": {
+          "description": "Source seconds of the first frame, on clip's clock.",
+          "title": "Src Start S",
+          "type": "number"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "highlight",
+          "title": "Type",
+          "type": "string"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge in footage pixels.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge in footage pixels.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene",
+        "clip",
+        "start",
+        "end",
+        "src_start_s",
+        "src_end_s",
+        "element",
+        "x",
+        "y",
+        "w",
+        "h",
+        "type",
+        "label"
+      ],
+      "title": "TimelineHighlight",
+      "type": "object"
+    },
     "TimelineImage": {
       "additionalProperties": false,
       "properties": {
@@ -364,6 +770,384 @@
       "title": "TimelineImage",
       "type": "object"
     },
+    "TimelineKineticLine": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "words": {
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Words",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "words"
+      ],
+      "title": "TimelineKineticLine",
+      "type": "object"
+    },
+    "TimelineKineticText": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "lines": {
+          "description": "Back to back from the scene's start.",
+          "items": {
+            "$ref": "#/$defs/TimelineKineticLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "kinetic_text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "lines"
+      ],
+      "title": "TimelineKineticText",
+      "type": "object"
+    },
+    "TimelineLogoOutro": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mascot": {
+          "description": "Draw brand.mascot beside the wordmark.",
+          "title": "Mascot",
+          "type": "boolean"
+        },
+        "name": {
+          "description": "Set in type in place of the wordmark when brand has none.",
+          "title": "Name",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "tagline": {
+          "description": "Empty for no tagline.",
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Tagline",
+          "type": "array"
+        },
+        "type": {
+          "const": "logo_outro",
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "tagline",
+        "url",
+        "mascot",
+        "name"
+      ],
+      "title": "TimelineLogoOutro",
+      "type": "object"
+    },
+    "TimelineMascot": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_height": {
+          "title": "Frame Height",
+          "type": "integer"
+        },
+        "frame_width": {
+          "title": "Frame Width",
+          "type": "integer"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/TimelineSpriteFrame"
+          },
+          "title": "Frames",
+          "type": "array"
+        },
+        "loops": {
+          "description": "Times the frames play before the last one holds; 0 is forever.",
+          "title": "Loops",
+          "type": "integer"
+        },
+        "sheet": {
+          "description": "Sprite sheet image, relative to the workspace.",
+          "title": "Sheet",
+          "type": "string"
+        },
+        "sheet_height": {
+          "title": "Sheet Height",
+          "type": "integer"
+        },
+        "sheet_width": {
+          "title": "Sheet Width",
+          "type": "integer"
+        },
+        "type": {
+          "const": "sprite",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "sheet",
+        "sheet_width",
+        "sheet_height",
+        "frame_width",
+        "frame_height",
+        "frames",
+        "loops"
+      ],
+      "title": "TimelineMascot",
+      "type": "object"
+    },
+    "TimelineMask": {
+      "additionalProperties": false,
+      "description": "A box of the footage filled over exactly start to end.",
+      "properties": {
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "description": "#RRGGBB; #RGB is accepted and expanded.",
+              "pattern": "^#[0-9A-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null: the device frame's background.",
+          "title": "Color"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The element ID targeted, or null for a box.",
+          "title": "Element"
+        },
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "src_end_s": {
+          "description": "Source seconds where it ends.",
+          "title": "Src End S",
+          "type": "number"
+        },
+        "src_start_s": {
+          "description": "Source seconds of the first frame, on clip's clock.",
+          "title": "Src Start S",
+          "type": "number"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "mask",
+          "title": "Type",
+          "type": "string"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge in footage pixels.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge in footage pixels.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene",
+        "clip",
+        "start",
+        "end",
+        "src_start_s",
+        "src_end_s",
+        "element",
+        "x",
+        "y",
+        "w",
+        "h",
+        "type",
+        "color"
+      ],
+      "title": "TimelineMask",
+      "type": "object"
+    },
+    "TimelineProof": {
+      "additionalProperties": false,
+      "properties": {
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Badge"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "headline": {
+          "description": "Empty for an image on its own.",
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Headline",
+          "type": "array"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Height"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "src": {
+          "description": "The image, relative to the project.",
+          "title": "Src",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subline"
+        },
+        "type": {
+          "const": "proof",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pixel size of the image, when ingest measured it.",
+          "title": "Width"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "src",
+        "width",
+        "height",
+        "headline",
+        "subline",
+        "badge"
+      ],
+      "title": "TimelineProof",
+      "type": "object"
+    },
     "TimelinePush": {
       "additionalProperties": false,
       "properties": {
@@ -395,6 +1179,32 @@
       "title": "TimelinePush",
       "type": "object"
     },
+    "TimelineSpriteFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "ms": {
+          "description": "How long the frame shows.",
+          "title": "Ms",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Left edge of the frame in the sheet, in sheet pixels.",
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "ms"
+      ],
+      "title": "TimelineSpriteFrame",
+      "type": "object"
+    },
     "TimelineTitle": {
       "additionalProperties": false,
       "properties": {
@@ -423,6 +1233,70 @@
         "end"
       ],
       "title": "TimelineTitle",
+      "type": "object"
+    },
+    "TimelineTitleCard": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "headline": {
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Headline",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Step"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subline"
+        },
+        "type": {
+          "const": "title_card",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "step",
+        "headline",
+        "subline"
+      ],
+      "title": "TimelineTitleCard",
       "type": "object"
     },
     "TimelineWord": {
@@ -520,7 +1394,11 @@
         "discriminator": {
           "mapping": {
             "broll": "#/$defs/TimelineBroll",
+            "caption_pill": "#/$defs/TimelineCaptionPill",
+            "flash": "#/$defs/TimelineFlash",
+            "highlight": "#/$defs/TimelineHighlight",
             "image": "#/$defs/TimelineImage",
+            "mask": "#/$defs/TimelineMask",
             "push": "#/$defs/TimelinePush",
             "title": "#/$defs/TimelineTitle",
             "zoom": "#/$defs/TimelineZoom"
@@ -542,6 +1420,18 @@
           },
           {
             "$ref": "#/$defs/TimelineTitle"
+          },
+          {
+            "$ref": "#/$defs/TimelineHighlight"
+          },
+          {
+            "$ref": "#/$defs/TimelineMask"
+          },
+          {
+            "$ref": "#/$defs/TimelineCaptionPill"
+          },
+          {
+            "$ref": "#/$defs/TimelineFlash"
           }
         ]
       },
@@ -558,6 +1448,16 @@
     "fps": {
       "title": "Fps",
       "type": "integer"
+    },
+    "kind": {
+      "default": "talk",
+      "description": "talk: runs of A-roll. product: scenes, and no runs.",
+      "enum": [
+        "talk",
+        "product"
+      ],
+      "title": "Kind",
+      "type": "string"
     },
     "language": {
       "anyOf": [
@@ -589,6 +1489,40 @@
       "title": "Runs",
       "type": "array"
     },
+    "scenes": {
+      "description": "Product videos: scenes back to back in output order.",
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "footage": "#/$defs/TimelineFootage",
+            "kinetic_text": "#/$defs/TimelineKineticText",
+            "logo_outro": "#/$defs/TimelineLogoOutro",
+            "proof": "#/$defs/TimelineProof",
+            "title_card": "#/$defs/TimelineTitleCard"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TimelineTitleCard"
+          },
+          {
+            "$ref": "#/$defs/TimelineFootage"
+          },
+          {
+            "$ref": "#/$defs/TimelineKineticText"
+          },
+          {
+            "$ref": "#/$defs/TimelineProof"
+          },
+          {
+            "$ref": "#/$defs/TimelineLogoOutro"
+          }
+        ]
+      },
+      "title": "Scenes",
+      "type": "array"
+    },
     "schema_version": {
       "const": 1,
       "default": 1,
@@ -610,6 +1544,7 @@
   },
   "required": [
     "schema_version",
+    "kind",
     "title",
     "language",
     "fps",
@@ -618,6 +1553,7 @@
     "runs",
     "words",
     "events",
+    "scenes",
     "captions",
     "brand",
     "music_path"

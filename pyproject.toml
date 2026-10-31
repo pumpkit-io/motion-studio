@@ -88,4 +88,5 @@ markers = [
     "models: loads ASR, VAD or face models (takes the heavy-model lock)",
     "renderer: needs the installed Remotion renderer",
     "music: needs the ACE-Step environment",
+    "record: needs Playwright's Chromium from `setup --record`, or vhs and ttyd",
 ]

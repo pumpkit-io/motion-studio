@@ -750,6 +750,297 @@ Checked:
 - New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
 
+## Share copy under 30 MiB with every final (ticket #39, spec #26)
+
+- `render --final` writes `final/<slug>_<format>_share.mp4` beside each final, for both kinds, and prints its path and size (`share` in `--json`). New module `render/share.py`.
+- Hitting the cap: a final already under 30 MiB is copied byte for byte. A larger one gets two-pass x264 at the bitrate that fits 94% of the cap after the audio, then the size is checked; an encode still over the cap is redone at a bitrate scaled by the overshoot, up to three times. Two-pass was chosen over stepping CRF because one pass pair usually lands, where CRF steps need an unknown number of full encodes.
+- The audio stream is copied, not re-encoded, so the share copy keeps the mastered loudness and true peak exactly; the cap therefore runs out at about seven minutes with the 320 kb/s mix. Past that (under 250 kb/s left for the video) the share copy fails with exit 1 and a hint, after the final is written and recorded.
+- Each share copy has its own `state.json` record, `final.share.<format>`, keyed on the final and the share recipe and cap. Existing finals gain a share copy on the next `render --final` without re-rendering, and `RECIPE` is unchanged.
+
+Checked:
+
+- New tests in `tests/unit/test_render_cli.py`: share copies beside both finals (size, resolution, `moov` before `mdat`, the printed line), a final over a lowered cap re-encoded under it at full resolution and frame count without calling the renderer again, no share copy for a preview, and the too-long failure keeping the final.
+- `just lint`, `just schema-check`, `just test` pass. No contract changed, so no schema regeneration; `src/motion_studio/edl` untouched.
+
+## Tempo, bar grid and section hits in music.json (ticket #37, spec #26)
+
+The Pumpkit bed read as 117.5 bpm and was about 119.8. librosa's `beat_track` tempo comes from coarse tempogram bins, and its beats follow that period, so a line fit through them repeats the error. A synthetic bed at 119.8 bpm reproduces it exactly.
+
+- `music/beats.py` replaces `detect_beats` with `analyze_bed`: librosa's estimate, refined by a comb search over the onset envelope within 4% of it in 0.02 bpm steps (which also gives the beat phase), then cross-checked against the section changes. Section changes are peaks in the change of four band levels (below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz, above 5 kHz) between the bar before and the bar after. When at least 8 bars separate the first and last change, all lie within a quarter bar of a fitted bar grid, and that grid's tempo differs from the onset tempo by more than 1.5%, the section tempo wins and the phase is searched again at it.
+- The 1.5% threshold sits above the changes' own jitter (up to about 0.3 s, so about 1% over 32 s) and below the 2% Pumpkit error. On the synthetic beds the comb alone lands within 0.05 bpm, so the cross-check is the guard for beds whose onsets mislead.
+- `music.json` gains `tracker_bpm`, `tempo_from`, `beats_per_bar`, `bars`, `sections` and `hits`; `detected_bpm` is now the corrected tempo and `beats` lie on its grid. Sections and hits cover the whole bed, beats and bars stop at the end of the timeline as before. The hit rules are in `docs/cli.md`.
+- A `music.json` written before this change, with a fresh bed, is analysed again on the next `music` run instead of regenerated.
+- `music.json` now has a published schema, `schemas/music.schema.json` (the ticket asks for it to be regenerated; it had none). Peak picking is a few lines of numpy rather than a new direct dependency on scipy.
+
+Checked:
+
+- New tests in `tests/unit/test_music_cli.py`, through `motion-studio music` in library mode on synthetic beds, without ACE-Step: a 119.8 bpm bed of hats, kick and lead (librosa says 117.5) gives the tempo within 0.5 bpm, a bar grid and all four hits within a beat; clicks at 117.5 bpm over pads that change every 16.03 s give 119.8 within 0.5 bpm from the sections. A third test strips the new fields from a fresh `music.json` and checks the next run analyses the bed again without a new generation.
+- `just lint`, `just schema-check` and `just test` (402 Python, 42 vitest) pass. `just edl-coverage` not run: `src/motion_studio/edl` is unchanged. `tests/integration/test_music_generate.py` (`music`) could not run: this machine's ACE-Step environment is incomplete (`No module named 'acestep.handler'`, exit 2).
+
+## Small-speaker bed shaping, true-peak mastering and band energy (ticket #38, spec #26)
+
+Built:
+
+- `music/shape.py`: every accepted ACE-Step bed goes through a fixed chain before it becomes `build/music.wav` (high-pass 35 Hz, low shelf −4 dB at 120 Hz, +3 dB at 3 kHz, high shelf +3 dB at 7 kHz, a 2:1 compressor from −18 dB, and a limiter at 0.95 so the boosts never clip the 16-bit WAV). The vocal check still runs on the raw generation. The chain is a stage parameter, so changing it regenerates the bed. Library tracks are only resampled, as before.
+- Mastering (`render/mix.py`) no longer uses linear loudnorm for the final pass. loudnorm's first pass measures; the mix gets one fixed gain to the target and then `alimiter` at 4x the sample rate, 0.5 dB under the true-peak ceiling. Because limiting the peaks lowers the loudness, the mastered chain is measured again and the gain corrected, at most twice, until it is within 0.3 LU. Deviation: the spec asks for one fixed gain; on a mix of full-scale clicks over a quiet tone the single gain landed 3 LU low after the limiter, so the gain is corrected by measurement (still one fixed gain in the final pass, never dynamic).
+- `check` measures each format's energy below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz and above 5 kHz (metrics `bands`, a `bands <fmt>` row in the report) and warns `small_speaker` when the energy above 1 kHz is more than 10 dB below the energy under 150 Hz. The rule skips a render whose bass is over 30 dB under its loudest band, since such bass cannot mask anything (the demo's bare 220 Hz tone would otherwise warn). It warns on every kind; blocking music-only renders belongs to the product check (#42).
+- `doctor` requires the new filters: `alimiter`, `acompressor`, `highpass`, `lowshelf`, `highshelf`, `equalizer`.
+
+Checked:
+
+- New tests: a bass-heavy generated bed comes out of `music` within the 10 dB rule and a library track keeps its balance (`test_music_cli.py`); a peaky loud mix masters within 1 LU of −14 LUFS and under −1.5 dBTP (`test_render_cli.py`); `check` reports the four bands and warns on a bass-heavy render, and stays quiet on a balanced one and on the bare-tone demo (`test_check_cli.py`).
+- `just lint`, `just schema-check`, `just test` (405 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. Local-only: `tests/integration/test_render_fixtures.py` and `test_check_fixtures.py` pass on the build machine after `just fixtures` (8 passed, 2 skipped). `test_music_generate.py` (`music`) could not run: the cached ACE-Step environment fails with `No module named 'acestep.handler'` before generating, so `setup --music` needs re-running there. `just e2e` not run.
+
+## Product project kind with screen recordings (ticket #30, spec #26)
+
+Built:
+
+- `new --kind talk|product` writes `[project] kind` to `project.toml` (default `talk`; a `project.toml` without it reads as talk). `status` prints `<slug> (<kind>): ...` and `kind` in JSON. `src/motion_studio/kind.py` holds `ProjectKind`, `project_kind` and `require_kind`; `words` uses the guard and exits 1 on a product project with a hint pointing at the markers in `packed.md`.
+- A new role, `screen`, with the `c` prefix. In a product project every video ingests as a screen recording: a mezzanine, no voice files (its sound is never cut or mixed), and a 1 fps contact sheet at `contact/<id>.png` drawn at ingest, outside the look budget (capped at 180 frames with a warning). `<name>.markers.json` files in `raw/` are skipped as clips. Ingest's stage parameters gain `project_kind` only for product projects, so existing talk projects stay fresh.
+- The markers sidecar contract, `ScreenMarkers` (`schemas/markers.schema.json`): `width`/`height` of the recorded frame, `markers` (name, `t`, `elements` with `x`, `y`, `w`, `h`) and the `cursor` track (`t`, `x`, `y`, `down`). Marker names are unique, element names unique per marker, and neither holds a dot, so `c1.m.<name>` and `c1.e.<name>` parse. `ClipAnalysis` gains `markers_source`, `markers` and `cursor`, with boxes and cursor scaled to the mezzanine's pixels (a sidecar whose aspect ratio differs from the clip exits 1).
+- Analyze on a product project resolves no ASR backend, starts neither worker, skips role finalisation and writes no `retakes.json`. It keeps shots and static stretches, and the sidecar is an input of the clip and of the stage, so editing it re-analyses. `packed.md` has a product layout: per recording, length, frame size, marker count, one line per marker with its element boxes, and static stretches.
+- `docs/cli.md` covers `new --kind`, the kind in `status`, screen recordings at ingest and analyze, the sidecar format, and `words` on product projects. The glossary's A-roll and screen recording entries say the `c` prefix is shared.
+
+Deviation: element boxes in `analysis/<id>.json` and `packed.md` are in mezzanine pixels, not the raw clip's, because the mezzanine is what every later stage reads; they only differ for recordings with a side over the mezzanine limit.
+
+Checked:
+
+- `tests/unit/test_product_kind_cli.py` drives `new`, `status`, `words`, `ingest` and `analyze` through `CliRunner` on a generated 4.5 s recording with a hand-written sidecar.
+- `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass. Local-only: `tests/integration/test_ingest_fixtures.py` and `test_analyze_fixtures.py` pass for mlx-whisper; their faster-whisper cases need the `cpu` extra, which the Mac install lacks. No renderer, music or record tests are touched.
+
+## Web recording with `record web` and `setup --record` (ticket #31, spec #26)
+
+Built:
+
+- `motion-studio record web <slug> <script> [--name] [--viewport 1600x900]` (product projects only). `record/node/runner.mjs` imports the agent's ES module, launches headless Chromium from the cached Playwright, and hands the script's default export the helper library from `record/node/studio.mjs`. The library injects a fake cursor (an SVG arrow that shrinks on press, with a click ripple) into every page, glides it with eased mouse moves, and offers `goto`, `startCapture`, `moveTo`, `click`, `type`, `press`, `park`, `mark(name, {element: target})` and `wait`, plus `page` and `context`. `park` (also a `park` option on every action) moves the cursor just outside a region plus 60 px. `mark` stamps wall-clock time, the screencast's clock, and saves the bounding box of each named element.
+- Frames come from `Page.startScreencast` (JPEG quality 95) with their timestamps. Python lays them on a 30 fps grid by hard-linking, for each output frame, the last screencast frame sent by then, and encodes H.264 CRF 12. A page that is still during slow work holds its frame for the whole wait. The sidecar (`ScreenMarkers`) gets the frame size, markers and elements, and the cursor track, all relative to the first frame. Clip and sidecar are written in `build/record/<name>.partial/` and moved into `raw/` only after both succeed; the scratch directory is always removed.
+- A script error exits 1 with its message and the script's own stack lines; Chromium failing to start exits 3. Missing Node or Playwright exits 2 with the `setup --record` hint. Recording refuses to start (exit 1) while another process holds the heavy-model lock, and never takes it (`state.heavy_model_holder`).
+- `setup --record` installs the pinned Playwright 1.64.1 (`record/node/package.json` and lock) with `npm ci` and its headless Chromium shell into `<cache>/recorder/playwright-1.64.1/`, built in a `.partial` sibling and renamed into place.
+- New pytest marker `record`, registered in `pyproject.toml`, skipped by `just test`, documented in AGENTS.md.
+
+Deviations:
+
+- The ticket's prior art encodes through an ffmpeg concat list with per-frame durations; on ffmpeg 9.0.2 that produced 12% more frames than the take lasted, so frames are hard-linked into a constant-rate sequence instead.
+- An existing `raw/<name>.mp4` makes `record web` exit 1 rather than overwrite a take; `--name` records another one.
+- Only Chromium's headless shell is installed (`--only-shell`), since recording never runs headed.
+
+Checked:
+
+- `tests/unit/test_record_cli.py` (CI): missing Playwright exits 2 naming `setup --record` and leaves `raw/` empty; a talk project and a missing script exit 1.
+- `tests/integration/test_record_web.py` (`record`) on `tests/fixtures/record/page.html`, in a workspace path with spaces and accents: a 30/1 constant-frame-rate clip whose frame count matches the take's length; element boxes equal to the page's absolute layout; markers on the frames' clock (the click's result is absent 150 ms before the press and present at the next marker); the cursor track in the sidecar and the arrow visible in the frame where the track ends; `park` leaving the cursor off the region; the text block above 30 dB PSNR against a Playwright screenshot after a 2x Lanczos zoom; a throwing script exiting 1 with its error and no clip; and the take ingesting and analysing with its markers and element IDs in `packed.md`.
+
+## Product EDL with title cards and browser footage (ticket #32, spec #26)
+
+Built:
+
+- The EDL model is a union on `kind` (ADR 0004): `TalkEdl` (the old `Edl`, `kind` defaulting to `talk`, so existing EDLs parse unchanged) and `ProductEdl` (`kind: "product"`, `scenes[]`, and the shared `title`, `language`, `formats`, `max_duration_s`, `captions`, `music`, `rationale`). `Edl` is the annotated union and `parse_edl` validates through `EDL_ADAPTER`; schema errors drop the union's tag from the field path. `schemas/edl.schema.json` is now a `oneOf`.
+- Scenes: `title_card` (`step`, `headline`, `accent` words, `subline`) and `footage` (`clip`, `from`, `to`, `rate`, `device_frame: browser`, `address`). Lengths are `beats`, `bars` or `seconds`. `from`/`to` are a marker ID, `{marker, offset_s | offset_beats}`, or source seconds on a recording without markers (ADR 0005).
+- `edl/grid.py`: `BeatGrid`, the bed's beats from `music.json` (with its `beats_per_bar`) or a steady 120 bpm, extended past the last beat at its spacing. `edl/product.py` lays scenes back to back at whole frames; a whole number of beats ends on the nearest beat. Footage without a length plays `from`..`to` at `rate`, rounded to whole beats, with the rate adjusted to fill; with a length, the rate is whatever fills it, and giving both is an error.
+- The timeline gains `kind` and `scenes` (`TimelineTitleCard`, `TimelineFootage` with `src`, footage size, `src_in_s`, `src_out_s`, effective `rate`). Talk timelines carry `kind: "talk"` and `scenes: []`.
+- Issue codes: `product_format`, `duplicate_scene`, `scene_length`, `length_and_rate`, `unknown_accent`, `unknown_clip`, `bad_marker`, `unknown_marker`, `seconds_on_marked_clip`, `outside_clip`, warning `seconds_addressed`; `cross_clip`, `reversed_range`, `unknown_language` and `too_long` are reused. All are in `reference/edl.md`'s new "Product EDLs" section.
+- `plan validate` prints a product summary (scenes, duration, grid, scene types). `render` on a product timeline skips assemble, links the footage mezzanines into the public directory and renders the new `Product` composition with `--enforce-audio-track`, so mix and the share copy run unchanged.
+- Renderer: `Product.tsx`, `scenes/` (`Backdrop`, `Kinetic`, `TitleCard`, `BrowserFrame`, `Footage`) and pure `lib/deviceFrame.ts` and `lib/palette.ts`, after `launch-video/project/src/Launch.tsx`: the drifting glow-and-grid backdrop, word-by-word spring headlines with accent words, the accent bar, and 1600x900 footage at 1:1 under a 44 px browser bar with a tilted spring entrance and a blurred exit. Colours come from `[brand] primary` and `accent` (text is black or white by contrast); the caption font, or bundled Inter 800 and 500.
+
+Deviations:
+
+- Talk tests changed only where they named the model: `edl_fixtures.py` and `test_resolver_properties.py` build `TalkEdl`, `test_edl_models.py` narrows `parse_edl`'s union before reading `segments`, and `test_edl_reference.py` also checks the product models.
+- `check` exits 1 on a product EDL with a pointer to `look`, until ticket #42 adds the product check.
+- Source seconds on a recording that has markers are an error (`seconds_on_marked_clip`), as ADR 0005 accepts seconds only for recordings without markers.
+- `plan draft` on a product project still fails (no A-roll speech); ticket #36 builds the product draft.
+
+Checked:
+
+- `tests/unit/test_resolver_product.py` (resolver seam, counted by `just edl-coverage`), `test_product_plan_cli.py` (`plan validate`, `docs edl`) and `test_product_render_cli.py` (render with a stand-in Remotion on a synthetic recording plus sidecar) in CI; vitest specs for the frame geometry and palette.
+- `tests/integration/test_product_render.py` (markers `slow`, `renderer`) renders a preview and a final with the real renderer and checks stills at each scene's midpoint: title cards on the dark backdrop with bright text and no footage, footage centred in its frame under a light browser bar.
+
+## `look --at`: stills of the render (ticket #41, spec #26)
+
+Built:
+
+- `look <slug> --at <scene | marker | time>` (repeatable) in `look/at.py`. It reads the latest fresh render (the preview or the final, whichever finished last, first format) and `build/timeline.json`, and writes one PNG per value to `contact/at_<value>.png`, at the render's size up to 1600 px wide. A scene ID gives the scene's middle frame; a marker (`c2.m.v1_shown`) gives the frame of the first footage scene whose source range holds it, at that scene's rate; seconds (`12.5`, `12.5s`) give the frame on screen then. Output time also works on talk renders.
+- Each call counts once against the look budget, past which it warns and still writes. `count_look` and `budget_warnings` in `look/__init__.py` are now shared by both forms.
+- Exit 1 with the `render` hint when nothing is rendered or the render is older than the timeline; exit 1 with a hint for an unknown scene, marker or clip, a time outside the render, a marker no scene shows (naming the scenes that play its clip), and a range given together with `--at`.
+
+Deviations:
+
+- `clip`, `t0` and `t1` became optional arguments so `--at` can stand alone; `look` without either form exits 1. `--frames` and `--out` apply to the range form only.
+- Frames are decoded by seeking a quarter frame early, since ffmpeg's input seek returns the first frame at or after the seek time.
+
+Checked:
+
+- `tests/unit/test_look_at_cli.py` (CI): a stand-in Remotion paints each frame a colour that encodes its number, so each still is checked against the frame it should be for a scene, a marker, and a time; the budget counts once per call; the final is used after the preview; no render, a stale render and every bad value exit 1 with a hint.
+
+## Terminal recording with `record terminal` (ticket #43, spec #26)
+
+Built:
+
+- `motion-studio record terminal <slug> <tape> [--name] [--size 1600x900] [--cwd DIR]` (product projects only). The agent's vhs tape is wrapped in a generated one: the recorder's `Output`, `Set Shell bash`, size and `Set Framerate 30`, the tape's leading `Set`/`Require` lines, a hidden preamble, then the tape. The preamble runs in a shell whose environment has every `CLAUDE*` variable, `VIRTUAL_ENV` and `PROMPT_COMMAND` removed (and unsets `CLAUDE*` again with `compgen`), sets a `❯ ` prompt and clears.
+- Two tape lines the recorder consumes. `Launch <command> [args]` writes a wrapper named after the command first on `PATH` and starts it hidden, so the screen shows only `❯ claude`; for `claude` it waits, presses Down and Enter for the folder-trust prompt (which focuses "No, exit") and waits again. Relative paths in it resolve against the tape's folder, so MCP configs with keys stay inside the wrapper. `Mark <name>` becomes a vhs `Screenshot`; an `ffmpeg` shim on `PATH` logs the frame number vhs renders it from instead of rendering, which gives the marker's frame exactly.
+- vhs writes frames to a directory (`Output <dir>/`); Python composites text and cursor layers, pads the canvas to `--size` with the theme background at 1:1 and encodes 30 fps H.264 CRF 12. Markers go into the same `ScreenMarkers` sidecar as web takes, without elements or cursor. `record/take.py` now holds the checks, scratch directory and move into `raw/` that `record web` and `record terminal` share.
+- Tape errors exit 1 naming the line (`Output`, `Set Shell/Framerate/Width/Height`, a bad, repeated or hidden `Mark`, a misplaced, repeated or missing `Launch`, and anything `vhs validate` rejects). Missing vhs or ttyd exits 2 naming them with `brew install vhs` and the ffmpeg-upgrade warning. `doctor` reports both as warnings with the same fix and never installs them.
+
+Deviations:
+
+- vhs's own mp4 is not used: it scales the terminal down, pads it, encodes at CRF 20 and comes out at 25 fps. The frames directory keeps text at 1:1 for 2x zooms.
+- `CLAUDE*` variables are removed from the environment vhs inherits rather than only unset by typed commands; the typed `unset` stays for variables a shell startup could set.
+- The trust prompt is handled for a `Launch` of `claude` only, with fixed waits (7 s, then 5 s); `Wait` regexes were fragile in the launch-video session.
+- vhs captures frames at about the requested rate (28.6 to 29.7 per second measured), so a terminal take can run up to about 5% faster than real time. Markers are on the clip's frames, so they stay exact.
+- Terminal markers carry no element boxes; camera and highlight targets on terminal footage use pixel rectangles.
+
+Checked:
+
+- `tests/unit/test_record_cli.py` (CI): missing vhs and ttyd exit 2 naming both, or only the missing one; talk projects, missing tapes and every tape error exit 1 naming the line. `tests/unit/test_doctor_cli.py`: both tools warn with the install line and are never installed, and report their version when present.
+- `tests/integration/test_record_terminal.py` (`record`, `mac`), in a workspace path with spaces and accents and a tape folder under `scratchpad/`: a 1600x900 30/1 clip whose frame count matches its length and two markers 2.2 to 2.9 s apart; tesseract on stills shows the stand-in's answer at the second marker but not the first; with `CLAUDE_CODE_CHILD_SESSION` set and a key in the MCP config, no still shows `CLAUDE`, the folder, the config's name, the key or the preamble, the trust prompt is accepted and the config is read. With the environment cleaning removed, the leak test fails. A tape vhs cannot parse exits 1 with vhs's message.
+
+## Camera moves that target elements (ticket #33, spec #26)
+
+Built:
+
+- `FootageScene.camera[]`: moves with `at` (a marker point, as `from` and `to`), `target` (an element ID `<clip>.e.<name>`, `full`, or a `Rect` box in footage pixels), optional `zoom` (at least 1) and `ease` (`smooth` default, or `snap`).
+- `edl/product.py` resolves each move to a `TimelineCameraKey` (`frame` in output frames, `cx`, `cy`, `zoom`, `ease`) in footage pixels, sorted by frame, on `TimelineFootage.camera`. An element is boxed where it was captured at the marker nearest `at`. Without `zoom` the box fills 70% of the footage's width or height, clamped between 1 and the limit.
+- The zoom limit is 2 output pixels per recorded pixel: 2x on footage shown 1:1 (1600x900), 4x at 3200x1800, none at 800x450. The resolver repeats the frame's 1600x900 room from `renderer/src/lib/deviceFrame.ts` to compute it.
+- Issue codes: `move_outside_scene`, `bad_target`, `unknown_element`, `target_outside`, `zoom_too_far`; `cross_clip` now covers elements too.
+- Renderer: `cameraAt` in `lib/deviceFrame.ts` gives the camera at a frame: at rest until the first move, a smooth move eased over 0.7 s on the launch video's bezier from wherever the camera was (so a move that interrupts another starts mid-way), a snap move cut. A key with zoom 1 is the rest camera, so `full` shows the whole window with its title bar centred. `Footage.tsx` passes it to `frameTransform`.
+
+Deviations:
+
+- The ticket leaves the move's timing open; a move starts at `at` and settles about 0.7 s later, as the launch video's moves did, rather than arriving at `at`.
+
+Checked:
+
+- `tests/unit/test_resolver_camera.py` (resolver seam): element framing and the 70% zoom, explicit zoom, the clamp, `full` and boxes, frame order, nearest capture, and each issue code.
+- vitest in `deviceFrame.test.ts`: rest, smooth easing (half-way at half time), snap cuts, interrupted moves, zoom 1 at rest, and the camera point landing on the canvas centre.
+- `tests/integration/test_product_render.py` (`renderer`): a snap move onto a red box in the synthetic recording holds it at 2x on the canvas centre in the final's still.
+
+## Kinetic text, proof shot, logo outro, terminal frame and brand mascot (ticket #35, spec #26)
+
+Built:
+
+- Scene types `kinetic_text` (`lines`, `accent`; the lines share the scene equally and each springs in word by word), `proof` (`image` clip, optional `headline`, `accent`, `subline`, `badge`) and `logo_outro` (`tagline`, `accent`, `url`, `mascot`, default true). Footage takes `device_frame: "terminal"`, with `address` as the window title.
+- `[brand]` gains `wordmark` (an image path) and `mascot = { sheet, timings }`. `motion_studio.brand.load_brand_assets` loads them before resolving (file present, timings parse as `SpriteTimings`, frames inside the sheet, sheet size read with Pillow) and hands the resolver a `BrandAssets`; the resolver stays pure and raises `missing_brand_asset` only for a logo outro that needs an asset, naming the `[brand]` key and why it failed. `SpriteTimings` is a new contract, `schemas/sprite.schema.json`; it ignores exporter keys such as `image`, `columns`, `rows` and `loop_ms`.
+- Issue codes `unknown_image` and `missing_brand_asset`; `unknown_accent` now covers taglines and kinetic lines.
+- The timeline gains `TimelineKineticText`, `TimelineProof` (with the image's size), `TimelineLogoOutro`, and `brand.wordmark` and `brand.mascot` (sheet path and size, frame size, frames, loops) on product timelines. Render links the wordmark and sheet to `brand/` in the public directory and passes `wordmark_file` and `mascot_file` in the props; both are render inputs.
+- Renderer components after `launch-video/project/src/Launch.tsx`: `KineticText` (the intro's line-by-line punches, 150 px for short lines and 110 px for long ones), `TerminalFrame` (the dark Claude Code window bar), `Proof` (the tweet shot: headline left, image rising and drifting in 3D on the right, accent badge), `LogoOutro` and `Mascot` (mascot and wordmark sliding together, tagline and URL pill, fade to black). Sprite timing and the sheet's CSS are pure functions in `lib/sprite.ts`; the sheet is drawn with `image-rendering: pixelated`.
+- Docs: the product section of `reference/edl.md` (scene table, brand files, codes, example), the workspace `motion-studio.toml` template, `library/brand/README.md`, the glossary (proof shot, logo outro, mascot) and `docs/architecture.md`.
+
+Deviations:
+
+- The logo outro's tagline and URL appear at the launch video's 1.6 s and 2.2 s, or at 30% and 40% of the scene when that is sooner, so a short outro still shows its URL.
+- A mascot is a sprite sheet only; story 43's GIF option is not built.
+- `config show` leaves unset optional keys (`[brand] wordmark`, `mascot`) out of both its TOML and JSON output, since TOML has no null.
+- Brand files live in the workspace, outside the plan stage's recorded inputs, so editing one after a successful `plan validate` needs another `plan validate` before render picks it up (as with `[brand]` colours today).
+
+Checked:
+
+- `tests/unit/test_resolver_product_scenes.py` (resolver seam), `test_product_brand_cli.py` (`plan validate` with the Pumpkit mascot and wordmark from `tests/fixtures/brand/`: the sheet's size and timings in the timeline; unset, missing and malformed assets named by key; assets no scene needs left unchecked) and `test_product_render_cli.py` (wordmark and sheet in the props and public dir) in CI; vitest specs for sprite frame timing (per-frame durations, looping, holding the last frame) and the sheet's CSS.
+- `tests/integration/test_product_scenes_render.py` (`slow`, `renderer`) renders all four with the real renderer and checks stills at scene midpoints: kinetic text on the backdrop, terminal footage under the dark bar, the proof image right of its headline with the badge, and a 4x4 red-and-blue sprite drawn 300 px tall with over 90% pure pixels (26% when smoothing is switched on) on the frame its timings put there.
+
+## Music for product videos: length, alignment, presets and candidates (ticket #40, spec #26)
+
+Built:
+
+- On a product project the generated length is the scene total on the requested tempo (120 bpm when unset) plus 3 s, so the bed's own grid moving the scenes does not invalidate the generated beds.
+- `music.preset` (`tech`, `story`, `energetic`, `explainer`, `launch`) supplies the prompt and, for `launch` (fast future house, 124 bpm), the tempo; `prompt` and `bpm` override it. The four talk moods are the music skill's existing prompts.
+- `motion_studio.music.acestep.Session`: one worker process for several generations, under the heavy-model lock for its life, started only when something needs generating. The worker reads one job per stdin line and writes one result per line, loading ACE-Step at the first job. Before each generation the free memory (`vm_stat` free, inactive, speculative and purgeable pages on macOS, `MemAvailable` on Linux) is checked against 2 GB (`MOTION_STUDIO_MIN_FREE_MEMORY_GB`).
+- `build/music-candidates/`: every generated bed, shaped and analysed, by seed, under a key of prompt, BPM, length, model and shaping. `--candidates N` (1 to 4) makes `seed` to `seed + N - 1`; the vocals retry now reuses beds already made. `music.json` lists `candidates` (seed, tempo, hits, accepted) and `--json` reports `model_loads`. Low memory stops with exit 1 naming the candidate, and the ones made stay.
+- `music.align {hit, at}` (`motion_studio.music.align`): the scene's start is settled on a grid of the bed's beat length with a beat at zero (scene starts snap to beats, and the fitted bed's grid is phased on the hit, so a few rounds reach a whole frame the grid reproduces). The bed is then cut into pieces of itself: the head trimmed; whole bars repeated at the first section change before the hit when it comes too early; after it, whole bars repeated or cut just before the last section so the natural ending lands within a bar of the end, else the bed stops on a bar and its last beat echoes out over 4 beats. Joins are on bar lines with a 30 ms equal-power crossfade, done in numpy. `music.json` gets the fitted grid, sections and hits, and an `align` record with the edits and the ending.
+- New issue codes `align_scene`, `align_mode`, `align_kind` from `edl/music.py`, called from both resolvers.
+
+Deviations:
+
+- `align` works on generated beds only (`align_mode`); library tracks stay as licensed.
+- Edits are whole bars at phrase boundaries (section changes), repeated in spans of up to four bars, rather than strictly whole four-bar phrases, so the ending lands within a bar of the end instead of a phrase.
+- An aligned bed lists the EDL as an input, so any EDL change makes the music stage stale; refitting reuses the candidate and takes seconds.
+
+Checked:
+
+- `tests/unit/test_product_music_cli.py` (CI) with a stand-in worker writing a synthetic sectioned bed at 120 bpm: the bed sized from the scenes; the launch preset's prompt and tempo; the drop's 660 Hz lead landing within a frame of the scene start in `music.wav`, the bed exactly the scenes' length, a 4-bar cut on a bar line before the natural ending; 2 bars repeated before the hit when it comes too early, the beats still 0.5 s apart; the echo tail decaying beat by beat to silence; a missing hit; `align_scene` and `align_mode`; three candidates from one worker pid, listed with tempo and hits; the EDL seed picking a made candidate without a model load; low memory before candidate 3 keeping two, and the next run making only the third.
+- `tests/integration/test_music_generate.py::test_three_candidates_load_the_model_once` (`music`) was not run: ACE-Step fails to import on the build machine (`No module named 'acestep.handler'`), so the real worker's line protocol, the model loading once and real hit detection on generated beds are unverified.
+
+## Highlight, mask, caption pill and flash events (ticket #34, spec #26)
+
+Built:
+
+- `events` on every product scene, a `SceneEvent` union: `caption_pill` (`text`) and `flash` (`strength`) on any scene, at most one of each; `highlight` (`target`, `start`, `end`, `label`) and `mask` (`target`, `start`, `end`, `color`) on footage only. `start` and `end` are footage points on the recording's clock and default to the scene's `from` and `to`.
+- `edl/product.py` resolves them into `timeline.events` (talk events stay there too), sorted by start frame. Highlights and masks reuse the camera's `_target_box` (an element boxed at the marker nearest `start`) and its frame mapping (`_frame_at`), and carry `scene`, `clip`, output `start`/`end`, `src_start_s`/`src_end_s`, `element` and the box in footage pixels. A caption pill spans its scene; a flash its first 5 frames, at 0.35 by default or 0.12 on terminal footage.
+- Issue codes: `event_needs_footage`, `duplicate_event`, `reversed_event`, `event_outside_scene`; bad targets give the camera's codes.
+- Renderer: `scenes/Overlays.tsx` with `Masks` and `Highlights` drawn inside the footage's frame (so they move with the camera and the entrance tilt), and `CaptionPill` and `Flash` over the canvas, each in its own `Sequence`. Timing lives in `lib/overlays.ts`. The look follows the launch video: an accent box that springs open from its left edge with a tag at its top-right corner, a dark translucent pill with an accent square.
+
+Deviations:
+
+- A flash marks the cut into its scene rather than a time inside it: product scenes have one continuous range each, so the cut is the scene boundary.
+- A mask's default fill is the device frame's background (the browser page grey or the terminal's), not a colour sampled from the footage; `color` overrides it.
+
+Checked:
+
+- `tests/unit/test_resolver_scene_events.py` (resolver seam): frames, defaults, nearest capture, and every issue code.
+- vitest in `lib/overlays.test.ts`: highlight draw-in and fades, mask range exclusivity, flash fade, tag side.
+- `tests/integration/test_product_render.py` (`renderer`): stills show the flash on the cut, the mask hiding the red box from its marker on, the pill at the bottom, and the highlight's tag above the box both mid camera move and held.
+
+## plan draft for product projects (ticket #36, spec #26)
+
+Built:
+
+- `edl/product_draft.py`: `draft_product` writes an `intro` title card (the project title), then per screen recording in clip order a numbered title card (`stepN`, `"01"`, headline from the file stem) and a footage scene (`demoN`) from its first marker to its last at 1x with no length, so the resolver rounds it to whole beats; a `proofN` scene per image; and a `logo_outro` with `mascot` set from whether a mascot loaded. Every scene has a `note` saying what to change.
+- Cards last whole bars of the grid: the nearest whole number to 2 s for title cards and 4 s for the proof and outro, at least one bar. The grid is `BeatGrid.of` on `build/music.json`'s beats and `beats_per_bar` (through `plan._beat_grid`, as validate reads it), or the steady 120 bpm 4/4 grid before music. The draft's `music` is a generated bed from #40's `launch` preset, seed 1.
+- `plan draft` branches on the project kind. The product report prints the scene IDs and the grid; `--json` adds `scenes`, `scene_ids`, `grid` and `rationale`. A product draft is written with unset optional fields left out.
+- The rationale names the grid (bed or steady, bpm, beats a bar), how the scenes were built, what to change first, and each guess below.
+
+Deviations:
+
+- With no loadable `[brand] wordmark` the draft leaves the logo outro out and says why in the rationale, so the draft still validates; story 53 lists the outro unconditionally.
+- A recording with markers but no cursor track and no element boxes is drawn in the terminal frame, since that is what `record terminal` writes; a hand-written sidecar for browser footage without a cursor gets the terminal frame too, and the rationale says so.
+- A recording with a single marker (or first and last at the same time) plays whole through `offset_s` on that marker, as marked clips take no source seconds.
+- `just edl-coverage` now also runs `tests/unit/test_product_draft_cli.py`: the draft lives in `edl/` but is tested at the CLI seam, so the gate's resolver tests alone left it uncovered.
+
+Checked:
+
+- `tests/unit/test_product_draft_cli.py` (CLI seam): two recordings and an image draft to seven scenes that validate with no warnings; frame-exact scene starts on the steady grid and on a 150 bpm 3/4 bed; a markerless recording in source seconds with `seconds_addressed`; one marker; terminal frame; mascot on and off; no wordmark; no recordings or images; `--force`; the printed lines.
+- `tests/integration/test_product_draft_render.py` (`slow`, `renderer`): the draft of a green and a blue recording and a magenta image, with music set to none, renders; stills at scene midpoints show each recording in its footage scene and the image in the proof.
+
+## check for product videos (ticket #42, spec #26)
+
+Built:
+
+- `check` on a product project no longer exits 1. It loads no ASR model and skips the word diff and `clipped_cut`; it measures loudness, true peak, the four bands, black and frozen frames and duration with the talk code (now shared through `_measure_formats` and `_shared_metrics`), and writes `check/contact.png` (1 fps of the render, at most 180 frames) beside `check/cuts.png`, whose cells are the scene cuts labelled with the scene IDs either side.
+- `small_speaker` is blocking on product renders, previews included, and still a warning on talk renders. Its fix for a product points at a brighter music bed.
+- `check/product.py`: masked regions read from `timeline.events` (`metrics.masks`, and a "Masked regions" section in `report.md` with the frames covered and a `look --at` line for each); `cursor_over_target`, a warning when the analysis cursor track (mezzanine pixels, the same as the event boxes) sits inside a highlight's box between `src_start_s` and `src_end_s`, counting the last sample before the start since the recorder samples only on moves. Highlights on terminal scenes are skipped. `over_duration` names the longest middle scenes.
+- The stdout summary and the report notes point at `look <slug> --at <scene | marker | seconds>`.
+- Tests: the fake Remotion in `test_product_render_cli.py` plays `$FAKE_REMOTION_AUDIO` when set, and `product_project` takes sidecar overrides (markers with elements, a cursor track).
+
+Deviations:
+
+- Black and frozen stretches mostly inside a non-footage scene are treated as intended, as images are on talk renders. The canvas is `[brand] primary`, so a near-black brand or the outro's fade to black could read as black frames. On the default palette the real render passes without the exemption too (the backdrop grid moves), so it is a guard, not a fix for an observed failure.
+- "Music-only" is taken to mean the product kind: talk renders always carry a voice.
+
+Checked:
+
+- `tests/unit/test_product_check_cli.py` (CI): no ASR worker started, contact sheet and report written; a bass-heavy product render blocked (the talk case stays the warning in `test_check_cli.py`); two masks listed with their frames; the cursor warning, no warning once parked, and terminal footage skipped; the stdout summary.
+- `tests/integration/test_product_render.py::test_check_passes_the_real_preview_and_lists_its_mask` (`renderer`, run locally): `check` passes the real preview with no black or frozen frames, lists the mask, and writes the contact sheet.
+- No dev stack (the repo has no `scripts/dev-stack`): verified through tests only.
+
+## The product video skill and workspace routing (ticket #44, spec #26)
+
+Built:
+
+- `templates/skills/motion-studio-product/`: `SKILL.md` takes a host agent from the brief to delivery (demo kit, the shot-list gate with side effects and undo steps, provider CLIs for billing state, credentials in files by path, recording, scenes, music, review, the share copy and the closing side-effect report). `recording.md` beside it holds the `r.*` helper library, the `Launch` and `Mark` tape lines and what makes footage edit well, read only when recording. It links to the music, look and review skills.
+- The workspace `AGENTS.md` routes by kind (talk to `motion-studio-edit`, product to `motion-studio-product`), its golden rule on IDs covers markers and elements, and the quick reference gains `new --kind product`, `record web`, `record terminal`, `look --at` and `music --candidates`. The edit and plan skills say they are for talk projects. The review skill gains a product section (no music, small speaker, masked regions, cursor over target, feedback table), and the look skill a section on `look --at`.
+- `tests/unit/test_agents.py`: the new skill in `SKILLS`, the command check now reads every `.md` in a skill folder, a test that `AGENTS.md` routes each kind, and one that the edit and plan descriptions say talk project.
+- `migrate.py`: `OLD_SKILLS` fixes the five skills the old name shipped. It used to derive them from the installed skills, so `agents sync` would have deleted, and renamed mentions of, a creator's own `<old name>-product` skill.
+- ROADMAP: a product videos section (vertical formats, a phone frame, a GIF mascot) and the SFX library marked as needed by product videos. Counts of skills in README, `docs/agents.md`, `docs/architecture.md`, `docs/renaming.md` and `docs/cli.md`; `docs edl`'s help names product scenes; the render section lists every product component. `docs/dependencies.md` already had the Playwright and vhs versions, and `docs/edl.md` the product EDL section.
+
+Checked:
+
+- Dry run: a fresh subagent given only the workspace, a static toy page, its demo kit and a wordmark followed the skill to a 21.5 s product video (kinetic text, a title card, three footage scenes, the logo outro) whose `check --preview` exits 0, with no rendering code written. With music mode none (ACE-Step is broken on this Mac), `check --final` blocks on loudness, as it should for a silent video; the skill and the review skill now say so.
+- Skill fixes from the dry run: one `rate` per scene, title cards a bar long, wide camera targets, parking off a highlighted button, `check --final` rewriting the report, the share copy as a plain copy.
+
+Found, not fixed (code outside this ticket):
+
+- `status` counts a `raw/<name>.markers.json` sidecar as a clip, and on product projects `status` and `new` hint `new --from` and "copy clips into raw/" rather than recording.
+- `analyze` marked a 12.8 s recording with typing and a result appearing as one static stretch.
+- `record web` printed "12.8 s at 30 fps from 214 frames"; the frame count is screencast frames, not output frames.
+- A camera target wider than the zoom-1 framing gives zoom 1 with no validate warning.
+- `small_speaker` does not fire on a silent render (every band at −120 dB), and `music` with mode none prints "voice only" and a beats hint on a product project.
 ## Classic captions: two-word soft minimum (#23)
 
 - `pageCaptions` records whether each caption page closed at a hard break (sentence end, long silence, last word) or at a cap. A one-word page then joins the previous page across a cap; when the merged page breaks a cap it is split into two pages of at least two words, as even as possible (larger first page on a tie), never ending the first on a keep-with-next word. If no split fits, the lone word stays.
@@ -796,3 +1087,24 @@ Open: the stroke width. With `paint-order: stroke fill` only the outer half of t
 ## Classic captions brought onto motion-studio (spec #21)
 
 The three tickets were built and reviewed before the rename and merged here from `main` afterwards. The merge kept both sides of the docs, pointed the caption text at `motion-studio.toml` and the `motion-studio-plan` and `motion-studio-review` skills, and named TikTok Sans as the fallback font in the README's troubleshooting list.
+
+## Classic captions merged into product videos (spec #26)
+
+`main` (spec #21) was merged into `feat/product-videos`. Both sides changed the bundled font: `main` added TikTok Sans as the caption default and a `bundled_font` prop, and this branch added Inter 500 for product sublines. `lib/fonts.ts` now keeps each bundled family's caption weight and the files of every weight it ships, and `useCaptionFont` takes extra weights to load. The `Product` composition still loads Inter 800 and 500 when there is no brand font file, whatever `bundled_font` names, because TikTok Sans ships only 700. `product_props` writes `bundled_font` beside the wordmark and mascot files, and the assemble check uses `ASSEMBLE_RECIPE`. The `motion-studio-plan` description keeps "talk projects" and gains "captions".
+
+## Product videos: review fixes, round 1 (spec #26)
+
+- `music` on a product EDL with a logo outro: `Fit` resolved the scenes without `[brand]`, so generation failed with `missing_brand_asset`. It now loads the brand like `plan validate` and passes `beats_per_bar`.
+- `RENDER_RECIPE` is 4, so renders mastered before the true-peak limiter mix again.
+- Talk beds from before shaping: when `state.json` holds the old generate parameters (prompt, bpm, seed, duration, model) and the unshaped `music.wav` is still there, `music` shapes it into the candidate store with its attempts instead of running ACE-Step. When the bed is gone it generates again with a one-line warning recorded in `state.json`. The "music.json from before the bar grid" re-analysis in `_fresh_report` stays for library beds and for a current bed with an old `music.json`.
+- `Session.check_memory` returns a warning when the free memory cannot be read; `music` prints it once per run and records it.
+- `[brand] mascot = { gif = ... }`: `brand.py` checks the file is a GIF and reads its size into `TimelineGifMascot` (the timeline's `brand.mascot` is now a union on `type`: `sprite` or `gif`). The renderer plays it with `@remotion/gif` 4.0.538 at the GIF's own delays, looping. `<Gif>` smooths when its canvas is scaled, so the canvas stays at the GIF's size and CSS scales it with `image-rendering: pixelated`; `test_product_outro_render.py` fails without that.
+- The logo outro's wordmark is optional: without one, the EDL's `title` is set in type (`TimelineLogoOutro.name`). A configured wordmark that does not load, or no wordmark and no title, is still `missing_brand_asset`. `plan draft` always ends on the outro, and its rationale names a missing wordmark and a configured mascot or wordmark that failed to load.
+- `status` no longer counts markers sidecars as clips; `status` and `new` on an empty product project point at `record web` and `record terminal`.
+- Screen recordings use a static threshold of 0.02 (the camera one is 1.5): one 10x18 px glyph typed in a 1600x900 frame measures about 0.03 at the 320-wide motion scale, a blinking caret under 0.01. `SCREEN_RECIPE` re-analyses product projects only.
+- `record web` reports the encoded frame count. `--name` and the script or tape stem must be a plain file name. An element box that rounds to zero is dropped from its marker with a warning, and each take is recorded in `state.json` as `record.<name>` with its warnings.
+- `target_too_wide` warns when a camera move with no `zoom` targets a box filling more than 70% of the footage, so the move stays at 1x.
+- `music` with mode `none` on a product project says the video is silent instead of "voice only".
+- Judgement items: `docs/architecture.md` rows for `look/at.py` and `brand.py`; `withAlpha` shares `rgbOf` with `readableOn`; comments on the recorder's two dropped promise errors; the `_size` messages for malformed and too-small sizes; docstrings over three lines trimmed in the new modules.
+- `small_speaker` on a silent render is left as it is: loudness already blocks that render.
+- Deviation: story 58 says "whole bars at phrase boundaries" and the spec decision says "whole phrases"; the code follows story 58, unchanged.

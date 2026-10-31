@@ -27,8 +27,10 @@ OLD_TOML = f"{OLD_APP_NAME}.toml"
 NEW_TOML = f"{APP_NAME}.toml"
 SKILL_DIRS = [".claude/skills", ".agents/skills"]
 OLD_SKILLS = [f"{OLD_APP_NAME}-edit", f"{OLD_APP_NAME}-plan"]
-# A skill the creator made, named like the shipped ones.
+# Skills the creator made, named like the shipped ones. The second shares its suffix with a skill
+# that shipped only after the rename, so it was never one of the old name's.
 USER_SKILL = f"{OLD_APP_NAME}-brand"
+USER_PRODUCT_SKILL = f"{OLD_APP_NAME}-product"
 SETTINGS = '[brand]\nprimary = "#ff3366"\n'
 OLD_AGENTS_MD = Path(__file__).parents[1] / "fixtures" / "old_workspace" / "AGENTS.md"
 NEW_AGENTS_MD = files("motion_studio") / "templates" / "workspace" / "AGENTS.md"
@@ -45,7 +47,7 @@ def old_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ws.mkdir()
     (ws / OLD_TOML).write_text(SETTINGS, encoding="utf-8")
     for skill_dir in SKILL_DIRS:
-        for name in [*OLD_SKILLS, "my-own-skill", USER_SKILL]:
+        for name in [*OLD_SKILLS, "my-own-skill", USER_SKILL, USER_PRODUCT_SKILL]:
             (ws / skill_dir / name).mkdir(parents=True)
             (ws / skill_dir / name / "SKILL.md").write_text("---\n", encoding="utf-8")
     (ws / "AGENTS.md").write_bytes(OLD_AGENTS_MD.read_bytes())
@@ -70,6 +72,7 @@ def test_agents_sync_migrates_an_old_workspace_and_prints_each_change(old_worksp
         assert f"{APP_NAME}-edit" in names
         assert "my-own-skill" in names
         assert USER_SKILL in names
+        assert USER_PRODUCT_SKILL in names
     assert f"renamed {old_workspace / OLD_TOML} -> {old_workspace / NEW_TOML}" in result.output
     for skill_dir in SKILL_DIRS:
         for name in OLD_SKILLS:
@@ -102,7 +105,10 @@ def test_agents_sync_rewrites_an_unedited_old_agents_md_from_the_template(
 
 def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: Path) -> None:
     agents_md = old_workspace / "AGENTS.md"
-    house_style = f"\n## House style\nUse the skill `{USER_SKILL}` for colours.\n"
+    house_style = (
+        f"\n## House style\nUse the skill `{USER_SKILL}` for colours "
+        f"and `{USER_PRODUCT_SKILL}` for demos.\n"
+    )
     settings = f"Settings live in {OLD_TOML}.\n"
     old_text = OLD_AGENTS_MD.read_text(encoding="utf-8") + settings + house_style
     agents_md.write_text(old_text, "utf-8")

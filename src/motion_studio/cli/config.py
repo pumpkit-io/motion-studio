@@ -24,6 +24,7 @@ def show(
     workspace = find_workspace()
     policy = read_edl_policy(project_paths(workspace, slug).require()) if slug else None
     config = load_config(workspace, slug, edl_policy=policy)
-    data = config.model_dump(mode="json")
+    # TOML has no null: unset optional keys, such as [brand] wordmark, are left out.
+    data = config.model_dump(mode="json", exclude_none=True)
     # Config sections sit at the top level next to `ok`, so a host agent reads `edit.pad_in_ms`.
     emit(as_json, data, [tomli_w.dumps(data).rstrip()])

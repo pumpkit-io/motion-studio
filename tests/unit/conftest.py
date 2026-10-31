@@ -4,6 +4,7 @@ import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 
+import music_fixtures
 import pytest
 
 from motion_studio.media.ffmpeg import ffmpeg_caps
@@ -89,3 +90,15 @@ def fake_face_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     worker.chmod(worker.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("MOTION_STUDIO_FACE_WORKER", str(worker))
     return worker
+
+
+@pytest.fixture
+def worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A stand-in ACE-Step worker on MOTION_STUDIO_MUSIC_WORKER, its directory returned."""
+    tools = tmp_path / "worker"
+    tools.mkdir()
+    script = FakeTools(tools).add("fake-acestep", music_fixtures.FAKE_WORKER)
+    monkeypatch.setenv("MOTION_STUDIO_MUSIC_WORKER", str(script))
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_MEMORY_GB", "0")
+    monkeypatch.setattr("motion_studio.music.vocals.SileroVad", music_fixtures.LoudIsSpeech)
+    return tools

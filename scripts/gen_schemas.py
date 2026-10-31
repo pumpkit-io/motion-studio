@@ -8,11 +8,14 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
-from motion_studio.analysis import ClipAnalysis
+from motion_studio.analysis import ClipAnalysis, ScreenMarkers
+from motion_studio.brand import SpriteTimings
 from motion_studio.config import Config
-from motion_studio.edl import Edl, Timeline
+from motion_studio.edl import Timeline
+from motion_studio.edl.models import EDL_ADAPTER
+from motion_studio.music.stage import MusicInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS = ROOT / "schemas"
@@ -21,10 +24,14 @@ RENDERER = ROOT / "renderer"
 TYPES = RENDERER / "src" / "types.gen.ts"
 
 # The key names the file.
-CONTRACTS: dict[str, type[BaseModel]] = {
+CONTRACTS: dict[str, type[BaseModel] | TypeAdapter[Any]] = {
     "analysis": ClipAnalysis,
     "config": Config,
-    "edl": Edl,
+    # A union on `kind` (ADR 0004), so it has an adapter rather than a model.
+    "edl": EDL_ADAPTER,
+    "markers": ScreenMarkers,
+    "music": MusicInfo,
+    "sprite": SpriteTimings,
     "timeline": Timeline,
 }
 
@@ -33,9 +40,12 @@ def main() -> None:
     SCHEMAS.mkdir(exist_ok=True)
     for name, model in sorted(CONTRACTS.items()):
         # motion-studio writes the timeline and the renderer reads it: its contract is the output.
-        schema = model.model_json_schema(
-            mode="serialization" if model is Timeline else "validation"
-        )
+        if isinstance(model, TypeAdapter):
+            schema = model.json_schema(mode="validation")
+        else:
+            schema = model.model_json_schema(
+                mode="serialization" if model is Timeline else "validation"
+            )
         text = json.dumps(schema, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
         (SCHEMAS / f"{name}.schema.json").write_text(text, encoding="utf-8")
         print(SCHEMAS / f"{name}.schema.json")

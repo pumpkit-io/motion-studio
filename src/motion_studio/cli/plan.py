@@ -10,7 +10,7 @@ from motion_studio.cli.workspace import Slug
 from motion_studio.edl import EdlError
 from motion_studio.edl.summary import error_report
 from motion_studio.paths import find_workspace
-from motion_studio.plan import draft_project, validate_project
+from motion_studio.plan import ProductDraftReport, draft_project, validate_project
 
 app = typer.Typer(help="Draft and validate the EDL.", no_args_is_help=True)
 
@@ -21,8 +21,11 @@ def draft_command(
     force: Annotated[bool, typer.Option("--force", help="Replace an existing edl.json.")] = False,
     as_json: JsonOption = False,
 ) -> None:
-    """Write a deterministic baseline edl.json: all usable speech in source order."""
+    """Write a deterministic baseline edl.json: all usable speech, or a scene per recording."""
     report = draft_project(find_workspace(), slug, force=force)
+    if isinstance(report, ProductDraftReport):
+        emit(as_json, report.to_json(), _product_lines(report, slug))
+        return
     edl = report.edl
     emit(
         as_json,
@@ -34,6 +37,20 @@ def draft_command(
             f"next: refine it (hook first), then `{APP_NAME} plan validate {slug}`",
         ],
     )
+
+
+def _product_lines(report: ProductDraftReport, slug: str) -> list[str]:
+    grid = report.grid
+    source = "from the music" if grid.from_music else "steady (no music yet)"
+    music = report.edl.music
+    return [
+        f"wrote {report.edl_path}",
+        f"  {len(report.edl.scenes)} scenes: " + " · ".join(s.id for s in report.edl.scenes),
+        f"  grid {grid.bpm:.4g} bpm, {source}",
+        f"  music: generate, preset {music.preset}",
+        "  rationale in edl.json says what to change first",
+        f"next: write the headlines, then `{APP_NAME} plan validate {slug}`",
+    ]
 
 
 @app.command("validate")

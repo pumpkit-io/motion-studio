@@ -16,6 +16,7 @@ from pydantic import (
     Field,
     ValidationError,
     field_validator,
+    model_validator,
 )
 
 from motion_studio import lang
@@ -122,10 +123,37 @@ class Master(_Section):
     lra: float = 11
 
 
+class Mascot(_Section):
+    """Either a sprite sheet with its frame timings, or an animated GIF."""
+
+    sheet: str | None = Field(
+        default=None, description="Sprite sheet image, relative to the workspace."
+    )
+    timings: str | None = Field(
+        default=None, description="The sheet's frame-timing JSON, relative to the workspace."
+    )
+    gif: str | None = Field(default=None, description="Animated GIF, relative to the workspace.")
+
+    @model_validator(mode="after")
+    def _one_form(self) -> "Mascot":
+        sprite = self.sheet is not None and self.timings is not None
+        if self.gif is not None and (self.sheet is not None or self.timings is not None):
+            raise ValueError("set either gif, or sheet and timings, not both")
+        if self.gif is None and not sprite:
+            raise ValueError("set sheet and timings together, or gif")
+        return self
+
+
 class Brand(_Section):
     primary: HexColor = "#111111"
     accent: HexColor = "#FFD400"
     logo: str = "library/brand/logo.png"
+    wordmark: str | None = Field(
+        default=None, description="Wordmark image for product outros, relative to the workspace."
+    )
+    mascot: Mascot | None = Field(
+        default=None, description="Sprite-sheet mascot for product outros."
+    )
 
 
 class Config(_Section):

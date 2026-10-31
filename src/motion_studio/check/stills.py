@@ -1,10 +1,13 @@
-"""`check/cuts.png`: the frames 0.2 s before and after every cut, labelled with the cut index."""
+"""`check/cuts.png`: the frames 0.2 s before and after every cut, labelled with the cut index,
+and `check/contact.png`: one frame per second of a product render."""
 
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+import numpy.typing as npt
 from PIL import Image, ImageDraw
 
 from motion_studio.errors import InternalError
@@ -17,6 +20,9 @@ from motion_studio.look.sheet import (
     MARGIN,
     MAX_WIDTH,
     MUTED,
+    Frame,
+    asset_sheet,
+    fit_frame,
     font,
     text_width,
 )
@@ -26,6 +32,10 @@ OFFSET_S = 0.2
 FRAME_HEIGHT = 240
 FRAME_MAX_WIDTH = 300
 CUT_MARK = (220, 38, 38)
+CONTACT_FPS = 1.0
+CONTACT_HEIGHT = 180
+# About 30 rows of frames, as for a screen recording's sheet at ingest.
+MAX_CONTACT_FRAMES = 180
 
 
 @dataclass(frozen=True)
@@ -83,12 +93,38 @@ def cuts_sheet(
     return out
 
 
+def contact_sheet(
+    video: Path, size: tuple[int, int], duration_s: float, title: str, out: Path
+) -> tuple[Path, list[str]]:
+    """One frame per second of `video`, each stamped with its output time; a render longer
+    than MAX_CONTACT_FRAMES seconds is sampled more sparsely, with a warning."""
+    count = max(1, math.ceil(duration_s * CONTACT_FPS - 1e-6))
+    warnings: list[str] = []
+    if count > MAX_CONTACT_FRAMES:
+        warnings.append(
+            f"{duration_s:.0f} s is too long for a 1 fps contact sheet; it shows "
+            f"{MAX_CONTACT_FRAMES} frames, one every {duration_s / MAX_CONTACT_FRAMES:.1f} s"
+        )
+        count = MAX_CONTACT_FRAMES
+    step = duration_s / count
+    fw, fh = fit_frame(*size, CONTACT_HEIGHT)
+    times = [(i + 0.5) * step for i in range(count)]
+    frames = [Frame(_decode(video, t, fw, fh), t) for t in times]
+    out.parent.mkdir(parents=True, exist_ok=True)
+    asset_sheet(f"{title} · {count} frames, one per {step:.1f} s", frames).save(out, optimize=True)
+    return out, warnings
+
+
 def _frame(video: Path, t: float, width: int, height: int) -> Image.Image:
+    return Image.fromarray(_decode(video, t, width, height))
+
+
+def _decode(video: Path, t: float, width: int, height: int) -> npt.NDArray[np.uint8]:
     args = ["-ss", f"{t:.3f}", "-i", video, "-frames:v", "1"]
     decoded = list(read_frames(args, width=width, height=height, filters=f"scale={width}:{height}"))
     if not decoded:
         raise InternalError(f"could not decode a frame of {video} at {t:.2f} s")
-    return Image.fromarray(decoded[0])
+    return decoded[0]
 
 
 def _fit(text: str, width: int) -> str:

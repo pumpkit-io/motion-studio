@@ -24,6 +24,9 @@ DEFAULT_FONT: BundledFont = get_args(BundledFont)[0]
 PREVIEW_SCALE = 0.5
 FINAL_CRF = 16
 PREVIEW_CRF = 23
+# The renderer's compositions: talk videos and product videos.
+REEL = "Reel"
+PRODUCT = "Product"
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,12 @@ class Brand:
     bundled_font: BundledFont | None
     logo: Path | None
     warnings: tuple[str, ...]
+    # Product outros only; validation has checked the files exist.
+    wordmark: Path | None = None
+    mascot: Path | None = None
+
+    def files(self) -> list[Path]:
+        return [p for p in (self.font, self.logo, self.wordmark, self.mascot) if p is not None]
 
 
 def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
@@ -60,7 +69,18 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
             logo = candidate
         elif timeline.brand.logo != default_logo:
             warnings.append(f"brand logo {candidate} not found; rendering without a logo")
-    return Brand(font=font, bundled_font=bundled, logo=logo, warnings=tuple(warnings))
+    wordmark = timeline.brand.wordmark
+    mascot = timeline.brand.mascot
+    return Brand(
+        font=font,
+        bundled_font=bundled,
+        logo=logo,
+        warnings=tuple(warnings),
+        wordmark=workspace / wordmark if wordmark is not None else None,
+        mascot=None
+        if mascot is None
+        else workspace / (mascot.gif if mascot.type == "gif" else mascot.sheet),
+    )
 
 
 def _find_font(name: str, workspace: Path) -> Path | None:
@@ -83,22 +103,32 @@ def _key(name: str) -> str:
 
 
 def prepare_public(
-    build: Path, assembled: Path, timeline: Timeline, project_root: Path, brand: Brand
+    build: Path, assembled: Path | None, timeline: Timeline, project_root: Path, brand: Brand
 ) -> Path:
-    """Fill `build/public/` with everything the composition loads through `staticFile()`."""
+    """Fill `build/public/` with everything the composition loads through `staticFile()`.
+
+    `assembled` is the cut A-roll; None for a product video, which has none.
+    """
     public = build / "public"
     shutil.rmtree(public, ignore_errors=True)
     public.mkdir(parents=True)
-    _link(assembled, public / assembled.name)
-    for event in timeline.events:
-        src = getattr(event, "src", None)
+    if assembled is not None:
+        _link(assembled, public / assembled.name)
+    for item in [*timeline.events, *timeline.scenes]:
+        src = getattr(item, "src", None)
         if src is not None and not (public / src).exists():
             _link(project_root / src, public / src)
     if brand.font is not None:
         _link(brand.font, public / "brand" / f"font{brand.font.suffix.lower()}")
-    if brand.logo is not None:
-        _link(brand.logo, public / "brand" / f"logo{brand.logo.suffix.lower()}")
+    for name, path in _brand_files(brand).items():
+        _link(path, public / name)
     return public
+
+
+def _brand_files(brand: Brand) -> dict[str, Path]:
+    """The brand's images by their path in the public dir."""
+    named = {"logo": brand.logo, "wordmark": brand.wordmark, "mascot": brand.mascot}
+    return {f"brand/{n}{p.suffix.lower()}": p for n, p in named.items() if p is not None}
 
 
 def _link(source: Path, target: Path) -> None:
@@ -113,23 +143,32 @@ def _link(source: Path, target: Path) -> None:
 
 
 def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand) -> dict[str, Any]:
+    """The Reel composition's props: the timeline and the assembled A-roll's canvas."""
+    return {
+        **product_props(timeline, fmt, brand),
+        "source": {"width": canvas.width, "height": canvas.height},
+        "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
+        "video": video,
+    }
+
+
+def product_props(timeline: Timeline, fmt: str, brand: Brand) -> dict[str, Any]:
+    """The Product composition's props; scenes name their footage files themselves."""
     data = timeline.model_dump(mode="json")
-    font_file = logo_file = None
+    font_file = None
     if brand.font is not None:
         font_file = f"brand/font{brand.font.suffix.lower()}"
         # A plain family name keeps CSS happy whatever the configured value looks like.
         data["captions"]["font"] = "Brand" + _key(brand.font.stem).capitalize()
-    if brand.logo is not None:
-        logo_file = f"brand/logo{brand.logo.suffix.lower()}"
+    files = {Path(name).stem: name for name in _brand_files(brand)}
     return {
         "timeline": data,
         "format": fmt,
-        "source": {"width": canvas.width, "height": canvas.height},
-        "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
-        "video": video,
         "font_file": font_file,
         "bundled_font": brand.bundled_font,
-        "logo_file": logo_file,
+        "logo_file": files.get("logo"),
+        "wordmark_file": files.get("wordmark"),
+        "mascot_file": files.get("mascot"),
     }
 
 
@@ -141,6 +180,7 @@ def compose(
     *,
     preview: bool,
     concurrency: int,
+    composition: str = REEL,
 ) -> Path:
     """Render `build/composed_<fmt>.mp4` with the Remotion CLI; previews at half size."""
     fmt = props_data["format"]
@@ -151,7 +191,7 @@ def compose(
         str(remotion_bin(renderer)),
         "render",
         "src/index.ts",
-        "Reel",
+        composition,
         str(out),
         f"--props={props_path}",
         f"--public-dir={public}",
@@ -162,6 +202,9 @@ def compose(
     ]
     if preview:
         argv.append(f"--scale={PREVIEW_SCALE}")
+    if composition == PRODUCT:
+        # A product video has no voice; mix expects an audio stream to put the bed beside.
+        argv.append("--enforce-audio-track")
     result = subprocess.run(
         argv, cwd=renderer, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False
     )

@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 from motion_studio.analysis import ClipAnalysis, Retakes, Utterance
-from motion_studio.edl.models import Edl, EdlMusic, Policy, Segment
+from motion_studio.edl.models import EdlMusic, Policy, Segment, TalkEdl
 from motion_studio.errors import UserError
 
 RATIONALE = "deterministic draft"
@@ -24,7 +24,7 @@ def draft(
     *,
     title: str = "",
     language: str | None = None,
-) -> Edl:
+) -> TalkEdl:
     """One segment per kept A-roll utterance, clips in ID order.
 
     Retake cluster members other than the winner are left out, which also drops an abandoned
@@ -44,7 +44,7 @@ def draft(
             hint="check the clip roles in project.toml, then run analyze again",
         )
     bpm, prompt = _music(kept)
-    return Edl(
+    return TalkEdl(
         title=title,
         language=language,
         policy=Policy(drop_fillers="hard", jumpcut_punch=True),

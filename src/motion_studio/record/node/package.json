@@ -1,0 +1,8 @@
+{
+  "name": "web-recorder",
+  "private": true,
+  "description": "Playwright for `record web`, installed into the cache by `setup --record`.",
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}

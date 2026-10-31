@@ -20,27 +20,33 @@ from motion_studio.analysis import (
     project_language,
 )
 from motion_studio.analyze import RETAKES, project_title
+from motion_studio.brand import load_brand_assets
 from motion_studio.config import load_config
 from motion_studio.edl import (
     Edl,
     EdlError,
     Issue,
     Resolution,
-    Summary,
     draft,
     parse_edl,
     resolve,
     summarize,
 )
+from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR, BeatGrid
 from motion_studio.edl.issues import Problems
+from motion_studio.edl.models import ProductEdl, TalkEdl
+from motion_studio.edl.product_draft import draft_product
 from motion_studio.edl.refs import RefIndex
+from motion_studio.edl.summary import ProductSummary, Summary
 from motion_studio.errors import UserError
+from motion_studio.kind import ProjectKind, project_kind, require_kind
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.state import mark_done, mark_failed, project_lock
 
 STAGE = "plan"
 TIMELINE = "timeline.json"
-# Written by the music stage; its `beats` are output seconds that B-roll and image starts snap to.
+# Written by the music stage; its `beats` are output seconds that B-roll and image starts snap
+# to, and that product scenes are laid on.
 MUSIC_JSON = "music.json"
 
 _CLIP_FILE = re.compile(r"(?P<kind>[cbi])(?P<n>[1-9][0-9]*)\.json")
@@ -49,7 +55,7 @@ _CLIP_FILE = re.compile(r"(?P<kind>[cbi])(?P<n>[1-9][0-9]*)\.json")
 @dataclass
 class DraftReport:
     edl_path: Path
-    edl: Edl
+    edl: TalkEdl
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -61,8 +67,30 @@ class DraftReport:
 
 
 @dataclass
+class ProductDraftReport:
+    edl_path: Path
+    edl: ProductEdl
+    grid: BeatGrid
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "edl": str(self.edl_path),
+            "kind": "product",
+            "scenes": len(self.edl.scenes),
+            "scene_ids": [s.id for s in self.edl.scenes],
+            "grid": {
+                "bpm": round(self.grid.bpm, 2),
+                "beats_per_bar": self.grid.beats_per_bar,
+                "from_music": self.grid.from_music,
+            },
+            "music": self.edl.music.model_dump(exclude_none=True),
+            "rationale": self.edl.rationale,
+        }
+
+
+@dataclass
 class ValidateReport:
-    summary: Summary
+    summary: Summary | ProductSummary
     timeline_path: Path
 
 
@@ -107,10 +135,17 @@ def resolve_project(workspace: Path, slug: str) -> tuple[Edl, Resolution]:
     project = project_paths(workspace, slug).require()
     edl = load_edl(project)
     config = load_config(workspace, slug)
-    return edl, resolve(load_analyses(project), edl, config, _beats(project))
+    beats, beats_per_bar = _beat_grid(project)
+    brand = load_brand_assets(workspace, config.brand) if isinstance(edl, ProductEdl) else None
+    resolution = resolve(
+        load_analyses(project), edl, config, beats, beats_per_bar=beats_per_bar, brand=brand
+    )
+    return edl, resolution
 
 
-def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftReport:
+def draft_project(
+    workspace: Path, slug: str, *, force: bool = False
+) -> DraftReport | ProductDraftReport:
     project = project_paths(workspace, slug).require()
     with project_lock(project):
         if project.edl.exists() and not force:
@@ -120,18 +155,34 @@ def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftRe
                 f"or pass --force to start over",
             )
         analyses = load_analyses(project)
-        configured = load_config(workspace, slug).defaults.language
-        edl = draft(
-            analyses,
-            _retakes(project, analyses),
-            title=project_title(project),
-            language=project_language(analyses, configured),
+        config = load_config(workspace, slug)
+        report: DraftReport | ProductDraftReport
+        if project_kind(project) is ProjectKind.PRODUCT:
+            beats, beats_per_bar = _beat_grid(project)
+            grid = BeatGrid.of(beats, beats_per_bar)
+            edl = draft_product(
+                analyses,
+                title=project_title(project),
+                grid=grid,
+                brand=load_brand_assets(workspace, config.brand),
+            )
+            report = ProductDraftReport(edl_path=project.edl, edl=edl, grid=grid)
+        else:
+            talk = draft(
+                analyses,
+                _retakes(project, analyses),
+                title=project_title(project),
+                language=project_language(analyses, config.defaults.language),
+            )
+            report = DraftReport(edl_path=project.edl, edl=talk)
+        # Product scenes have many optional fields; nulls would bury the ones the draft set.
+        data = report.edl.model_dump(
+            by_alias=True, exclude_none=isinstance(report, ProductDraftReport)
         )
         project.edl.write_text(
-            json.dumps(edl.model_dump(by_alias=True), indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
-    return DraftReport(edl_path=project.edl, edl=edl)
+    return report
 
 
 def validate_project(workspace: Path, slug: str) -> ValidateReport:
@@ -165,6 +216,13 @@ def word_range(
     Both ends are word or utterance IDs in one clip; an utterance end means its last word.
     """
     project = project_paths(workspace, slug).require()
+    require_kind(
+        project,
+        ProjectKind.TALK,
+        "words",
+        hint="screen recordings have no transcript: address them by the markers in "
+        "analysis/packed.md",
+    )
     index = RefIndex(load_analyses(project))
     problems = Problems()
     first = index.word_index(start, "words", problems, end="first")
@@ -198,9 +256,15 @@ def _retakes(project: ProjectPaths, analyses: list[ClipAnalysis]) -> Retakes:
     return find_retakes(analyses)
 
 
-def _beats(project: ProjectPaths) -> list[float] | None:
+def _beat_grid(project: ProjectPaths) -> tuple[list[float] | None, int]:
+    """The bed's beat times and beats per bar, from music.json when the bed exists."""
     path = project.build / MUSIC_JSON
     if not path.exists():
-        return None
-    beats = json.loads(path.read_text(encoding="utf-8")).get("beats")
-    return [float(b) for b in beats] if isinstance(beats, list) else None
+        return None, DEFAULT_BEATS_PER_BAR
+    data = json.loads(path.read_text(encoding="utf-8"))
+    beats = data.get("beats")
+    per_bar = data.get("beats_per_bar")
+    return (
+        [float(b) for b in beats] if isinstance(beats, list) else None,
+        per_bar if isinstance(per_bar, int) and per_bar > 0 else DEFAULT_BEATS_PER_BAR,
+    )

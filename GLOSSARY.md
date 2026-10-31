@@ -41,11 +41,11 @@ One file in a project's `raw/` directory, given a stable short ID at ingest.
 _Avoid_: File, take, source
 
 **Role**:
-What a clip is used for: A-roll, B-roll or image.
+What a clip is used for: A-roll, B-roll, image or screen recording.
 _Avoid_: Type, kind, category
 
 **A-roll**:
-A clip of the speaker talking; its speech is what the edit cuts. IDs start with `c`.
+A clip of the speaker talking; its speech is what the edit cuts. IDs start with `c`, a prefix shared with screen recordings, which only product projects have.
 _Avoid_: Main footage, talking head clip
 
 **B-roll**:
@@ -65,7 +65,7 @@ One attempt by the speaker at delivering some lines. A clip can hold several tak
 _Avoid_: Clip (a clip is a file; a take is a performance), Screen recording
 
 **Screen recording**:
-A clip made by running a recording script against a browser or a terminal, carrying the markers the script wrote.
+A clip made by running a recording script against a browser or a terminal, carrying the markers the script wrote. Every video in a product project is one. IDs start with `c`, as A-roll IDs do.
 _Avoid_: Take (a take is a speaker's performance), capture, screencast
 
 **Recording script**:
@@ -156,8 +156,21 @@ _Avoid_: Clip, section, part
 An entry in a product video's EDL: one title card, footage shot, proof shot or outro, with its own duration. The order of scenes is their order in the output.
 _Avoid_: Segment (a segment keeps a range of words), slide, shot
 
+**Beat grid**:
+The beats a product video's scenes are laid on: the music bed's beats once it exists, a steady 120 bpm before. Scene lengths in beats or bars count on it.
+_Avoid_: Tempo map, click track
+
 **Title card**:
 A short full-frame scene with a headline, and optionally a step number and a subline, that introduces what comes next.
+
+**Proof shot**:
+A product video scene that shows an image of a real result, such as the published post, swinging in in 3D. The `proof` scene type.
+
+**Logo outro**:
+The closing scene of a product video: the brand mascot and wordmark (or the title in type), a tagline and a URL, fading to black.
+
+**Mascot**:
+A brand's animated character, given as a sprite sheet and a frame-timing JSON or as an animated GIF under `[brand] mascot`, played at its own frame timings without smoothing.
 _Avoid_: Title (a title is text over footage), slate, intertitle
 
 **Device frame**:

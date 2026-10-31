@@ -2,10 +2,12 @@
 
 `look_range` draws a time range of one clip and counts against `edit.look_budget`;
 `look_asset` and `write_asset_sheet` draw a B-roll clip or image into `contact/<id>.png`,
-the path `assets.md` links to. Asset sheets do not count: describing each asset once is
-part of every edit.
+the path `assets.md` links to, and `write_screen_sheet` draws a screen recording there at
+1 fps at ingest. Neither counts: seeing each clip once is part of every edit. Stills of the
+latest render (`motion_studio.look.at`) count like ranges.
 """
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,10 @@ ASSET_FRAMES = 6
 # The look skill tells agents to split anything longer into the moments that matter.
 LONG_RANGE_S = 20.0
 IMAGE_HEIGHT = 720
+SCREEN_FPS = 1.0
+SCREEN_FRAME_HEIGHT = 180
+# About 30 rows of frames; a longer recording is sampled more sparsely, with a warning.
+MAX_SCREEN_FRAMES = 180
 
 
 @dataclass
@@ -122,12 +128,8 @@ def look_range(
         f"{clip_id} {t0:.2f}-{t1:.2f} s: {frames} frames, {len(words)} words "
         f"({hard} hard, {soft} soft fillers), face in {faced}/{frames} frames"
     )
-    count, budget = _count_look(workspace, project)
-    if count > budget:
-        warnings.append(
-            f"look budget exceeded ({count} of {budget} sheets); look only when the decision "
-            "needs eyes, and say why in notes.md"
-        )
+    count, budget = count_look(workspace, project)
+    warnings += budget_warnings(count, budget)
     return LookReport(path, description, frames, count, budget, warnings)
 
 
@@ -160,6 +162,27 @@ def write_asset_sheet(project: ProjectPaths, clip: ClipMedia, analysis: ClipAnal
     path.parent.mkdir(parents=True, exist_ok=True)
     image.save(path, optimize=True)
     return path
+
+
+def write_screen_sheet(project: ProjectPaths, clip: ClipMedia) -> tuple[Path, list[str]]:
+    """One frame per second of a screen recording, each stamped with its source time."""
+    duration = clip.duration_s or 0.0
+    count = max(1, math.ceil(duration * SCREEN_FPS - 1e-6))
+    warnings: list[str] = []
+    if count > MAX_SCREEN_FRAMES:
+        warnings.append(
+            f"{clip.id}: {duration:.0f} s is too long for a 1 fps sheet; "
+            f"it shows {MAX_SCREEN_FRAMES} frames, one every {duration / MAX_SCREEN_FRAMES:.1f} s"
+        )
+        count = MAX_SCREEN_FRAMES
+    step = duration / count if duration else 0.0
+    times = [(i + 0.5) * step for i in range(count)]
+    frames = _frames(project, clip, times, Faces(), height=SCREEN_FRAME_HEIGHT)
+    title = f"{_asset_title(clip)} · {len(frames)} frames, one per {step:.1f} s"
+    path = project.asset_sheet(clip.id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    asset_sheet(title, frames).save(path, optimize=True)
+    return path, warnings
 
 
 def asset_description(clip: ClipMedia, analysis: ClipAnalysis) -> str:
@@ -236,9 +259,18 @@ def _samples(
     return np.ascontiguousarray(data.mean(axis=1), dtype=np.float32)
 
 
-def _count_look(workspace: Path, project: ProjectPaths) -> tuple[int, int]:
+def count_look(workspace: Path, project: ProjectPaths) -> tuple[int, int]:
     budget = load_config(workspace, project.slug).edit.look_budget
     state = load_state(project)
     state.look_count += 1
     save_state(project, state)
     return state.look_count, budget
+
+
+def budget_warnings(count: int, budget: int) -> list[str]:
+    if count <= budget:
+        return []
+    return [
+        f"look budget exceeded ({count} of {budget} sheets); look only when the decision "
+        "needs eyes, and say why in notes.md"
+    ]

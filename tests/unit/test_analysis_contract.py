@@ -61,4 +61,5 @@ GUIDE_EXAMPLE = {
 def test_the_guide_example_round_trips_through_the_analysis_contract() -> None:
     analysis = ClipAnalysis.model_validate(GUIDE_EXAMPLE)
 
-    assert analysis.model_dump(mode="json") == GUIDE_EXAMPLE
+    screen_fields = {"markers_source": None, "markers": [], "cursor": []}
+    assert analysis.model_dump(mode="json") == {**GUIDE_EXAMPLE, **screen_fields}

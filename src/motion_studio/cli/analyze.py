@@ -26,9 +26,13 @@ def analyze(
     for c in report.clips:
         heard = f"{c.language} {c.confidence:.2f}" if c.language else "no speech"
         detail = f"{c.id} {c.role}, {heard}, {c.words} words, {c.utterances} utterances"
+        if c.role == "screen":
+            detail = f"{c.id} screen recording, {c.markers} markers"
         lines.append(path_line(c.path, detail, written=c.analysed))
-    lines.append(f"language {report.language} ({report.language_source})")
-    lines.append(path_line(report.retakes, f"{report.retake_clusters} retake clusters", written))
+    if report.retakes is not None:
+        lines.append(f"language {report.language} ({report.language_source})")
+        clusters = f"{report.retake_clusters} retake clusters"
+        lines.append(path_line(report.retakes, clusters, written))
     lines.append(path_line(report.packed, f"packed index, ~{report.packed_tokens} tokens", written))
     lines.append(path_line(report.assets, "asset catalogue", written))
     lines += [path_line(sheet, "contact sheet") for sheet in report.sheets]

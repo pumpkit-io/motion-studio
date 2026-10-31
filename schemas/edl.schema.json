@@ -50,6 +50,93 @@
       "title": "BrollEvent",
       "type": "object"
     },
+    "CameraMove": {
+      "additionalProperties": false,
+      "description": "From `at`, the camera eases (or cuts) to frame `target`, and holds until the next move.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "When the move starts, on the recording's clock.",
+          "title": "At"
+        },
+        "ease": {
+          "default": "smooth",
+          "description": "smooth eases over about 0.7 s; snap cuts.",
+          "enum": [
+            "smooth",
+            "snap"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "zoom": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1 shows the whole frame; default: the target fills about 70% of it.",
+          "title": "Zoom"
+        }
+      },
+      "required": [
+        "at",
+        "target"
+      ],
+      "title": "CameraMove",
+      "type": "object"
+    },
+    "CaptionPillEvent": {
+      "additionalProperties": false,
+      "description": "A short line in a pill at the bottom of the frame, for the whole scene.",
+      "properties": {
+        "text": {
+          "description": "What is happening, in a few words.",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "caption_pill",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "title": "CaptionPillEvent",
+      "type": "object"
+    },
     "DropRange": {
       "additionalProperties": false,
       "description": "Source time to cut out, for audio no word points at (unaligned voice).",
@@ -158,6 +245,18 @@
       "additionalProperties": false,
       "description": "The music bed. Unset keys fall back to the config's [music].",
       "properties": {
+        "align": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MusicAlign"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A section hit to land on a scene start, for generated beds."
+        },
         "bpm": {
           "anyOf": [
             {
@@ -199,6 +298,26 @@
           ],
           "default": null,
           "title": "Mode"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "enum": [
+                "tech",
+                "story",
+                "energetic",
+                "explainer",
+                "launch"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A named prompt and tempo; prompt and bpm override it.",
+          "title": "Preset"
         },
         "prompt": {
           "anyOf": [
@@ -267,6 +386,320 @@
       "title": "EmphasisEvent",
       "type": "object"
     },
+    "FlashEvent": {
+      "additionalProperties": false,
+      "description": "A white flash on the cut into the scene, fading out over 5 frames.",
+      "properties": {
+        "strength": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Opacity of the flash's first frame; default 0.35, or 0.12 on terminal footage, which a bright flash washes out.",
+          "title": "Strength"
+        },
+        "type": {
+          "const": "flash",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "FlashEvent",
+      "type": "object"
+    },
+    "FootageScene": {
+      "additionalProperties": false,
+      "description": "A stretch of one screen recording, played in a device frame.\n\nIts length is `from` to `to` at `rate`, rounded to whole beats, unless a length is given;\nthen `from` to `to` is played to fill it and `rate` must be left out.",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text in the browser's address bar, such as example.com, or the terminal's title bar.",
+          "title": "Address"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "camera": {
+          "description": "Camera moves; before the first one the camera shows the whole frame.",
+          "items": {
+            "$ref": "#/$defs/CameraMove"
+          },
+          "title": "Camera",
+          "type": "array"
+        },
+        "clip": {
+          "description": "Screen recording ID: c1.",
+          "title": "Clip",
+          "type": "string"
+        },
+        "device_frame": {
+          "default": "browser",
+          "description": "The frame drawn around the footage.",
+          "enum": [
+            "browser",
+            "terminal"
+          ],
+          "title": "Device Frame",
+          "type": "string"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where the footage starts.",
+          "title": "From"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Playback speed; default 1. Typing reads well at 2.6-3.2.",
+          "title": "Rate"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where the footage ends.",
+          "title": "To"
+        },
+        "type": {
+          "const": "footage",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "clip",
+        "from",
+        "to"
+      ],
+      "title": "FootageScene",
+      "type": "object"
+    },
+    "HighlightEvent": {
+      "additionalProperties": false,
+      "description": "An animated box, with an optional label, around a target of a footage scene's recording.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When it fades out, on the recording's clock; default: to.",
+          "title": "End"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A few words on a tag at the box.",
+          "title": "Label"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the box draws in, on the recording's clock; default: from.",
+          "title": "Start"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "type": {
+          "const": "highlight",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "target"
+      ],
+      "title": "HighlightEvent",
+      "type": "object"
+    },
     "ImageEvent": {
       "additionalProperties": false,
       "properties": {
@@ -316,6 +749,438 @@
         "end"
       ],
       "title": "ImageEvent",
+      "type": "object"
+    },
+    "KineticTextScene": {
+      "additionalProperties": false,
+      "description": "Lines that spring in word by word, one after another, sharing the scene's length.",
+      "properties": {
+        "accent": {
+          "description": "Words of any line drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "type": {
+          "const": "kinetic_text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "lines"
+      ],
+      "title": "KineticTextScene",
+      "type": "object"
+    },
+    "LogoOutroScene": {
+      "additionalProperties": false,
+      "description": "The brand's mascot and wordmark (or the title in type), a tagline and a URL, then black.",
+      "properties": {
+        "accent": {
+          "description": "Words of the tagline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "mascot": {
+          "default": true,
+          "description": "Draw the [brand] mascot beside the wordmark; false leaves it out.",
+          "title": "Mascot",
+          "type": "boolean"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "tagline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A line under the wordmark.",
+          "title": "Tagline"
+        },
+        "type": {
+          "const": "logo_outro",
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown in a pill under the tagline.",
+          "title": "Url"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "LogoOutroScene",
+      "type": "object"
+    },
+    "MarkerPoint": {
+      "additionalProperties": false,
+      "description": "A marker nudged by an offset, in seconds or in beats of the music's grid.",
+      "properties": {
+        "marker": {
+          "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+          "title": "Marker",
+          "type": "string"
+        },
+        "offset_beats": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beats after the marker on the music's grid; negative is before.",
+          "title": "Offset Beats"
+        },
+        "offset_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seconds after the marker; negative is before.",
+          "title": "Offset S"
+        }
+      },
+      "required": [
+        "marker"
+      ],
+      "title": "MarkerPoint",
+      "type": "object"
+    },
+    "MaskEvent": {
+      "additionalProperties": false,
+      "description": "A box of a footage scene's recording filled with one colour, to hide what is under it.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "description": "#RRGGBB; #RGB is accepted and expanded.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The fill; default: the device frame's background, the browser page's grey or the terminal's.",
+          "title": "Color"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the region shows again; default: to.",
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First moment hidden, on the recording's clock; default: from.",
+          "title": "Start"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "type": {
+          "const": "mask",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "target"
+      ],
+      "title": "MaskEvent",
+      "type": "object"
+    },
+    "MusicAlign": {
+      "additionalProperties": false,
+      "description": "Land one of the bed's section hits on the start of a scene (product EDLs).",
+      "properties": {
+        "at": {
+          "description": "The scene ID the hit lands on.",
+          "title": "At",
+          "type": "string"
+        },
+        "hit": {
+          "enum": [
+            "intro_end",
+            "build",
+            "drop",
+            "ending"
+          ],
+          "title": "Hit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hit",
+        "at"
+      ],
+      "title": "MusicAlign",
       "type": "object"
     },
     "Policy": {
@@ -427,6 +1292,286 @@
       "title": "Policy",
       "type": "object"
     },
+    "ProductEdl": {
+      "additionalProperties": false,
+      "description": "A product video: scenes in output order, with the talk EDL's top-level fields (ADR 0004).",
+      "properties": {
+        "captions": {
+          "$ref": "#/$defs/EdlCaptions"
+        },
+        "formats": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "9x16",
+                  "16x9",
+                  "4x5"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Product videos render in 16x9 only, the default.",
+          "title": "Formats"
+        },
+        "kind": {
+          "const": "product",
+          "title": "Kind",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Caption language; default: project's.",
+          "title": "Language"
+        },
+        "max_duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration S"
+        },
+        "music": {
+          "$ref": "#/$defs/EdlMusic"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "scenes": {
+          "description": "In output order.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "footage": "#/$defs/FootageScene",
+                "kinetic_text": "#/$defs/KineticTextScene",
+                "logo_outro": "#/$defs/LogoOutroScene",
+                "proof": "#/$defs/ProofScene",
+                "title_card": "#/$defs/TitleCardScene"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TitleCardScene"
+              },
+              {
+                "$ref": "#/$defs/FootageScene"
+              },
+              {
+                "$ref": "#/$defs/KineticTextScene"
+              },
+              {
+                "$ref": "#/$defs/ProofScene"
+              },
+              {
+                "$ref": "#/$defs/LogoOutroScene"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Scenes",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "scenes"
+      ],
+      "title": "ProductEdl",
+      "type": "object"
+    },
+    "ProofScene": {
+      "additionalProperties": false,
+      "description": "An image, such as the published post, that swings in in 3D beside an optional headline.",
+      "properties": {
+        "accent": {
+          "description": "Words of the headline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A stamp that pops onto the image's corner, such as \"Posted\".",
+          "title": "Badge"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "headline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Drawn left of the image.",
+          "title": "Headline"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "image": {
+          "description": "Image clip ID: i1.",
+          "title": "Image",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A smaller line under the headline.",
+          "title": "Subline"
+        },
+        "type": {
+          "const": "proof",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "image"
+      ],
+      "title": "ProofScene",
+      "type": "object"
+    },
     "PushEvent": {
       "additionalProperties": false,
       "properties": {
@@ -453,6 +1598,40 @@
         "from"
       ],
       "title": "PushEvent",
+      "type": "object"
+    },
+    "Rect": {
+      "additionalProperties": false,
+      "description": "A box in the footage's pixels, the pixels `analysis/packed.md` lists element boxes in.",
+      "properties": {
+        "h": {
+          "exclusiveMinimum": 0,
+          "title": "H",
+          "type": "number"
+        },
+        "w": {
+          "exclusiveMinimum": 0,
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge, pixels from the footage's left.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge, pixels from the footage's top.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Rect",
       "type": "object"
     },
     "Segment": {
@@ -493,6 +1672,310 @@
         "to"
       ],
       "title": "Segment",
+      "type": "object"
+    },
+    "TalkEdl": {
+      "additionalProperties": false,
+      "description": "A talk edit: which words to keep, in which order, and what to layer on top.",
+      "properties": {
+        "captions": {
+          "$ref": "#/$defs/EdlCaptions"
+        },
+        "drop_ranges": {
+          "items": {
+            "$ref": "#/$defs/DropRange"
+          },
+          "title": "Drop Ranges",
+          "type": "array"
+        },
+        "drop_words": {
+          "description": "Word IDs cut out of their segments.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Drop Words",
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "broll": "#/$defs/BrollEvent",
+                "emphasis": "#/$defs/EmphasisEvent",
+                "image": "#/$defs/ImageEvent",
+                "push": "#/$defs/PushEvent",
+                "title": "#/$defs/TitleEvent",
+                "zoom": "#/$defs/ZoomEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ZoomEvent"
+              },
+              {
+                "$ref": "#/$defs/PushEvent"
+              },
+              {
+                "$ref": "#/$defs/BrollEvent"
+              },
+              {
+                "$ref": "#/$defs/ImageEvent"
+              },
+              {
+                "$ref": "#/$defs/TitleEvent"
+              },
+              {
+                "$ref": "#/$defs/EmphasisEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "formats": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "9x16",
+                  "16x9",
+                  "4x5"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: config formats.",
+          "title": "Formats"
+        },
+        "keep_words": {
+          "description": "Word IDs kept although the policy drops them as fillers.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Keep Words",
+          "type": "array"
+        },
+        "kind": {
+          "const": "talk",
+          "default": "talk",
+          "description": "The project kind; an EDL without one is a talk EDL.",
+          "title": "Kind",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Caption language; default: project's.",
+          "title": "Language"
+        },
+        "max_duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration S"
+        },
+        "music": {
+          "$ref": "#/$defs/EdlMusic"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/Segment"
+          },
+          "minItems": 1,
+          "title": "Segments",
+          "type": "array"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segments"
+      ],
+      "title": "TalkEdl",
+      "type": "object"
+    },
+    "TitleCardScene": {
+      "additionalProperties": false,
+      "description": "A full-frame card that introduces a step of the story.",
+      "properties": {
+        "accent": {
+          "description": "Words of the headline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "headline": {
+          "minLength": 1,
+          "title": "Headline",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Step number shown above, such as \"01\".",
+          "title": "Step"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A smaller line under the headline.",
+          "title": "Subline"
+        },
+        "type": {
+          "const": "title_card",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "headline"
+      ],
+      "title": "TitleCardScene",
       "type": "object"
     },
     "TitleEvent": {
@@ -579,153 +2062,12 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
-  "description": "The edit: which words to keep, in which order, and what to layer on top.",
-  "properties": {
-    "captions": {
-      "$ref": "#/$defs/EdlCaptions"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/TalkEdl"
     },
-    "drop_ranges": {
-      "items": {
-        "$ref": "#/$defs/DropRange"
-      },
-      "title": "Drop Ranges",
-      "type": "array"
-    },
-    "drop_words": {
-      "description": "Word IDs cut out of their segments.",
-      "items": {
-        "type": "string"
-      },
-      "title": "Drop Words",
-      "type": "array"
-    },
-    "events": {
-      "items": {
-        "discriminator": {
-          "mapping": {
-            "broll": "#/$defs/BrollEvent",
-            "emphasis": "#/$defs/EmphasisEvent",
-            "image": "#/$defs/ImageEvent",
-            "push": "#/$defs/PushEvent",
-            "title": "#/$defs/TitleEvent",
-            "zoom": "#/$defs/ZoomEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/$defs/ZoomEvent"
-          },
-          {
-            "$ref": "#/$defs/PushEvent"
-          },
-          {
-            "$ref": "#/$defs/BrollEvent"
-          },
-          {
-            "$ref": "#/$defs/ImageEvent"
-          },
-          {
-            "$ref": "#/$defs/TitleEvent"
-          },
-          {
-            "$ref": "#/$defs/EmphasisEvent"
-          }
-        ]
-      },
-      "title": "Events",
-      "type": "array"
-    },
-    "formats": {
-      "anyOf": [
-        {
-          "items": {
-            "enum": [
-              "9x16",
-              "16x9",
-              "4x5"
-            ],
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Default: config formats.",
-      "title": "Formats"
-    },
-    "keep_words": {
-      "description": "Word IDs kept although the policy drops them as fillers.",
-      "items": {
-        "type": "string"
-      },
-      "title": "Keep Words",
-      "type": "array"
-    },
-    "language": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Caption language; default: project's.",
-      "title": "Language"
-    },
-    "max_duration_s": {
-      "anyOf": [
-        {
-          "exclusiveMinimum": 0,
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Max Duration S"
-    },
-    "music": {
-      "$ref": "#/$defs/EdlMusic"
-    },
-    "policy": {
-      "$ref": "#/$defs/Policy"
-    },
-    "rationale": {
-      "default": "",
-      "title": "Rationale",
-      "type": "string"
-    },
-    "schema_version": {
-      "const": 1,
-      "default": 1,
-      "title": "Schema Version",
-      "type": "integer"
-    },
-    "segments": {
-      "items": {
-        "$ref": "#/$defs/Segment"
-      },
-      "minItems": 1,
-      "title": "Segments",
-      "type": "array"
-    },
-    "title": {
-      "default": "",
-      "title": "Title",
-      "type": "string"
+    {
+      "$ref": "#/$defs/ProductEdl"
     }
-  },
-  "required": [
-    "segments"
-  ],
-  "title": "Edl",
-  "type": "object"
+  ]
 }

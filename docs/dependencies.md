@@ -82,6 +82,12 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 | ffmpeg `setts` bitstream filter | `setts=ts=<expr>` on a stream copy, with `-bf 0` so pts equals dts | ffmpeg 9.0.1; ffprobe shows the alternating packet durations |
 | ffmpeg `streamhash` muxer | `-map 0 -f streamhash -` | ffmpeg 9.0.1; used by the determinism test |
 
+## Share copy (ticket #39, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| libx264 two-pass | `-b:v <bps> -pass 1 -passlogfile <prefix> -an -f null -`, then `-pass 2` with the same `-passlogfile` | `ffmpeg -h encoder=libx264` on 9.0.2; the share-copy test re-encodes a 1080x1920 final to a third of its size |
+
 ## Agent skill paths (ticket #16, 2026-10-24)
 
 Checked against each agent's official docs; the table, quotes and links are in `docs/agents.md`.
@@ -132,7 +138,7 @@ npm 11.6.0 drops every platform-specific optional package (`@rolldown/binding-*`
 |---|---|---|---|
 | @remotion/layout-utils | 4.0.538 | MIT | `measureText({ text, fontFamily, fontSize, fontWeight })` for the caption width cap |
 | @remotion/fonts | 4.0.538 | MIT | `loadFont({ family, url, weight, unicodeRange })`; calls `delayRender` until the font is in `document.fonts` |
-| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so `font = "Inter"` needs no network |
+| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 and 500 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so `font = "Inter"` needs no network; 500 is for product sublines, and product videos always use Inter when there is no brand font file |
 | @fontsource/tiktok-sans | 5.3.0 (published 2026-07-19) | OFL-1.1 | TikTok Sans 700 woff2 files (latin, latin-ext), the default caption font, bundled the same way. The files are `files/tiktok-sans-{latin,latin-ext}-700-normal.woff2`, and the unicode ranges in its `700.css` match Inter's |
 
 Remotion APIs checked against the installed 4.0.538 type definitions:
@@ -152,6 +158,8 @@ Remotion CLI flags (`npx remotion render --help` and `npx remotion still --help`
 | `--crf` | 16 | |
 | `--scale` | 0.5 (preview) or 1 | 16x9 at 0.5 renders 960x540 |
 | `--log` | `error` | |
+| `--enforce-audio-track` | product renders | adds a silent track to a video with no audio, so the mix has a stream to add the bed to |
+| `render ... Product` | product renders | the second composition, registered in `src/Root.tsx` |
 | `still ... --frame=<n>` | stills for visual checks | `remotion still --help` |
 
 The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/node_modules/.remotion/`; `npx remotion browser ensure` does that ahead of time.
@@ -228,7 +236,7 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | Python API | `AceStepHandler().initialize_service(project_root, config_path="acestep-v15-turbo", device="auto")` returns `(status, ok)`; `generate_music(dit_handler, llm_handler, GenerationParams, GenerationConfig, save_dir)`; `llm_handler=None` with `thinking=False` runs the DiT alone (`use_lm` is False) | `docs/en/INFERENCE.md`; `acestep/inference.py`, `init_service_orchestrator.py` |
 | Duration, BPM, seed | `GenerationParams(duration=<s>, bpm=<int>, seed=<int>)` with `GenerationConfig(batch_size=1, use_random_seed=False, seeds=[seed], audio_format="wav")`; output 48 kHz stereo WAV, normalised to −1 dBFS peak | INFERENCE.md; the generated file |
 | Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so motion-studio sends it and runs the VAD check | `grep` of `acestep/` |
-| librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)` | `inspect.signature` on the installed package |
+| librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)`; `onset.onset_strength(*, y, sr, hop_length=)`; `stft(y, n_fft=, hop_length=)` and `fft_frequencies(*, sr, n_fft)` for the band levels (ticket #37) | `inspect.signature` on the installed package |
 
 ## Documentation and release (ticket #18, 2026-10-24)
 
@@ -248,3 +256,45 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | sips | sips-316 on macOS 27.0.1: `sips -s format png <in.heic> --out <out.png>` writes the raw pixels with the EXIF orientation tag kept | `sips --version`; converted a JPEG with orientation 6 to HEIC and back, read the PNG with Pillow |
 | heif-convert | `heif-convert <in> <out>` (libheif example tool) | Not verified: Homebrew libheif 1.23.1 on the build machine fails to load `libx265.216.dylib` |
 | Rich | 15.0.0: `Progress(SpinnerColumn(), TextColumn(), BarColumn(), TaskProgressColumn(), TimeElapsedColumn(), console=, transient=True)`, `add_task(description, total=None)`, `update(task, completed=, total=)`, `remove_task`, `progress.console.print` | Imported from the installed package; rendered under `script` in a pseudo-terminal |
+
+## Bed shaping and true-peak mastering (ticket #38, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| ffmpeg | 9.0.2 (Homebrew) on the build machine | `ffmpeg -version` |
+| `alimiter` | `limit` (linear, 0.0625 to 1), `attack`, `release`, `level=false` (no auto make-up gain), `latency=true` (compensates its look-ahead delay, so audio stays in sync) | `ffmpeg -h filter=alimiter` |
+| `acompressor` | `threshold` (accepts `-18dB`), `ratio`, `attack`, `release` | `ffmpeg -h filter=acompressor` |
+| `highpass`, `lowshelf`, `highshelf`, `equalizer` | `f` and `g` (dB); `equalizer` takes `t=q:w=1` | `ffmpeg -h filter=<name>`; the chain ran on the music tests' synthetic beds |
+| Oversampled limiting | `aresample=192000` before `alimiter`, `aresample=48000` after; with 0.5 dB of margin the AAC final measures under the −1.5 dBTP ceiling in `ebur128=peak=true` | `test_a_peaky_loud_mix_is_mastered_to_target_and_under_the_true_peak_ceiling` |
+
+## Web recording (ticket #31, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| Playwright (npm) | 1.64.1, published 2026-10-14; pinned in `src/motion_studio/record/node/package.json` and its lock file, installed by `setup --record` into `<cache>/recorder/playwright-1.64.1/` | `npm view playwright time`; `setup --record` then `tests/integration/test_record_web.py` |
+| Chromium | `chromium_headless_shell-1248` from `playwright install --only-shell chromium` with `PLAYWRIGHT_BROWSERS_PATH=<install>/browsers`; about 210 MB with the install. Recording is headless only, so the full Chromium is not fetched | Listed the browsers directory after the install |
+| Loading Playwright | `createRequire(<install>/package.json)('playwright')` from the shipped runner, since ES module imports ignore `NODE_PATH` | `record web` on the fixture page |
+| CDP screencast | `Page.startScreencast {format: 'jpeg', quality, maxWidth, maxHeight, everyNthFrame: 1}`; each `Page.screencastFrame` must be acked with `Page.screencastFrameAck {sessionId}`. Frames come at the CSS viewport size (1600x900 with `deviceScaleFactor: 1`), only when the page changes, and `metadata.timestamp` is wall-clock seconds, the clock of Node's `Date.now()` | Fixture recording: frame size read from the JPEG, and the frame showing a click's result falls between the press and the next marker |
+| Constant frame rate | Each 1/30 s output frame hard-links the last screencast frame sent by then, and ffmpeg encodes the sequence with `-framerate 30`. The concat demuxer with per-frame `duration` lines gave 12% more frames than the take's length on ffmpeg 9.0.2, so it is not used | `ffprobe -count_frames` on both variants |
+
+## Terminal recording (ticket #43, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| vhs | 0.12.1 (Homebrew, `/opt/homebrew/bin/vhs`); not installed by motion-studio. Homebrew's formula depends on ffmpeg, and installing it once upgraded ffmpeg to a build without `drawtext` (motion-studio does not use `drawtext`) | `vhs --version`; `tests/integration/test_record_terminal.py` |
+| ttyd | 1.7.7 (Homebrew); vhs starts it to drive the shell | `ttyd --version` |
+| Frames output | `Output "<dir>/"` (a path ending in `/`) leaves `frame-text-%05d.png` (opaque, the theme background) and `frame-cursor-%05d.png` (transparent) per captured frame, numbered from 1 at the first visible frame, at the terminal canvas size (1455x756 for 1600x900 with the default padding). No video is encoded. vhs's own mp4 scales the canvas down, pads it, encodes CRF 20 and overlays a 25 fps colour source, so its clips come out at 25 fps; that is why it is not used | Listed the directory; `ffprobe` on vhs's mp4 |
+| Capture rate | Frames are captured while shown at about the `Set Framerate` rate (29.7 and 28.6 per wall-clock second over 2.5 s and 3.5 s at 30), and hidden time captures nothing | Frame indices against command timestamps on vhs's stdout |
+| Screenshot timing | `Screenshot <path>` captures from the next shown frame and renders it after the take with `ffmpeg -i <tmp>/frame-text-<n>.png ... <path>`; a Screenshot while hidden takes the first frame after `Show`. The recorder's `ffmpeg` shim on `PATH` logs `<n>` for each `Mark` instead of rendering | `ffmpeg` argument log from a shim |
+| Env and shell | vhs passes its environment through ttyd to the shell; `Set Shell bash` starts bash without startup files | `env` printed on camera in a test tape |
+| Claude Code trust prompt | 2.1.316: the folder-trust dialog lists "No, exit" first and focuses it, with hidden indexes ("Yes, I trust this folder" second), so Down then Enter accepts | Strings in the Claude Code binary; matches the launch video session |
+| `vhs validate <tape>` | Exits 1 with `<line> │ <text>` and `Invalid command: <word>` per error | Ran on a tape with a typo |
+| tesseract (tests only) | 5.5.0 (Homebrew), reads the take's stills in `test_record_terminal.py` | `tesseract --version` |
+
+## Review fixes for spec #26 (2026-10-31)
+
+| Package | Version | Licence | Why |
+|---|---|---|---|
+| @remotion/gif | 4.0.538, the installed `remotion` version (all `@remotion/*` stay on one version) | Remotion License, as `remotion` | `<Gif src width height loopBehavior style>` plays a GIF mascot at its own frame delays, synced to `useCurrentFrame`. It draws each frame onto a canvas of `width` x `height` with `drawImage`, which smooths when it scales, so the mascot passes the GIF's own size and scales the canvas with CSS and `image-rendering: pixelated`; `tests/integration/test_product_outro_render.py` fails without it |
+
+`npm install` dropped the platform-specific optional packages from the lock again (npm/cli#4828); the `@remotion/gif` entries were added to the previous lock by hand and `npm ci` verified.

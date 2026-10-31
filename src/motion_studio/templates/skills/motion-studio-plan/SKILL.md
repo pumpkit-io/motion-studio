@@ -1,9 +1,11 @@
 ---
 name: motion-studio-plan
-description: Editorial rules and EDL authoring reference for motion-studio, covering how to pick hooks, retakes and cuts, pace a talking-head short, and place zooms, B-roll, titles, emphasis and captions. Use when writing or revising edl.json.
+description: Editorial rules and EDL authoring reference for motion-studio talk projects, covering how to pick hooks, retakes and cuts, pace a talking-head short, and place zooms, B-roll, titles, emphasis and captions. Use when writing or revising the edl.json of a talk project.
 ---
 
 # Planning the edit
+
+These rules are for talk projects. A product project's scenes are covered in `motion-studio-product`.
 
 ## Priorities (in order)
 1. **Hook in the first 2–3 seconds.** Open with the most specific, surprising or painful claim that makes sense on its own: a number, a bold statement, a result, a question. Moving a later line to the front is normal. Open on substance; greetings, "so", "allora" and "today I want to…" belong cut.

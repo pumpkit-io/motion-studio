@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""A stand-in for Claude Code: a folder-trust prompt focused on "No, exit", then a REPL.
+
+It prints every inherited CLAUDE* variable, as Claude Code warns about some, and reads the MCP
+config it is given by path without printing the key.
+"""
+
+import json
+import os
+import sys
+import termios
+import tty
+
+args = sys.argv[1:]
+inherited = sorted(k for k in os.environ if k.startswith("CLAUDE"))
+if inherited:
+    print("warning: " + " ".join(inherited))
+print("Do you trust the files in this folder?")
+print("  > No, exit")
+print("    Yes, I trust this folder")
+sys.stdout.flush()
+
+choice = 0
+fd = sys.stdin.fileno()
+saved = termios.tcgetattr(fd)
+tty.setraw(fd)
+try:
+    while True:
+        key = os.read(fd, 3)
+        if key == b"\x1b[B":
+            choice = 1
+        elif key in (b"\r", b"\n"):
+            break
+finally:
+    termios.tcsetattr(fd, termios.TCSADRAIN, saved)
+if choice == 0:
+    print("exited")
+    sys.exit(1)
+print("trusted")
+if "--mcp-config" in args:
+    config = json.loads(open(args[args.index("--mcp-config") + 1], encoding="utf-8").read())
+    print("mcp servers: " + ", ".join(config["mcpServers"]))
+while True:
+    try:
+        line = input("> ")
+    except EOFError:
+        break
+    print(f"you said: {line}")

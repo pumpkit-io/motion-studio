@@ -7,7 +7,19 @@ from typing import get_args
 
 from pydantic import BaseModel
 
-from motion_studio.edl.models import Edl, EdlCaptions, EdlMusic, Event, Policy
+from motion_studio.edl.models import (
+    CameraMove,
+    EdlCaptions,
+    EdlMusic,
+    Event,
+    MarkerPoint,
+    Policy,
+    ProductEdl,
+    Rect,
+    Scene,
+    SceneEvent,
+    TalkEdl,
+)
 
 REFERENCE = resources.files("motion_studio") / "reference" / "edl.md"
 REPO_DOC = Path(__file__).resolve().parents[2] / "docs" / "edl.md"
@@ -20,7 +32,21 @@ def field_names(model: type[BaseModel]) -> set[str]:
 def test_every_edl_field_is_documented() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
     event_models: tuple[type[BaseModel], ...] = get_args(get_args(Event)[0])
-    models = (Edl, Policy, EdlCaptions, EdlMusic, *event_models)
+    scene_models: tuple[type[BaseModel], ...] = get_args(get_args(Scene)[0])
+    scene_event_models: tuple[type[BaseModel], ...] = get_args(get_args(SceneEvent)[0])
+    models = (
+        TalkEdl,
+        ProductEdl,
+        Policy,
+        EdlCaptions,
+        EdlMusic,
+        MarkerPoint,
+        CameraMove,
+        Rect,
+        *event_models,
+        *scene_models,
+        *scene_event_models,
+    )
 
     missing = sorted(
         f"{m.__name__}.{name}" for m in models for name in field_names(m) if f"`{name}`" not in text

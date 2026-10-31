@@ -253,6 +253,34 @@ def test_the_edl_music_gain_overrides_the_config_level(demo: Path) -> None:
     assert band_level(Path(out["outputs"][0]["path"]), 440) < loud - 3
 
 
+def test_a_peaky_loud_mix_is_mastered_to_target_and_under_the_true_peak_ceiling(
+    demo: Path,
+) -> None:
+    # Full-scale clicks over a quiet tone: a fixed gain to -14 LUFS alone would push the peaks
+    # far over -1.5 dBTP, so only the limiter can bring them under.
+    clicks = "if(lt(mod(t,0.25),0.003),0.99*sin(2*PI*3000*t),0)"
+    run_ffmpeg(
+        [
+            "-y", "-f", "lavfi",
+            "-i", f"aevalsrc='0.12*sin(2*PI*220*t)+{clicks}':s=48000:d={C1.clip.duration_s}",
+            "-ac", "1", "-c:a", "pcm_s16le", demo / "media" / "c1.wav",
+        ]
+    )  # fmt: skip
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", f"aevalsrc='0.9*sin(2*PI*55*t)+{clicks}':s=48000:d=2",
+            "-ac", "2", demo / "build" / "music.wav",
+        ]
+    )  # fmt: skip
+    write_edl(demo, music={"mode": "generate", "gain_db": -6})
+
+    out = render("--final", "--format", "9x16")
+
+    integrated, peak = ebur128(Path(out["outputs"][0]["path"]))
+    assert abs(integrated + 14) <= 1
+    assert peak <= -1.5
+
+
 def band_level(path: Path, hz: int) -> float:
     """Mean dB around `hz` from 4 s to 2 s before the end of `path`."""
     lines = run_ffmpeg(
@@ -317,6 +345,21 @@ def test_a_render_cached_under_an_older_renderer_recipe_is_composed_again(
     assert out["noop"] is False
     assert len(calls(fake_renderer)) == 2
     assert assembled.stat().st_mtime_ns == assembled_at
+
+
+def test_a_render_from_before_true_peak_mastering_is_mixed_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Recipe 3 is the last one that mastered without the true-peak limiter.
+    current = pipeline.RENDER_RECIPE
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", 3)
+    render("--preview", "--format", "9x16")
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current)
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
 
 
 def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(
@@ -505,3 +548,81 @@ def test_a_landscape_take_beside_a_portrait_one_keeps_its_own_full_frame(
     }
     assembled = video_stream(demo / "build" / "assembled.mp4")
     assert (assembled["width"], assembled["height"]) == (640, 640)
+
+
+MIB = 1024 * 1024
+
+
+def top_level_boxes(path: Path) -> list[str]:
+    """The MP4's top-level box types in file order."""
+    boxes, data, at = [], path.read_bytes(), 0
+    while at + 8 <= len(data):
+        size = int.from_bytes(data[at : at + 4], "big")
+        boxes.append(data[at + 4 : at + 8].decode("latin-1"))
+        if size == 1:
+            size = int.from_bytes(data[at + 8 : at + 16], "big")
+        at += size or len(data)
+    return boxes
+
+
+def test_final_writes_a_share_copy_beside_each_final(demo: Path) -> None:
+    result = invoke("render", "demo", "--final")
+
+    assert result.exit_code == 0, result.output
+    for fmt in ("9x16", "16x9"):
+        final = demo / "final" / f"demo_{fmt}.mp4"
+        share = demo / "final" / f"demo_{fmt}_share.mp4"
+        assert share.stat().st_size < 30 * MIB
+        shared, master = video_stream(share), video_stream(final)
+        assert (shared["width"], shared["height"]) == (master["width"], master["height"])
+        boxes = top_level_boxes(share)
+        assert boxes.index("moov") < boxes.index("mdat")
+        line = next(line for line in result.stdout.splitlines() if str(share) in line)
+        assert "share copy" in line and "MiB" in line
+
+
+def test_a_final_over_the_cap_is_re_encoded_under_it_without_rendering_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    render("--final", "--format", "9x16")
+    final = demo / "final" / "demo_9x16.mp4"
+    cap = final.stat().st_size // 3
+    monkeypatch.setattr("motion_studio.render.share.CAP_BYTES", cap)
+
+    out = render("--final", "--format", "9x16")
+
+    [item] = out["outputs"]
+    share = Path(item["share"]["path"])
+    assert share == demo / "final" / "demo_9x16_share.mp4"
+    assert item["share"]["bytes"] == share.stat().st_size < cap
+    assert (video_stream(share)["width"], video_stream(share)["height"]) == (1080, 1920)
+    assert abs(int(video_stream(share)["nb_read_frames"]) - timeline(demo)["duration_frames"]) <= 1
+    boxes = top_level_boxes(share)
+    assert boxes.index("moov") < boxes.index("mdat")
+    assert out["noop"] is True
+    assert len(calls(fake_renderer)) == 1
+
+
+def test_a_preview_has_no_share_copy(demo: Path) -> None:
+    out = render("--preview", "--format", "9x16")
+
+    assert out["outputs"][0]["share"] is None
+    assert not list((demo / "preview").glob("*_share.mp4"))
+
+
+def test_a_final_too_long_for_the_cap_fails_with_a_hint_and_keeps_the_final(
+    demo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("motion_studio.render.share.CAP_BYTES", 64 * 1024)
+
+    result = invoke("render", "demo", "--final", "--format", "9x16", "--json")
+
+    assert result.exit_code == 1
+    body = json.loads(result.stdout)
+    assert "too long for a share copy" in body["error"]
+    assert body["hint"]
+    assert (demo / "final" / "demo_9x16.mp4").exists()
+    assert not (demo / "final" / "demo_9x16_share.mp4").exists()
+    state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
+    assert state["stages"]["final"]["status"] == "done"
+    assert state["stages"]["final.share.9x16"]["status"] == "failed"

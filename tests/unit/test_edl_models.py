@@ -2,7 +2,7 @@
 
 import pytest
 
-from motion_studio.edl import EdlError, parse_edl
+from motion_studio.edl import EdlError, TalkEdl, parse_edl
 
 GUIDE_EXAMPLE = {
     "schema_version": 1,
@@ -63,6 +63,7 @@ GUIDE_EXAMPLE = {
 def test_the_guide_example_round_trips() -> None:
     edl = parse_edl(GUIDE_EXAMPLE)
 
+    assert isinstance(edl, TalkEdl)
     assert [s.from_ for s in edl.segments] == ["c1.s2", "c1.s0", "c1.s5", "c2.s3"]
     assert [e.type for e in edl.events] == ["zoom", "push", "broll", "image", "title", "emphasis"]
     assert edl.model_dump(by_alias=True, exclude_unset=True) == GUIDE_EXAMPLE

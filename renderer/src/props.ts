@@ -20,9 +20,24 @@ export type ReelProps = {
   bundled_font: BundledFont | null;
   /** Brand logo image relative to the public dir; null draws no logo. */
   logo_file: string | null;
-};
+}
 
-export function formatOf(props: ReelProps): FormatSpec {
+/** Props of the `Product` composition: what `render/compose.py` writes for a product timeline. */
+export type ProductProps = {
+  timeline: Timeline;
+  format: FormatSpec["name"];
+  /** Brand font file relative to the public dir; null loads the bundled Inter. */
+  font_file: string | null;
+  /** Written for both compositions; product scenes load Inter whatever it names. */
+  bundled_font: BundledFont | null;
+  /** Brand logo image relative to the public dir; null draws no logo. */
+  logo_file: string | null;
+  /** Brand wordmark and mascot sprite sheet or GIF relative to the public dir; null when not configured. */
+  wordmark_file: string | null;
+  mascot_file: string | null;
+}
+
+export function formatOf(props: Pick<ReelProps, "timeline" | "format">): FormatSpec {
   const spec = props.timeline.formats.find((f) => f.name === props.format);
   if (spec === undefined) {
     const known = props.timeline.formats.map((f) => f.name).join(", ");
@@ -31,7 +46,11 @@ export function formatOf(props: ReelProps): FormatSpec {
   return spec;
 }
 
-export const reelMetadata: CalculateMetadataFunction<ReelProps> = ({ props }) => {
+export const reelMetadata: CalculateMetadataFunction<ReelProps> = ({ props }) => metadataOf(props);
+
+export const productMetadata: CalculateMetadataFunction<ProductProps> = ({ props }) => metadataOf(props);
+
+function metadataOf(props: Pick<ReelProps, "timeline" | "format">) {
   const format = formatOf(props);
   return {
     width: format.width,
@@ -39,4 +58,4 @@ export const reelMetadata: CalculateMetadataFunction<ReelProps> = ({ props }) =>
     fps: props.timeline.fps,
     durationInFrames: Math.max(1, props.timeline.duration_frames),
   };
-};
+}

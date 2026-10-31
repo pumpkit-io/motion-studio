@@ -21,6 +21,12 @@ FILTERS = [
     "freezedetect",
     "arnndn",
     "colorspace",
+    "alimiter",
+    "acompressor",
+    "highpass",
+    "lowshelf",
+    "highshelf",
+    "equalizer",
 ]
 
 
@@ -285,3 +291,40 @@ def test_doctor_fix_leaves_system_tools_to_the_user(
     node = check(json.loads(result.output), "node")
     assert node["status"] == "missing"
     assert "brew install node" in node["fix"]
+
+
+def test_doctor_lists_vhs_and_ttyd_with_the_install_line_and_never_installs(
+    fake_tools: FakeTools,
+) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+
+    code, payload = doctor_json()
+
+    assert code == 0
+    for name in ("vhs", "ttyd"):
+        tool = check(payload, name)
+        assert tool["status"] == "warn"
+        assert "record terminal" in tool["detail"]
+        assert "brew install vhs" in tool["fix"]
+        assert "ffmpeg" in tool["fix"]
+    assert not (fake_tools.dir / "vhs").exists()
+
+
+def test_doctor_reports_vhs_and_ttyd_when_present(fake_tools: FakeTools) -> None:
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    fake_tools.add("vhs", 'print("vhs version 0.12.1")\n')
+    fake_tools.add("ttyd", 'print("ttyd version 1.7.7")\n')
+
+    code, payload = doctor_json()
+
+    assert code == 0
+    assert check(payload, "vhs") == {
+        "name": "vhs",
+        "status": "ok",
+        "required": False,
+        "detail": "vhs version 0.12.1",
+        "fix": None,
+    }
+    assert check(payload, "ttyd")["status"] == "ok"

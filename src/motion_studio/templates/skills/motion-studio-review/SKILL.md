@@ -15,7 +15,25 @@ description: How to read motion-studio check reports and turn user feedback on a
 - **Caption density**: too many words per second on screen. Slow the pace (raise `max_pause_ms`) or cut words.
 - View `check/cuts.png` once per loop. Look for faces cut off, captions colliding with titles, and awkward mouth-open frames at cuts (shift the cut by one word).
 
-## Translating feedback into the EDL
+## Product videos
+A product video is music only, so `check` re-transcribes nothing and reports no clipped cuts. It writes `check/contact.png` (one frame per second, stamped with output time) beside `check/cuts.png` (both sides of every scene cut). View both once per loop.
+- **Loudness far below target** (around −70 LUFS) on a product video means it has no music: `"mode": "none"` renders silence. Add a bed; it is not a motion-studio bug.
+- **Small speaker** blocks here, on previews too: the mix is bass-heavy and sounds near silent on a laptop. Ask for brighter instruments in `music.prompt` (or a brighter library track), run `music` again and re-render.
+- **Masked regions** lists each mask with its scene, box and frames, and a `look --at` command for its middle frame. Run the ones you doubt and confirm the mask covers the leak with nothing left at its edges; widen the box or stretch its `start` and `end` if not.
+- **Cursor over target** (a warning): the recorded cursor sits on a highlight's target. Start the highlight after the cursor leaves, or record the take again with `r.park(...)` after the action.
+- **Black or frozen frames** inside a title card, kinetic text, proof or outro are intended and not reported; inside footage, check the scene's `from` and `to` against the recording.
+- **Over length** names the longest scenes between the intro and the outro: shorten those footage spans or raise `rate`.
+- For any moment the sheets leave unclear: `motion-studio look <slug> --at <scene | marker | seconds>`.
+
+| User says | Change |
+|---|---|
+| "too slow" | Raise `rate` on typing and waiting spans, shorten footage `to`, title cards to 2 beats |
+| "can't read it" | Add a camera move targeting the element, or hold it longer before the next move |
+| "what am I looking at?" | A `caption_pill` on the scene, or a `highlight` with a `label` |
+| "that shouldn't be on screen" | A `mask` over it for the frames it shows |
+| "music doesn't hit" | `music.align` the `drop` on the scene that should land on it |
+
+## Translating feedback into the EDL (talk projects)
 | User says | Change |
 |---|---|
 | "start stronger" / "hook is weak" | Pick a different hook utterance; move it first |
