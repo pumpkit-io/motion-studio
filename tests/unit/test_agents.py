@@ -218,6 +218,16 @@ def test_the_talk_skills_say_they_are_for_talk_projects(workspace: Path, skill: 
     assert "talk project" in str(data["description"])
 
 
+@pytest.mark.parametrize(
+    "linked", ["motion-studio-music", "motion-studio-look", "motion-studio-review"]
+)
+def test_the_product_skill_links_the_music_look_and_review_skills(
+    workspace: Path, linked: str
+) -> None:
+    text = (workspace / ".agents/skills/motion-studio-product/SKILL.md").read_text(encoding="utf-8")
+    assert f"`{linked}`" in text
+
+
 def test_init_writes_the_library_skeleton_with_a_music_licensing_readme(workspace: Path) -> None:
     readme = (workspace / "library/music/README.md").read_text(encoding="utf-8")
     assert "tags.json" in readme

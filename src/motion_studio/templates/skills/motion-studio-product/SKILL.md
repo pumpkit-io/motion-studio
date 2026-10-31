@@ -62,7 +62,7 @@ A product video has no voice, so the bed is its only sound: with `"mode": "none"
 ## 9. Preview and review
 - `motion-studio render <slug> --preview`, then `motion-studio check <slug> --preview`. Product videos render 16x9 only.
 - View `check/contact.png` (one frame per second) and `check/cuts.png`. Read the "Masked regions" list and confirm each mask covers what it should.
-- For any moment the sheets leave unclear, `motion-studio look <slug> --at <scene id> --at <marker> --at <seconds>`; one call counts once against the look budget, so batch the moments you doubt.
+- For any moment the sheets leave unclear, `motion-studio look <slug> --at <scene id> --at <marker> --at <seconds>`; one call counts once against the look budget, so batch the moments you doubt. Follow `motion-studio-look` for when to look and the budget.
 - Fix what `motion-studio-review` describes for product videos, validate, render and check again. Stop after 3 loops and report what remains.
 - GATE (preview): if `[review] preview` is true or the user asked, give the preview path and a 3-line summary, then wait.
 
