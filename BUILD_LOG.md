@@ -977,6 +977,27 @@ Checked:
 - vitest in `lib/overlays.test.ts`: highlight draw-in and fades, mask range exclusivity, flash fade, tag side.
 - `tests/integration/test_product_render.py` (`renderer`): stills show the flash on the cut, the mask hiding the red box from its marker on, the pill at the bottom, and the highlight's tag above the box both mid camera move and held.
 
+## plan draft for product projects (ticket #36, spec #26)
+
+Built:
+
+- `edl/product_draft.py`: `draft_product` writes an `intro` title card (the project title), then per screen recording in clip order a numbered title card (`stepN`, `"01"`, headline from the file stem) and a footage scene (`demoN`) from its first marker to its last at 1x with no length, so the resolver rounds it to whole beats; a `proofN` scene per image; and a `logo_outro` with `mascot` set from whether a mascot loaded. Every scene has a `note` saying what to change.
+- Cards last whole bars of the grid: the nearest whole number to 2 s for title cards and 4 s for the proof and outro, at least one bar. The grid is `BeatGrid.of` on `build/music.json`'s beats and `beats_per_bar` (through `plan._beat_grid`, as validate reads it), or the steady 120 bpm 4/4 grid before music. The draft's `music` is a generated bed from #40's `launch` preset, seed 1.
+- `plan draft` branches on the project kind. The product report prints the scene IDs and the grid; `--json` adds `scenes`, `scene_ids`, `grid` and `rationale`. A product draft is written with unset optional fields left out.
+- The rationale names the grid (bed or steady, bpm, beats a bar), how the scenes were built, what to change first, and each guess below.
+
+Deviations:
+
+- With no loadable `[brand] wordmark` the draft leaves the logo outro out and says why in the rationale, so the draft still validates; story 53 lists the outro unconditionally.
+- A recording with markers but no cursor track and no element boxes is drawn in the terminal frame, since that is what `record terminal` writes; a hand-written sidecar for browser footage without a cursor gets the terminal frame too, and the rationale says so.
+- A recording with a single marker (or first and last at the same time) plays whole through `offset_s` on that marker, as marked clips take no source seconds.
+- `just edl-coverage` now also runs `tests/unit/test_product_draft_cli.py`: the draft lives in `edl/` but is tested at the CLI seam, so the gate's resolver tests alone left it uncovered.
+
+Checked:
+
+- `tests/unit/test_product_draft_cli.py` (CLI seam): two recordings and an image draft to seven scenes that validate with no warnings; frame-exact scene starts on the steady grid and on a 150 bpm 3/4 bed; a markerless recording in source seconds with `seconds_addressed`; one marker; terminal frame; mascot on and off; no wordmark; no recordings or images; `--force`; the printed lines.
+- `tests/integration/test_product_draft_render.py` (`slow`, `renderer`): the draft of a green and a blue recording and a magenta image, with music set to none, renders; stills at scene midpoints show each recording in its footage scene and the image in the proof.
+
 ## check for product videos (ticket #42, spec #26)
 
 Built:

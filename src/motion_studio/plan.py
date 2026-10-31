@@ -32,13 +32,14 @@ from motion_studio.edl import (
     resolve,
     summarize,
 )
-from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR
+from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR, BeatGrid
 from motion_studio.edl.issues import Problems
 from motion_studio.edl.models import ProductEdl, TalkEdl
+from motion_studio.edl.product_draft import draft_product
 from motion_studio.edl.refs import RefIndex
 from motion_studio.edl.summary import ProductSummary, Summary
 from motion_studio.errors import UserError
-from motion_studio.kind import ProjectKind, require_kind
+from motion_studio.kind import ProjectKind, project_kind, require_kind
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.state import mark_done, mark_failed, project_lock
 
@@ -62,6 +63,28 @@ class DraftReport:
             "segments": len(self.edl.segments),
             "language": self.edl.language,
             "music": self.edl.music.model_dump(exclude_none=True),
+        }
+
+
+@dataclass
+class ProductDraftReport:
+    edl_path: Path
+    edl: ProductEdl
+    grid: BeatGrid
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "edl": str(self.edl_path),
+            "kind": "product",
+            "scenes": len(self.edl.scenes),
+            "scene_ids": [s.id for s in self.edl.scenes],
+            "grid": {
+                "bpm": round(self.grid.bpm, 2),
+                "beats_per_bar": self.grid.beats_per_bar,
+                "from_music": self.grid.from_music,
+            },
+            "music": self.edl.music.model_dump(exclude_none=True),
+            "rationale": self.edl.rationale,
         }
 
 
@@ -120,7 +143,9 @@ def resolve_project(workspace: Path, slug: str) -> tuple[Edl, Resolution]:
     return edl, resolution
 
 
-def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftReport:
+def draft_project(
+    workspace: Path, slug: str, *, force: bool = False
+) -> DraftReport | ProductDraftReport:
     project = project_paths(workspace, slug).require()
     with project_lock(project):
         if project.edl.exists() and not force:
@@ -130,18 +155,34 @@ def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftRe
                 f"or pass --force to start over",
             )
         analyses = load_analyses(project)
-        configured = load_config(workspace, slug).defaults.language
-        edl = draft(
-            analyses,
-            _retakes(project, analyses),
-            title=project_title(project),
-            language=project_language(analyses, configured),
+        config = load_config(workspace, slug)
+        report: DraftReport | ProductDraftReport
+        if project_kind(project) is ProjectKind.PRODUCT:
+            beats, beats_per_bar = _beat_grid(project)
+            grid = BeatGrid.of(beats, beats_per_bar)
+            edl = draft_product(
+                analyses,
+                title=project_title(project),
+                grid=grid,
+                brand=load_brand_assets(workspace, config.brand),
+            )
+            report = ProductDraftReport(edl_path=project.edl, edl=edl, grid=grid)
+        else:
+            talk = draft(
+                analyses,
+                _retakes(project, analyses),
+                title=project_title(project),
+                language=project_language(analyses, config.defaults.language),
+            )
+            report = DraftReport(edl_path=project.edl, edl=talk)
+        # Product scenes have many optional fields; nulls would bury the ones the draft set.
+        data = report.edl.model_dump(
+            by_alias=True, exclude_none=isinstance(report, ProductDraftReport)
         )
         project.edl.write_text(
-            json.dumps(edl.model_dump(by_alias=True), indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
+            json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
-    return DraftReport(edl_path=project.edl, edl=edl)
+    return report
 
 
 def validate_project(workspace: Path, slug: str) -> ValidateReport:
