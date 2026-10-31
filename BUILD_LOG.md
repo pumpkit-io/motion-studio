@@ -1018,3 +1018,26 @@ Checked:
 - `tests/unit/test_product_check_cli.py` (CI): no ASR worker started, contact sheet and report written; a bass-heavy product render blocked (the talk case stays the warning in `test_check_cli.py`); two masks listed with their frames; the cursor warning, no warning once parked, and terminal footage skipped; the stdout summary.
 - `tests/integration/test_product_render.py::test_check_passes_the_real_preview_and_lists_its_mask` (`renderer`, run locally): `check` passes the real preview with no black or frozen frames, lists the mask, and writes the contact sheet.
 - No dev stack (the repo has no `scripts/dev-stack`): verified through tests only.
+
+## The product video skill and workspace routing (ticket #44, spec #26)
+
+Built:
+
+- `templates/skills/motion-studio-product/`: `SKILL.md` takes a host agent from the brief to delivery (demo kit, the shot-list gate with side effects and undo steps, provider CLIs for billing state, credentials in files by path, recording, scenes, music, review, the share copy and the closing side-effect report). `recording.md` beside it holds the `r.*` helper library, the `Launch` and `Mark` tape lines and what makes footage edit well, read only when recording. It links to the music, look and review skills.
+- The workspace `AGENTS.md` routes by kind (talk to `motion-studio-edit`, product to `motion-studio-product`), its golden rule on IDs covers markers and elements, and the quick reference gains `new --kind product`, `record web`, `record terminal`, `look --at` and `music --candidates`. The edit and plan skills say they are for talk projects. The review skill gains a product section (no music, small speaker, masked regions, cursor over target, feedback table), and the look skill a section on `look --at`.
+- `tests/unit/test_agents.py`: the new skill in `SKILLS`, the command check now reads every `.md` in a skill folder, a test that `AGENTS.md` routes each kind, and one that the edit and plan descriptions say talk project.
+- `migrate.py`: `OLD_SKILLS` fixes the five skills the old name shipped. It used to derive them from the installed skills, so `agents sync` would have deleted, and renamed mentions of, a creator's own `<old name>-product` skill.
+- ROADMAP: a product videos section (vertical formats, a phone frame, a GIF mascot) and the SFX library marked as needed by product videos. Counts of skills in README, `docs/agents.md`, `docs/architecture.md`, `docs/renaming.md` and `docs/cli.md`; `docs edl`'s help names product scenes; the render section lists every product component. `docs/dependencies.md` already had the Playwright and vhs versions, and `docs/edl.md` the product EDL section.
+
+Checked:
+
+- Dry run: a fresh subagent given only the workspace, a static toy page, its demo kit and a wordmark followed the skill to a 21.5 s product video (kinetic text, a title card, three footage scenes, the logo outro) whose `check --preview` exits 0, with no rendering code written. With music mode none (ACE-Step is broken on this Mac), `check --final` blocks on loudness, as it should for a silent video; the skill and the review skill now say so.
+- Skill fixes from the dry run: one `rate` per scene, title cards a bar long, wide camera targets, parking off a highlighted button, `check --final` rewriting the report, the share copy as a plain copy.
+
+Found, not fixed (code outside this ticket):
+
+- `status` counts a `raw/<name>.markers.json` sidecar as a clip, and on product projects `status` and `new` hint `new --from` and "copy clips into raw/" rather than recording.
+- `analyze` marked a 12.8 s recording with typing and a result appearing as one static stretch.
+- `record web` printed "12.8 s at 30 fps from 214 frames"; the frame count is screencast frames, not output frames.
+- A camera target wider than the zoom-1 framing gives zoom 1 with no validate warning.
+- `small_speaker` does not fire on a silent render (every band at −120 dB), and `music` with mode none prints "voice only" and a beats hint on a product project.

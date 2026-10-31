@@ -3,7 +3,7 @@
 `motion-studio init <dir>` creates a workspace that a host agent opened in `<dir>` can edit from. The agent learns the workflow from two kinds of file:
 
 - **`AGENTS.md`**: golden rules, the workflow pointer and a command quick reference. `CLAUDE.md` and `GEMINI.md` each contain `@AGENTS.md`, so Claude Code and Gemini CLI load the same text.
-- **Skills**: five Agent Skills folders (`SKILL.md` with `name` and `description` frontmatter): `motion-studio-edit` (the orchestrator), `motion-studio-plan`, `motion-studio-look`, `motion-studio-music` and `motion-studio-review`. The canonical sources are in `src/motion_studio/templates/skills/`.
+- **Skills**: six Agent Skills folders (`SKILL.md` with `name` and `description` frontmatter): `motion-studio-edit` (the orchestrator for talk projects) with `motion-studio-plan`, `motion-studio-product` (the orchestrator for product projects, with its recording reference in `recording.md`), and `motion-studio-look`, `motion-studio-music` and `motion-studio-review`, which both kinds use. The workspace `AGENTS.md` sends the agent to the orchestrator for the project's kind. The canonical sources are in `src/motion_studio/templates/skills/`.
 
 `init` installs the skills for every supported agent. `motion-studio agents sync [--targets claude,codex,gemini,cursor]` reinstalls them from the installed motion-studio, for example after an upgrade. Sync copies (it does not symlink, so a workspace survives motion-studio being reinstalled elsewhere), replaces only folders named like a motion-studio skill, and leaves other skills in the same directories alone. `.agents/skills/` is always written, whatever the targets, because `AGENTS.md` links the skill files there by path for any agent that does not load skills.
 

@@ -97,7 +97,7 @@ $ motion-studio init [OPTIONS] {directory}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Also writes `GEMINI.md` and installs the five editing skills into `.claude/skills/` and `.agents/skills/` (see `docs/agents.md`).
+Also writes `GEMINI.md` and installs the six editing skills into `.claude/skills/` and `.agents/skills/` (see `docs/agents.md`).
 
 ```console
 $ motion-studio init ~/Videos/reels
@@ -488,7 +488,7 @@ Scenes: 2 title_card · 1 footage
 
 ## `motion-studio docs edl`
 
-Print the EDL reference: segments, references, drops, events and music.
+Print the EDL reference: talk segments and events, product scenes, and music.
 
 ```console
 $ motion-studio docs edl [OPTIONS]
@@ -497,7 +497,7 @@ $ motion-studio docs edl [OPTIONS]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The same text as `docs/edl.md`.
+The same text as `docs/edl.md`, product EDLs included (the "Product EDLs" section).
 
 ## Music, render and check
 
@@ -547,7 +547,7 @@ $ motion-studio render [OPTIONS] {slug}
 
 Previews go to `preview/<format>.mp4`, finals to `final/<slug>_<format>.mp4`, mastered to −14 LUFS integrated and −1.5 dBTP true peak by default (`[master]`): mastering measures the integrated loudness, applies one fixed gain to the target and then a 4x-oversampled true-peak limiter, so a mix with loud peaks reaches the target loudness without clipping. Render validates the EDL first when the plan stage is not done.
 
-A product project renders in 16x9 only, with no A-roll to cut: Remotion's `Product` composition draws each scene on the brand's backdrop (`[brand] primary` and `accent`, the caption font), title cards with their step number, headline and subline, and footage in a browser frame. The render has no voice, so the mix carries the music bed alone, and `cuts_s` lists the scene starts.
+A product project renders in 16x9 only, with no A-roll to cut: Remotion's `Product` composition draws each scene on the brand's backdrop (`[brand] primary` and `accent`, the caption font): kinetic text, title cards, footage in a browser or terminal frame with its camera moves, highlights, masks, caption pills and flashes, proof shots, and the logo outro with the `[brand]` wordmark and mascot. The render has no voice, so the mix carries the music bed alone, and `cuts_s` lists the scene starts.
 
 Every final also gets a share copy, `final/<slug>_<format>_share.mp4`, for both project kinds: the final at its own resolution, under 30 MiB and with `+faststart`, so it can be sent through chat tools and opened on a phone. A final already under 30 MiB is copied as it is, so the name is always there; a larger one has its video re-encoded at the bitrate that fits (two-pass x264) and its mastered audio copied. Render prints each share copy's path and size. A change to the share copy alone redoes the share copies without rendering the finals again. A final too long to fit (more than about seven minutes, with the default 320 kb/s audio) fails with exit 1 after the final itself is written; send the final or shorten the edit.
 

@@ -74,7 +74,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, the share copy beside each final, and locating the installed renderer. |
 | `check/` | Re-transcription and diff near cuts (talk), loudness, band energy, black and frozen frames, duration, caption density, the cut stills, and the report. For product renders (`check/product.py`): no ASR, the 1 fps contact sheet, the masked regions and the cursor-over-highlight check from the timeline events and the analysis cursor track. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
-| `templates/` | The workspace template and the five skills. |
+| `templates/` | The workspace template and the six skills. |
 | `reference/edl.md` | The EDL reference printed by `motion-studio docs edl` (`docs/edl.md` links to it). |
 
 ## The resolver

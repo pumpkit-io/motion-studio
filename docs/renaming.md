@@ -38,7 +38,7 @@ Change these by hand.
 
 These are part of the product's interface: rename them by hand and read the result.
 
-- `src/motion_studio/templates/skills/motion-studio-*`: the five skill folders (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`), their `name:` frontmatter, which must match the folder, and every command in their text. `motion-studio agents sync` replaces folders by these names, and in a workspace from before the rename it removes the five old-name folders after installing the new ones (see [Outside the repository](#outside-the-repository)).
+- `src/motion_studio/templates/skills/motion-studio-*`: the six skill folders (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-product`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`), their `name:` frontmatter, which must match the folder, and every command in their text (`motion-studio-product/recording.md` included). `motion-studio agents sync` replaces folders by these names, and in a workspace from before the rename it removes the old-name folders of the five skills the previous name shipped (`OLD_SKILLS` in `migrate.py`; `motion-studio-product` came after it) after installing the new ones (see [Outside the repository](#outside-the-repository)).
 - `src/motion_studio/templates/workspace/AGENTS.md`: the title, golden rules and quick reference.
 - `src/motion_studio/templates/workspace/motion-studio.toml`: the file name must equal `<APP_NAME>.toml`, because `find_workspace` looks for that name. `tests/unit/test_config.py` compares it with `Config()`.
 - `src/motion_studio/templates/workspace/library/*`: the music and brand library READMEs.

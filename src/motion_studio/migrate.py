@@ -15,7 +15,7 @@ from pathlib import Path
 import platformdirs
 
 from motion_studio import APP_NAME, ENV_PREFIX
-from motion_studio.agents import TARGETS, skill_names
+from motion_studio.agents import TARGETS
 from motion_studio.errors import UserError
 from motion_studio.paths import CACHE_ENV, WORKSPACE_FILE
 
@@ -31,6 +31,9 @@ OLD_COMMANDS = (
     "agents", "analyze", "check", "clean", "config", "docs", "doctor", "ingest", "init",
     "look", "look-asset", "music", "new", "plan", "render", "setup", "status", "words",
 )  # fmt: skip
+# The skills the old name shipped (v0.1.0), without the name prefix. Skills added since never had
+# an old-name folder, so a creator's own skill named like one is theirs.
+OLD_SKILLS = ("edit", "look", "music", "plan", "review")
 # SHA-256 of the workspace AGENTS.md that `init` wrote under the old name (v0.1.0).
 OLD_AGENTS_MD_SHA256 = "3d645288224cacfa0530a984be5ae87ccfd019b86c9dffb7251a22014eb19893"
 
@@ -66,7 +69,7 @@ class Migration:
 
 def old_skill_names() -> list[str]:
     """The names the shipped skills had under the old name; creators' own skills are not here."""
-    return [f"{OLD_APP_NAME}-{n.removeprefix(f'{APP_NAME}-')}" for n in skill_names()]
+    return [f"{OLD_APP_NAME}-{n}" for n in OLD_SKILLS]
 
 
 def migrate_workspace(workspace: Path) -> Migration:
@@ -106,7 +109,7 @@ def _migrate_agents_md(path: Path) -> AgentsMdChange | None:
         path.write_bytes(template.read_bytes())
         return AgentsMdChange(path, rewritten=True)
     old = re.escape(OLD_APP_NAME)
-    shipped = "|".join(re.escape(n.removeprefix(f"{APP_NAME}-")) for n in skill_names())
+    shipped = "|".join(re.escape(n) for n in OLD_SKILLS)
     commands = "|".join(re.escape(c) for c in OLD_COMMANDS)
     # Not after `/` or `.`, so a path or URL segment named after the old name keeps it.
     alone = r"(?<![-\w/.])"
