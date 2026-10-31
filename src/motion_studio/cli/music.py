@@ -32,7 +32,17 @@ def music(slug: Slug, as_json: JsonOption = False) -> None:
     else:
         lines.append(f"music: library track {info.track} ({info.title}), licence {info.licence}")
     if info.mode != "none":
-        lines.append(f"  {len(info.beats)} beats, about {info.detected_bpm or '?'} bpm")
+        corrected = (
+            f", corrected from {info.tracker_bpm} by the section period"
+            if info.tempo_from == "sections"
+            else ""
+        )
+        lines.append(
+            f"  {len(info.beats)} beats, {len(info.bars)} bars, "
+            f"about {info.detected_bpm or '?'} bpm{corrected}"
+        )
+        if info.hits:
+            lines.append("  hits: " + ", ".join(f"{h.name} {h.time_s:.2f} s" for h in info.hits))
     if report.fresh:
         lines.append("  unchanged since the last run")
     for path in (report.wav_path, report.json_path, report.credits_path):

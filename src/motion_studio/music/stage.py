@@ -17,7 +17,7 @@ from motion_studio.config import load_config
 from motion_studio.errors import UserError
 from motion_studio.media.ffmpeg import run_ffmpeg
 from motion_studio.music import acestep, library
-from motion_studio.music.beats import detect_beats
+from motion_studio.music.beats import BEATS_PER_BAR, BedAnalysis, HitName, TempoSource, analyze_bed
 from motion_studio.music.vocals import MAX_SPEECH_RATIO, speech_ratio
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.plan import MUSIC_JSON, resolve_project
@@ -48,6 +48,21 @@ class Attempt(BaseModel):
     accepted: bool
 
 
+class MusicSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    start_s: float
+    end_s: float
+    energy_db: float = Field(description="Mean level relative to the loudest section (0).")
+
+
+class MusicHit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: HitName
+    time_s: float = Field(description="Seconds from the start of the bed.")
+
+
 class MusicInfo(BaseModel):
     """`build/music.json`: what the bed is, how to reproduce it and how to credit it."""
 
@@ -60,7 +75,14 @@ class MusicInfo(BaseModel):
     prompt: str | None = None
     seed: int | None = Field(default=None, description="The seed of the accepted generation.")
     bpm: float | None = Field(default=None, description="Requested BPM, or the track's.")
-    detected_bpm: float | None = None
+    detected_bpm: float | None = Field(
+        default=None, description="Measured tempo, cross-checked against the section changes."
+    )
+    tracker_bpm: float | None = Field(default=None, description="librosa's coarse estimate.")
+    tempo_from: TempoSource | None = Field(
+        default=None, description="onsets, or sections when the section period corrected it."
+    )
+    beats_per_bar: int = BEATS_PER_BAR
     model: str | None = None
     licence: str | None = None
     licence_source: str | None = None
@@ -70,6 +92,16 @@ class MusicInfo(BaseModel):
     attribution: str | None = None
     credits: str | None = Field(default=None, description="Credits file, relative to project.")
     beats: list[float] = Field(default_factory=lambda: list[float](), description="Output s.")
+    bars: list[float] = Field(
+        default_factory=lambda: list[float](), description="Downbeats in output s."
+    )
+    sections: list[MusicSection] = Field(
+        default_factory=lambda: list[MusicSection](), description="The whole bed, in order."
+    )
+    hits: list[MusicHit] = Field(
+        default_factory=lambda: list[MusicHit](),
+        description="intro_end, build, drop and ending, each only when the bed has it.",
+    )
     attempts: list[Attempt] = Field(default_factory=lambda: list[Attempt]())
     elapsed_s: float | None = Field(default=None, description="Generation wall time.")
 
@@ -139,12 +171,18 @@ def run_music(
             raise
 
 
-def _fresh_report(project: ProjectPaths, params: dict[str, Any]) -> MusicReport | None:
+def _fresh_report(
+    project: ProjectPaths, params: dict[str, Any], until_s: float
+) -> MusicReport | None:
     path = music_json_path(project)
     if not path.exists() or not stage_is_fresh(project, STAGE, [], params=params):
         return None
     info = MusicInfo.model_validate_json(path.read_text(encoding="utf-8"))
     wav = project.root / info.path if info.path else None
+    # A music.json from before the bar grid: analyse the bed again rather than regenerate it.
+    if wav is not None and wav.exists() and info.beats and info.tempo_from is None:
+        info = info.model_copy(update=_grid_fields(analyze_bed(wav, until_s=until_s)))
+        _write(project, info)
     credits = project.root / info.credits if info.credits else None
     return MusicReport(info, path, wav, fresh=True, credits_path=credits)
 
@@ -182,7 +220,7 @@ def _generate(
         "duration": length,
         "model": acestep.MODEL,
     }
-    fresh = _fresh_report(project, params)
+    fresh = _fresh_report(project, params, duration)
     if fresh is not None:
         return fresh
     ensure_free_disk(project.root)
@@ -214,7 +252,7 @@ def _generate(
             hint='describe instruments only in "prompt", try another "seed", '
             'or use "mode": "library"',
         )
-    detected, beats = detect_beats(wav, until_s=duration)
+    grid = analyze_bed(wav, until_s=duration)
     record = acestep.installed()
     info = MusicInfo(
         mode="generate",
@@ -223,17 +261,28 @@ def _generate(
         prompt=prompt,
         seed=attempts[-1].seed,
         bpm=bpm,
-        detected_bpm=detected,
+        **_grid_fields(grid),
         model=acestep.MODEL,
         licence=record.licence if record else None,
         licence_source=_licence_source(record),
-        beats=beats,
         attempts=attempts,
         elapsed_s=round(elapsed, 1),
     )
     path = _write(project, info)
     mark_done(project, STAGE, [], outputs=[wav, path], params=params)
     return MusicReport(info, path, wav, fresh=False)
+
+
+def _grid_fields(grid: BedAnalysis) -> dict[str, Any]:
+    return {
+        "detected_bpm": grid.bpm,
+        "tracker_bpm": grid.tracker_bpm,
+        "tempo_from": grid.tempo_from,
+        "beats": grid.beats,
+        "bars": grid.bars,
+        "sections": [MusicSection(**vars(s)) for s in grid.sections],
+        "hits": [MusicHit(**vars(h)) for h in grid.hits],
+    }
 
 
 def _licence_source(record: acestep.Install | None) -> str | None:
@@ -256,20 +305,20 @@ def _library(
     if not source.is_file():
         raise UserError(f"library track {source} does not exist", hint=f"fix its entry in {tags}")
     params = {"mode": "library", "track": pick.track.model_dump(), "duration": round(duration, 3)}
-    fresh = _fresh_report(project, params)
+    fresh = _fresh_report(project, params, duration)
     if fresh is not None:
         fresh.warnings = pick.warnings
         return fresh
     ensure_free_disk(project.root)
     wav = music_wav_path(project)
     run_ffmpeg(["-y", "-i", source, "-vn", "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le", wav])
-    detected, beats = detect_beats(wav, until_s=duration)
+    grid = analyze_bed(wav, until_s=duration)
     credits = library.write_credits(project, pick.track)
     info = MusicInfo(
         mode="library",
         path=f"build/{MUSIC_WAV}",
         bpm=pick.track.bpm,
-        detected_bpm=detected,
+        **_grid_fields(grid),
         licence=pick.track.licence,
         licence_source=str(tags),
         track=pick.track.file,
@@ -277,7 +326,6 @@ def _library(
         source_url=pick.track.source_url,
         attribution=pick.track.attribution,
         credits=credits.relative_to(project.root).as_posix() if credits else None,
-        beats=beats,
     )
     path = _write(project, info)
     outputs = [wav, path, *([credits] if credits else [])]

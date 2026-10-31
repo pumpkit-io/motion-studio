@@ -27,7 +27,7 @@ raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz
        │
        └─writes──► edl.json ──plan validate──► build/timeline.json (frames, output time)
                                      │
-                   music ──► build/music.wav + build/music.json (beats) ──► plan validate again
+                   music ──► build/music.wav + build/music.json (beat grid, hits) ──► plan validate again
                                      │
               render: assemble (ffmpeg cuts, 30 ms audio fades) ──► build/assembled.mp4
                       compose  (Remotion: reframe, zooms, B-roll, captions) ──► build/composed_<fmt>.mp4
@@ -64,7 +64,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `look/` | Contact sheets for a time range or an asset, and the look budget. |
 | `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
-| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the library picker and beat detection. |
+| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the library picker and the bed analysis (tempo, beat and bar grid, sections and hits). |
 | `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, and locating the installed renderer. |
 | `check/` | Re-transcription and diff near cuts, loudness, black and frozen frames, duration, caption density, the cut stills, and the report. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
@@ -83,8 +83,9 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | Clip analysis | `motion_studio.analysis.models.ClipAnalysis` | `schemas/analysis.schema.json` | analyze | plan, look, check |
 | EDL | `motion_studio.edl.models.Edl` | `schemas/edl.schema.json` | the host agent (`plan draft` for the baseline) | plan validate |
 | Timeline | `motion_studio.edl.models.Timeline` | `schemas/timeline.schema.json`, `renderer/src/types.gen.ts` | plan validate | render, the renderer, check |
+| Music bed | `motion_studio.music.stage.MusicInfo` | `schemas/music.schema.json` | music | plan validate, the host agent |
 
-`just schema` regenerates the schemas and the TypeScript types; `just schema-check` (in CI) fails when the committed copies are stale. Every contract carries `schema_version: 1`. `media/manifest.json`, `analysis/retakes.json` and `build/music.json` are Pydantic models too, read only by motion-studio, with no published schema.
+`just schema` regenerates the schemas and the TypeScript types; `just schema-check` (in CI) fails when the committed copies are stale. Every contract carries `schema_version: 1`. `media/manifest.json` and `analysis/retakes.json` are Pydantic models too, read only by motion-studio, with no published schema.
 
 ## Processes and memory
 
