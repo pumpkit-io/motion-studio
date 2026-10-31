@@ -221,6 +221,39 @@ FootagePoint = Annotated[
 ]
 
 
+class Rect(_Model):
+    """A box in the footage's pixels, the pixels `analysis/packed.md` lists element boxes in."""
+
+    x: float = Field(description="Left edge, pixels from the footage's left.")
+    y: float = Field(description="Top edge, pixels from the footage's top.")
+    w: float = Field(gt=0)
+    h: float = Field(gt=0)
+
+
+Target = Annotated[
+    str | Rect,
+    Field(
+        description="An element of the scene's recording (`<clip>.e.<name>`, such as "
+        "c2.e.hook), `full` for the whole footage, or a box in footage pixels."
+    ),
+]
+
+
+class CameraMove(_Model):
+    """From `at`, the camera eases (or cuts) to frame `target`, and holds until the next move."""
+
+    at: FootagePoint = Field(description="When the move starts, on the recording's clock.")
+    target: Target
+    zoom: float | None = Field(
+        default=None,
+        ge=1,
+        description="1 shows the whole frame; default: the target fills about 70% of it.",
+    )
+    ease: Literal["smooth", "snap"] = Field(
+        default="smooth", description="smooth eases over about 0.7 s; snap cuts."
+    )
+
+
 class _Scene(_Model):
     id: str = Field(description="Unique name: intro, step1, demo.")
     beats: float | None = Field(default=None, gt=0, description="Length in beats of the grid.")
@@ -261,6 +294,10 @@ class FootageScene(_Scene):
     )
     address: str | None = Field(
         default=None, description="Text in the browser frame's address bar, such as example.com."
+    )
+    camera: list[CameraMove] = Field(
+        default_factory=lambda: list[CameraMove](),
+        description="Camera moves; before the first one the camera shows the whole frame.",
     )
 
 
@@ -444,6 +481,16 @@ class TimelineTitleCard(_Out):
     subline: str | None
 
 
+class TimelineCameraKey(_Out):
+    """Where a camera move starts and what it frames, in the footage's pixels."""
+
+    frame: int = Field(description="Output frame where the move starts.")
+    cx: float = Field(description="Footage x the camera centres on.")
+    cy: float = Field(description="Footage y the camera centres on.")
+    zoom: float = Field(description="1 is the whole frame, at rest.")
+    ease: Literal["smooth", "snap"]
+
+
 class TimelineFootage(_Out):
     type: Literal["footage"]
     id: str
@@ -458,6 +505,7 @@ class TimelineFootage(_Out):
     rate: float = Field(description="Playback speed that fits src_in_s to src_out_s in the scene.")
     device_frame: Literal["browser"]
     address: str | None
+    camera: list[TimelineCameraKey] = Field(description="In frame order.")
 
 
 TimelineScene = Annotated[TimelineTitleCard | TimelineFootage, Field(discriminator="type")]

@@ -892,6 +892,26 @@ Checked:
 - `tests/unit/test_record_cli.py` (CI): missing vhs and ttyd exit 2 naming both, or only the missing one; talk projects, missing tapes and every tape error exit 1 naming the line. `tests/unit/test_doctor_cli.py`: both tools warn with the install line and are never installed, and report their version when present.
 - `tests/integration/test_record_terminal.py` (`record`, `mac`), in a workspace path with spaces and accents and a tape folder under `scratchpad/`: a 1600x900 30/1 clip whose frame count matches its length and two markers 2.2 to 2.9 s apart; tesseract on stills shows the stand-in's answer at the second marker but not the first; with `CLAUDE_CODE_CHILD_SESSION` set and a key in the MCP config, no still shows `CLAUDE`, the folder, the config's name, the key or the preamble, the trust prompt is accepted and the config is read. With the environment cleaning removed, the leak test fails. A tape vhs cannot parse exits 1 with vhs's message.
 
+## Camera moves that target elements (ticket #33, spec #26)
+
+Built:
+
+- `FootageScene.camera[]`: moves with `at` (a marker point, as `from` and `to`), `target` (an element ID `<clip>.e.<name>`, `full`, or a `Rect` box in footage pixels), optional `zoom` (at least 1) and `ease` (`smooth` default, or `snap`).
+- `edl/product.py` resolves each move to a `TimelineCameraKey` (`frame` in output frames, `cx`, `cy`, `zoom`, `ease`) in footage pixels, sorted by frame, on `TimelineFootage.camera`. An element is boxed where it was captured at the marker nearest `at`. Without `zoom` the box fills 70% of the footage's width or height, clamped between 1 and the limit.
+- The zoom limit is 2 output pixels per recorded pixel: 2x on footage shown 1:1 (1600x900), 4x at 3200x1800, none at 800x450. The resolver repeats the frame's 1600x900 room from `renderer/src/lib/deviceFrame.ts` to compute it.
+- Issue codes: `move_outside_scene`, `bad_target`, `unknown_element`, `target_outside`, `zoom_too_far`; `cross_clip` now covers elements too.
+- Renderer: `cameraAt` in `lib/deviceFrame.ts` gives the camera at a frame: at rest until the first move, a smooth move eased over 0.7 s on the launch video's bezier from wherever the camera was (so a move that interrupts another starts mid-way), a snap move cut. A key with zoom 1 is the rest camera, so `full` shows the whole window with its title bar centred. `Footage.tsx` passes it to `frameTransform`.
+
+Deviations:
+
+- The ticket leaves the move's timing open; a move starts at `at` and settles about 0.7 s later, as the launch video's moves did, rather than arriving at `at`.
+
+Checked:
+
+- `tests/unit/test_resolver_camera.py` (resolver seam): element framing and the 70% zoom, explicit zoom, the clamp, `full` and boxes, frame order, nearest capture, and each issue code.
+- vitest in `deviceFrame.test.ts`: rest, smooth easing (half-way at half time), snap cuts, interrupted moves, zoom 1 at rest, and the camera point landing on the canvas centre.
+- `tests/integration/test_product_render.py` (`renderer`): a snap move onto a red box in the synthetic recording holds it at 2x on the canvas centre in the final's still.
+
 ## Music for product videos: length, alignment, presets and candidates (ticket #40, spec #26)
 
 Built:

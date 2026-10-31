@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { footagePlayback, frameLayout, frameTransform } from "./deviceFrame";
+import { cameraAt, footagePlayback, frameLayout, frameTransform, restCamera } from "./deviceFrame";
+import type { TimelineFootage } from "./timeline";
 
 const hd = { width: 1920, height: 1080 };
 
@@ -43,6 +44,62 @@ describe("frameTransform", () => {
     expect(t.scale).toBeCloseTo(0.86);
     expect(t.rotateX).toBeGreaterThan(0);
     expect(t.rotateY).toBeLessThan(0);
+  });
+});
+
+describe("frameTransform with a camera", () => {
+  it("puts the camera's footage point on the canvas centre, scaled by its zoom", () => {
+    const layout = frameLayout({ width: 1600, height: 900 }, hd);
+    const t = frameTransform(layout, hd, { enter: 1, camera: { cx: 500, cy: 250, zoom: 2 } });
+    // Footage (500, 250) is frame (500, 44 + 250); twice that from the corner lands on (960, 540).
+    expect(t.scale).toBeCloseTo(2);
+    expect(t.x + 500 * 2).toBeCloseTo(960);
+    expect(t.y + (44 + 250) * 2).toBeCloseTo(540);
+  });
+});
+
+type Key = TimelineFootage["camera"][number];
+
+describe("cameraAt", () => {
+  const layout = frameLayout({ width: 1600, height: 900 }, hd);
+  const rest = restCamera(layout);
+  const post: Key = { frame: 30, cx: 500, cy: 250, zoom: 1.8, ease: "smooth" };
+
+  it("rests on the whole frame without moves, and before the first one", () => {
+    expect(cameraAt([], 50, layout, 30)).toEqual(rest);
+    expect(cameraAt([post], 29, layout, 30)).toEqual(rest);
+  });
+
+  it("eases a smooth move from where the camera was over 0.7 s, then holds", () => {
+    expect(cameraAt([post], 30, layout, 30)).toEqual(rest);
+    // 21 frames at 30 fps; the ease is symmetric, so half-way in time is half-way in space.
+    const half = cameraAt([post], 40.5, layout, 30);
+    expect(half.cx).toBeCloseTo((rest.cx + 500) / 2);
+    expect(half.cy).toBeCloseTo((rest.cy + 250) / 2);
+    expect(half.zoom).toBeCloseTo(1.4);
+    const early = cameraAt([post], 33, layout, 30);
+    expect(early.zoom - 1).toBeLessThan((half.zoom - 1) / 2);
+    expect(cameraAt([post], 51, layout, 30)).toEqual({ cx: 500, cy: 250, zoom: 1.8 });
+    expect(cameraAt([post], 400, layout, 30)).toEqual({ cx: 500, cy: 250, zoom: 1.8 });
+  });
+
+  it("cuts on a snap move", () => {
+    const snap: Key = { ...post, ease: "snap" };
+    expect(cameraAt([snap], 29, layout, 30)).toEqual(rest);
+    expect(cameraAt([snap], 30, layout, 30)).toEqual({ cx: 500, cy: 250, zoom: 1.8 });
+  });
+
+  it("starts a move that interrupts another from where the camera is", () => {
+    const back: Key = { frame: 40.5, cx: 800, cy: 450, zoom: 1, ease: "snap" };
+    const next: Key = { frame: 40.5, cx: 1200, cy: 600, zoom: 1.4, ease: "smooth" };
+    const half = cameraAt([post], 40.5, layout, 30);
+    expect(cameraAt([post, next], 40.5, layout, 30)).toEqual(half);
+    expect(cameraAt([post, back], 40.5, layout, 30)).toEqual(rest);
+  });
+
+  it("shows the whole frame, title bar included, on a zoom of 1", () => {
+    const full: Key = { frame: 0, cx: 800, cy: 450, zoom: 1, ease: "snap" };
+    expect(cameraAt([full], 10, layout, 30)).toEqual(rest);
   });
 });
 

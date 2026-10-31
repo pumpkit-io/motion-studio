@@ -200,6 +200,10 @@ export interface TimelineHeadlineWord {
 }
 export interface TimelineFootage {
   address: string | null;
+  /**
+   * In frame order.
+   */
+  camera: TimelineCameraKey[];
   clip: string;
   device_frame: "browser";
   end: number;
@@ -230,6 +234,28 @@ export interface TimelineFootage {
    * Pixel width of the footage.
    */
   width: number;
+}
+/**
+ * Where a camera move starts and what it frames, in the footage's pixels.
+ */
+export interface TimelineCameraKey {
+  /**
+   * Footage x the camera centres on.
+   */
+  cx: number;
+  /**
+   * Footage y the camera centres on.
+   */
+  cy: number;
+  ease: "smooth" | "snap";
+  /**
+   * Output frame where the move starts.
+   */
+  frame: number;
+  /**
+   * 1 is the whole frame, at rest.
+   */
+  zoom: number;
 }
 export interface TimelineWord {
   emphasis: boolean;

@@ -50,6 +50,70 @@
       "title": "BrollEvent",
       "type": "object"
     },
+    "CameraMove": {
+      "additionalProperties": false,
+      "description": "From `at`, the camera eases (or cuts) to frame `target`, and holds until the next move.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "When the move starts, on the recording's clock.",
+          "title": "At"
+        },
+        "ease": {
+          "default": "smooth",
+          "description": "smooth eases over about 0.7 s; snap cuts.",
+          "enum": [
+            "smooth",
+            "snap"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "zoom": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1 shows the whole frame; default: the target fills about 70% of it.",
+          "title": "Zoom"
+        }
+      },
+      "required": [
+        "at",
+        "target"
+      ],
+      "title": "CameraMove",
+      "type": "object"
+    },
     "DropRange": {
       "additionalProperties": false,
       "description": "Source time to cut out, for audio no word points at (unaligned voice).",
@@ -343,6 +407,14 @@
           "default": null,
           "description": "Length in beats of the grid.",
           "title": "Beats"
+        },
+        "camera": {
+          "description": "Camera moves; before the first one the camera shows the whole frame.",
+          "items": {
+            "$ref": "#/$defs/CameraMove"
+          },
+          "title": "Camera",
+          "type": "array"
         },
         "clip": {
           "description": "Screen recording ID: c1.",
@@ -813,6 +885,40 @@
         "from"
       ],
       "title": "PushEvent",
+      "type": "object"
+    },
+    "Rect": {
+      "additionalProperties": false,
+      "description": "A box in the footage's pixels, the pixels `analysis/packed.md` lists element boxes in.",
+      "properties": {
+        "h": {
+          "exclusiveMinimum": 0,
+          "title": "H",
+          "type": "number"
+        },
+        "w": {
+          "exclusiveMinimum": 0,
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge, pixels from the footage's left.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge, pixels from the footage's top.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Rect",
       "type": "object"
     },
     "Segment": {
