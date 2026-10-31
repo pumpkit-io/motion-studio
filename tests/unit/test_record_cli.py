@@ -1,10 +1,12 @@
-"""`motion-studio record web` without a browser: the checks that run before any recording."""
+"""`motion-studio record web` and `record terminal` without a browser or vhs: the checks that
+run before any recording."""
 
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import FakeTools
 from typer.testing import CliRunner
 
 from motion_studio.cli import app
@@ -71,3 +73,83 @@ def test_record_web_with_a_missing_script_exits_1(workspace: Path, tmp_path: Pat
 
     assert result.exit_code == 1
     assert "nope.mjs" in result.output
+
+
+def write_tape(tmp_path: Path, body: str) -> Path:
+    path = tmp_path / "demo.tape"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+TRIVIAL_TAPE = 'Set FontSize 24\nLaunch claude --mcp-config ./mcp.json\nMark ready\nType "hi"\n'
+
+
+def test_record_terminal_without_vhs_or_ttyd_exits_2_naming_both(
+    workspace: Path, tmp_path: Path, fake_tools: FakeTools
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+
+    result = invoke("record", "terminal", "launch", write_tape(tmp_path, TRIVIAL_TAPE))
+
+    assert result.exit_code == 2, result.output
+    assert "vhs and ttyd" in result.output
+    assert "brew install vhs" in result.output
+    assert "ffmpeg" in result.output
+    assert list((workspace / "projects" / "launch" / "raw").iterdir()) == []
+
+
+def test_record_terminal_names_only_the_missing_tool(
+    workspace: Path, tmp_path: Path, fake_tools: FakeTools
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+    fake_tools.add("vhs", 'print("vhs version 0.12.1")\n')
+
+    result = invoke("record", "terminal", "launch", write_tape(tmp_path, TRIVIAL_TAPE))
+
+    assert result.exit_code == 2, result.output
+    assert "ttyd not found" in result.output
+
+
+def test_record_terminal_on_a_talk_project_exits_1(workspace: Path, tmp_path: Path) -> None:
+    run_json("new", "talk")
+
+    result = invoke("record", "terminal", "talk", write_tape(tmp_path, TRIVIAL_TAPE))
+
+    assert result.exit_code == 1
+    assert "product projects" in result.output
+
+
+def test_record_terminal_with_a_missing_tape_exits_1(workspace: Path, tmp_path: Path) -> None:
+    run_json("new", "launch", "--kind", "product")
+
+    result = invoke("record", "terminal", "launch", tmp_path / "nope.tape")
+
+    assert result.exit_code == 1
+    assert "nope.tape" in result.output
+
+
+@pytest.mark.parametrize(
+    ("body", "message"),
+    [
+        ('Output "take.mp4"\nType "hi"\n', "line 1: the recorder sets the Output"),
+        ("Set Framerate 60\n", "line 1: the recorder sets Framerate"),
+        ("Set Width 1280\n", "--size"),
+        ('Mark ready\nType "hi"\nMark ready\n', "line 3: marker ready is already placed"),
+        ("Mark not.ok\n", "line 1: marker name"),
+        ("Mark\n", "line 1: Mark needs a name"),
+        ('Type "hi"\nLaunch claude\n', "line 2: Launch must come before"),
+        ("Launch claude\nLaunch claude\n", "line 2: only one Launch"),
+        ("Launch\n", "line 1: Launch needs a command"),
+        ("Launch ./missing-cli --flag\n", "missing-cli"),
+        ('Hide\nMark gone\nShow\nType "hi"\n', "line 2: Mark gone is in a hidden part"),
+    ],
+)
+def test_record_terminal_rejects_a_bad_tape_with_its_line(
+    workspace: Path, tmp_path: Path, fake_tools: FakeTools, body: str, message: str
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+
+    result = invoke("record", "terminal", "launch", write_tape(tmp_path, body))
+
+    assert result.exit_code == 1, result.output
+    assert message in result.output

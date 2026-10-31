@@ -853,7 +853,6 @@ Checked:
 - `tests/unit/test_resolver_product.py` (resolver seam, counted by `just edl-coverage`), `test_product_plan_cli.py` (`plan validate`, `docs edl`) and `test_product_render_cli.py` (render with a stand-in Remotion on a synthetic recording plus sidecar) in CI; vitest specs for the frame geometry and palette.
 - `tests/integration/test_product_render.py` (markers `slow`, `renderer`) renders a preview and a final with the real renderer and checks stills at each scene's midpoint: title cards on the dark backdrop with bright text and no footage, footage centred in its frame under a light browser bar.
 
-
 ## `look --at`: stills of the render (ticket #41, spec #26)
 
 Built:
@@ -870,6 +869,28 @@ Deviations:
 Checked:
 
 - `tests/unit/test_look_at_cli.py` (CI): a stand-in Remotion paints each frame a colour that encodes its number, so each still is checked against the frame it should be for a scene, a marker, and a time; the budget counts once per call; the final is used after the preview; no render, a stale render and every bad value exit 1 with a hint.
+
+## Terminal recording with `record terminal` (ticket #43, spec #26)
+
+Built:
+
+- `motion-studio record terminal <slug> <tape> [--name] [--size 1600x900] [--cwd DIR]` (product projects only). The agent's vhs tape is wrapped in a generated one: the recorder's `Output`, `Set Shell bash`, size and `Set Framerate 30`, the tape's leading `Set`/`Require` lines, a hidden preamble, then the tape. The preamble runs in a shell whose environment has every `CLAUDE*` variable, `VIRTUAL_ENV` and `PROMPT_COMMAND` removed (and unsets `CLAUDE*` again with `compgen`), sets a `❯ ` prompt and clears.
+- Two tape lines the recorder consumes. `Launch <command> [args]` writes a wrapper named after the command first on `PATH` and starts it hidden, so the screen shows only `❯ claude`; for `claude` it waits, presses Down and Enter for the folder-trust prompt (which focuses "No, exit") and waits again. Relative paths in it resolve against the tape's folder, so MCP configs with keys stay inside the wrapper. `Mark <name>` becomes a vhs `Screenshot`; an `ffmpeg` shim on `PATH` logs the frame number vhs renders it from instead of rendering, which gives the marker's frame exactly.
+- vhs writes frames to a directory (`Output <dir>/`); Python composites text and cursor layers, pads the canvas to `--size` with the theme background at 1:1 and encodes 30 fps H.264 CRF 12. Markers go into the same `ScreenMarkers` sidecar as web takes, without elements or cursor. `record/take.py` now holds the checks, scratch directory and move into `raw/` that `record web` and `record terminal` share.
+- Tape errors exit 1 naming the line (`Output`, `Set Shell/Framerate/Width/Height`, a bad, repeated or hidden `Mark`, a misplaced, repeated or missing `Launch`, and anything `vhs validate` rejects). Missing vhs or ttyd exits 2 naming them with `brew install vhs` and the ffmpeg-upgrade warning. `doctor` reports both as warnings with the same fix and never installs them.
+
+Deviations:
+
+- vhs's own mp4 is not used: it scales the terminal down, pads it, encodes at CRF 20 and comes out at 25 fps. The frames directory keeps text at 1:1 for 2x zooms.
+- `CLAUDE*` variables are removed from the environment vhs inherits rather than only unset by typed commands; the typed `unset` stays for variables a shell startup could set.
+- The trust prompt is handled for a `Launch` of `claude` only, with fixed waits (7 s, then 5 s); `Wait` regexes were fragile in the launch-video session.
+- vhs captures frames at about the requested rate (28.6 to 29.7 per second measured), so a terminal take can run up to about 5% faster than real time. Markers are on the clip's frames, so they stay exact.
+- Terminal markers carry no element boxes; camera and highlight targets on terminal footage use pixel rectangles.
+
+Checked:
+
+- `tests/unit/test_record_cli.py` (CI): missing vhs and ttyd exit 2 naming both, or only the missing one; talk projects, missing tapes and every tape error exit 1 naming the line. `tests/unit/test_doctor_cli.py`: both tools warn with the install line and are never installed, and report their version when present.
+- `tests/integration/test_record_terminal.py` (`record`, `mac`), in a workspace path with spaces and accents and a tape folder under `scratchpad/`: a 1600x900 30/1 clip whose frame count matches its length and two markers 2.2 to 2.9 s apart; tesseract on stills shows the stand-in's answer at the second marker but not the first; with `CLAUDE_CODE_CHILD_SESSION` set and a key in the MCP config, no still shows `CLAUDE`, the folder, the config's name, the key or the preamble, the trust prompt is accepted and the config is read. With the environment cleaning removed, the leak test fails. A tape vhs cannot parse exits 1 with vhs's message.
 
 ## Music for product videos: length, alignment, presets and candidates (ticket #40, spec #26)
 
