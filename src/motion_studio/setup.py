@@ -19,6 +19,7 @@ from motion_studio.asr.vad import SILERO_VERSION, install_vad_model, vad_model_p
 from motion_studio.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary, install_deep_filter
 from motion_studio.config import load_config
 from motion_studio.errors import DependencyError, UserError
+from motion_studio.migrate import old_cache, old_cache_error
 from motion_studio.music import acestep
 from motion_studio.paths import cache_dir, find_workspace, models_dir
 from motion_studio.render.renderer import cached_renderer, install_renderer, is_installed
@@ -54,6 +55,9 @@ def run_setup(
             "the crisper fillers backend is not implemented in v0.1.0",
             hint='keep asr.fillers_backend = "prompted"',
         )
+    found = old_cache()
+    if found:
+        raise old_cache_error(found)
     step = on_step or (lambda _msg: None)
     items: list[Item] = []
 

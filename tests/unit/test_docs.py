@@ -13,6 +13,7 @@ from typer.core import TyperGroup
 
 from motion_studio import APP_NAME
 from motion_studio.cli import app
+from motion_studio.migrate import OLD_APP_NAME
 
 REPO = Path(__file__).resolve().parents[2]
 CLI_DOC = REPO / "docs" / "cli.md"
@@ -93,3 +94,25 @@ def test_renaming_checklist_has_no_stale_entries(named_files: list[str]) -> None
     stale = [e for e in checklist_entries() if not any(fnmatchcase(f, e) for f in named_files)]
 
     assert not stale
+
+
+def old_name_entries() -> list[str]:
+    """The entries under the renaming doc's section on where the previous name stays."""
+    text = RENAMING_DOC.read_text(encoding="utf-8")
+    section = text.split("\n## Where the previous name stays\n", 1)[1].split("\n## ", 1)[0]
+    return re.findall(r"^- `([^`]+)`", section, flags=re.M)
+
+
+def test_the_previous_name_appears_only_where_the_renaming_doc_allows() -> None:
+    if shutil.which("git") is None or not (REPO / ".git").exists():
+        pytest.skip("needs a git checkout")
+    entries = old_name_entries()
+    by_content = git_lines("grep", "-l", "-i", "-e", OLD_APP_NAME)
+    by_path = [p for p in git_lines("ls-files") if OLD_APP_NAME in p.lower()]
+
+    stray = [
+        f for f in sorted({*by_content, *by_path}) if not any(fnmatchcase(f, e) for e in entries)
+    ]
+
+    assert entries
+    assert not stray

@@ -21,6 +21,7 @@ from motion_studio.audio.enhance import DEEP_FILTER_VERSION, deep_filter_binary
 from motion_studio.errors import DependencyError, MotionStudioError
 from motion_studio.media.ffmpeg import ffmpeg_caps
 from motion_studio.media.normalise import HEIF_HINT, heif_decoder
+from motion_studio.migrate import old_cache
 from motion_studio.music.acestep import env_root
 from motion_studio.music.acestep import installed as acestep_installed
 from motion_studio.paths import cache_dir
@@ -111,6 +112,10 @@ def fix_machine(workdir: Path, on_step: Callable[[str], None] | None = None) -> 
 
 def run_doctor(workdir: Path) -> Report:
     checks, ffmpeg = _ffmpeg_checks()
+    found = old_cache()
+    if found:
+        detail = f"{found.path} is the cache from before the rename to {APP_NAME}"
+        checks.append(Check("old cache", "warn", False, detail, found.adopt))
     checks += _node_checks()
     checks.append(_asr_check())
     checks += _speech_model_checks()

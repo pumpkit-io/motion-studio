@@ -17,12 +17,23 @@ CACHE_ENV = f"{ENV_PREFIX}_CACHE_DIR"
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 
 
-def find_workspace(start: Path | None = None) -> Path:
-    """Walk up from `start` (default: cwd) to the first directory holding the workspace file."""
+def find_workspace(start: Path | None = None, *, unmigrated: bool = False) -> Path:
+    """Walk up from `start` (default: cwd) to the first directory holding the workspace file.
+
+    A workspace from before the rename fails with the `agents sync` hint, unless `unmigrated`
+    allows it (only `agents sync`, which migrates it, does).
+    """
+    # migrate imports this module, so its names can only be imported at call time.
+    from motion_studio.migrate import OLD_WORKSPACE_FILE, unmigrated_error
+
     here = (start or Path.cwd()).resolve()
     for candidate in (here, *here.parents):
         if (candidate / WORKSPACE_FILE).is_file():
             return candidate
+        if (candidate / OLD_WORKSPACE_FILE).is_file():
+            if unmigrated:
+                return candidate
+            raise unmigrated_error(candidate)
     raise UserError(
         f"no {WORKSPACE_FILE} found in {here} or any parent directory",
         hint=f"run `{APP_NAME} init <dir>` and work inside that workspace",

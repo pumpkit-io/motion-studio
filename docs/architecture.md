@@ -50,6 +50,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `config.py` | The `Config` model and `load_config`: built-in defaults < `motion-studio.toml` < `project.toml` < the EDL's `policy` (which may override `[edit]` only). |
 | `paths.py` | Finds the workspace, resolves a project's directories, and locates the cache (`~/Library/Caches/motion-studio` on macOS). |
 | `state.py` | `state.json`: per-stage status, input fingerprints and warnings; the per-project lock; the machine-wide heavy-model lock in the cache; the free-disk guard. |
+| `migrate.py` | Recognises what the previous name left behind: `agents sync` migrates old workspaces, `doctor` and `setup` print the `mv` for the old cache, and old environment variables warn. The only module that keeps the previous name. |
 | `workspace.py` | `init`, `new`, `status`, `clean`, and copying the workspace template. |
 | `doctor.py`, `setup.py` | Machine checks, and one-time downloads into the cache. |
 | `media/` | ffmpeg and ffprobe as argument lists (never shell strings), probing the installed ffmpeg's filters and options, mezzanine normalisation, frame reading. |

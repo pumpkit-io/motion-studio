@@ -92,6 +92,13 @@ Rewrite these under the new name too, so that a search for the old name finds no
 - The GitHub repository and its clone URLs in README.md: the maintainer renames the repository, and GitHub redirects the old URLs.
 - The local clone folder, and the tool install: `uv tool uninstall <old name>`, then `uv tool install` again from the renamed checkout.
 - The package name on PyPI, if it is ever published (`motion-studio` is taken by an unrelated project).
-- Creators' machines: the old cache (`~/Library/Caches/<old name>`, 16 GB on the build machine with the ACE-Step environment) is orphaned; `motion-studio setup` downloads everything again unless the directory is moved to the new name or `MOTION_STUDIO_CACHE_DIR` points at it.
-- Existing workspaces: their `<old name>.toml` must be renamed to `<name>.toml`, and their `.claude/skills/<old name>-*` and `.agents/skills/<old name>-*` folders deleted before `agents sync` installs the renamed skills.
-- The environment variables people may have set change prefix with `ENV_PREFIX`.
+- Creators' machines: the old cache (`~/Library/Caches/<old name>`, 16 GB on the build machine with the ACE-Step environment) is orphaned. `doctor` and `setup` print the `mv` that adopts it, and `setup` stops rather than download everything again; `MOTION_STUDIO_CACHE_DIR` can also point at it.
+- Existing workspaces: `agents sync` renames their `<old name>.toml` to `<name>.toml` and deletes their `.claude/skills/<old name>-*` and `.agents/skills/<old name>-*` folders; every other command points at it.
+- The environment variables people may have set change prefix with `ENV_PREFIX`; a set variable with the old prefix prints a warning naming its replacement.
+
+## Where the previous name stays
+
+`tests/unit/test_docs.py` fails when the previous name appears in a tracked file these entries do not cover. On the next rename, set `OLD_APP_NAME` to the name being replaced and the migration follows.
+
+- `CHANGELOG.md`: the line that records the rename.
+- `src/motion_studio/migrate.py`: `OLD_APP_NAME`, the one constant behind the migration of old workspaces, the old cache and the old environment variables.

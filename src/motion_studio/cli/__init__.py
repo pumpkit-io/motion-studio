@@ -15,6 +15,7 @@ from typer.core import TyperGroup
 from motion_studio import APP_NAME, ENV_PREFIX, __version__
 from motion_studio.cli._output import emit_error
 from motion_studio.errors import InternalError, MotionStudioError
+from motion_studio.migrate import old_env_warnings
 
 DEBUG_ENV = f"{ENV_PREFIX}_DEBUG"
 
@@ -36,6 +37,8 @@ class _Group(TyperGroup):
     ) -> Any:
         argv = list(sys.argv[1:] if args is None else args)
         as_json = "--json" in argv
+        for warning in old_env_warnings():
+            typer.echo(f"warning: {warning}", err=True)
         try:
             code = super().main(argv, prog_name, complete_var, False, windows_expand_args, **extra)
         except click.UsageError as exc:

@@ -664,3 +664,18 @@ Checked:
 - `just e2e`: 16 passed in 573 s, with `MOTION_STUDIO_CACHE_DIR` pointing at the existing cache under the old name (no new cache was downloaded), the repo renderer, and the fixture media copied from the main checkout. This runs the workers as `python -m motion_studio.asr.worker` and `motion_studio.vision.worker`.
 
 Not done here: widening the descriptions (ticket #28) and migrating old workspaces and warning on old environment variables (ticket #29).
+
+## Migrating old workspaces (ticket #29, spec #25)
+
+Built:
+
+- `src/motion_studio/migrate.py` holds `OLD_APP_NAME`, the one constant that keeps the previous name; the old workspace file, env prefix and cache path derive from it. `docs/renaming.md` has a new section, "Where the previous name stays", listing it and CHANGELOG, and `tests/unit/test_docs.py` fails when the previous name appears anywhere else.
+- `agents sync` migrates first: it renames the old `.toml` to `motion-studio.toml` (contents unchanged), removes the old-name skill folders from `.claude/skills/` and `.agents/skills/`, then installs the skills, printing `renamed <old> -> <new>` and `removed <path>` (`renamed`, `removed` in JSON). Both `.toml` files present: exit 1 naming both, nothing touched. `find_workspace` fails with exit 1 and the `agents sync` hint in an unmigrated workspace; `find_workspace(unmigrated=True)` lets sync through. `paths` imports `migrate` inside `find_workspace`, since `migrate` imports `paths`.
+- Every command prints `warning: <OLD>_X is no longer read; set MOTION_STUDIO_X instead` on stderr for each set variable with the old prefix, before running.
+- Old cache: when the old platform cache directory exists, `MOTION_STUDIO_CACHE_DIR` is unset and the new cache holds no files, `doctor` adds an `old cache` warning whose fix is the adopting command, quoted with `shlex.quote`. Plain `mv` when the new directory is absent; when commands have already laid down its empty folders, `find <new> -depth -type d -empty -delete && mv <old> <new>`, so `mv` does not nest the old cache inside it and nothing with files is ever deleted. Nothing is moved automatically (the spec's proposal).
+- Deviation: `setup` does not just print the command, it exits 1 with it as the hint before downloading, because carrying on would download everything into the new cache and make the `mv` impossible (US12: "so that I do not download everything again by accident"). Deleting the old directory, or setting `MOTION_STUDIO_CACHE_DIR`, lets setup run. `doctor --fix` reports that as `fix: setup stopped: ...`, next to its own `old cache` line.
+
+Checked:
+
+- `tests/unit/test_migration.py` drives each case through `CliRunner`, including running the printed command through `/bin/sh` on a cache path with a space and checking the models arrive in the new cache. `just lint`, `just test`, `just schema-check` and `just edl-coverage` pass.
+
