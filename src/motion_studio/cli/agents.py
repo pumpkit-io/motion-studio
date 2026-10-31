@@ -34,6 +34,8 @@ def sync(
     written = sync_skills(workspace, chosen)
     removed = remove_old_skills(workspace)
     agents_md = migration.agents_md
+    for warning in migration.warnings:
+        typer.echo(f"warning: {warning}", err=True)
     emit(
         as_json,
         {
@@ -44,6 +46,7 @@ def sync(
             if agents_md is None
             else {"path": str(agents_md.path), "rewritten": agents_md.rewritten},
             "removed": [str(p) for p in removed],
+            "warnings": migration.warnings,
             "written": [str(p) for p in written],
         },
         [

@@ -26,6 +26,11 @@ OLD_ENV_PREFIX = OLD_APP_NAME.upper().replace("-", "_")
 OLD_CACHE_ENV = f"{OLD_ENV_PREFIX}_{CACHE_ENV.removeprefix(f'{ENV_PREFIX}_')}"
 
 AGENTS_MD = "AGENTS.md"
+# The commands the old name shipped (v0.1.0); prose such as "<old name>'s job" is left alone.
+OLD_COMMANDS = (
+    "agents", "analyze", "check", "clean", "config", "docs", "doctor", "ingest", "init",
+    "look", "look-asset", "music", "new", "plan", "render", "setup", "status", "words",
+)  # fmt: skip
 # SHA-256 of the workspace AGENTS.md that `init` wrote under the old name (v0.1.0).
 OLD_AGENTS_MD_SHA256 = "3d645288224cacfa0530a984be5ae87ccfd019b86c9dffb7251a22014eb19893"
 
@@ -56,6 +61,7 @@ class AgentsMdChange:
 class Migration:
     renamed: list[tuple[Path, Path]]
     agents_md: AgentsMdChange | None
+    warnings: list[str]
 
 
 def old_skill_names() -> list[str]:
@@ -78,14 +84,19 @@ def migrate_workspace(workspace: Path) -> Migration:
     if old.exists():
         old.rename(new)
         renamed.append((old, new))
-    return Migration(renamed, _migrate_agents_md(workspace / AGENTS_MD))
+    agents_md = workspace / AGENTS_MD
+    try:
+        change = _migrate_agents_md(agents_md)
+    except UnicodeDecodeError:
+        return Migration(renamed, None, [f"left {agents_md} alone: it is not UTF-8"])
+    return Migration(renamed, change, [])
 
 
 def _migrate_agents_md(path: Path) -> AgentsMdChange | None:
     """Replace an unedited old AGENTS.md with the template; rename the old name in an edited one.
 
-    In an edited file only the shipped commands, skills, file and variables change, so a
-    creator's own `<old name>-*` skill keeps its name.
+    In an edited file only the shipped commands and skills, the toml and the variable prefix
+    change; a creator's own `<old name>-*` skill, paths and URLs keep the old name.
     """
     if not path.is_file():
         return None
@@ -96,12 +107,16 @@ def _migrate_agents_md(path: Path) -> AgentsMdChange | None:
         return AgentsMdChange(path, rewritten=True)
     old = re.escape(OLD_APP_NAME)
     shipped = "|".join(re.escape(n.removeprefix(f"{APP_NAME}-")) for n in skill_names())
+    commands = "|".join(re.escape(c) for c in OLD_COMMANDS)
+    # Not after `/` or `.`, so paths and URLs that end in the old name keep it.
+    alone = r"(?<![-\w/.])"
     text, places = data.decode("utf-8"), 0
     for pattern, replacement in (
-        (rf"\b{old}-({shipped})\b", rf"{APP_NAME}-\1"),
-        (re.escape(OLD_WORKSPACE_FILE), WORKSPACE_FILE),
+        (rf"(?<![-\w]){old}-({shipped})(?![-\w])", rf"{APP_NAME}-\1"),
+        (rf"(?<![-\w]){re.escape(OLD_WORKSPACE_FILE)}", WORKSPACE_FILE),
         (rf"\b{re.escape(OLD_ENV_PREFIX)}_", f"{ENV_PREFIX}_"),
-        (rf"(?<![-\w]){old}(?![-\w])", APP_NAME),
+        (rf"{alone}{old}(?=[ \t]+(?:(?:{commands})(?![-\w])|-))", APP_NAME),
+        (rf"`{old}`", f"`{APP_NAME}`"),
     ):
         text, count = re.subn(pattern, replacement, text)
         places += count
@@ -117,12 +132,12 @@ def remove_old_skills(workspace: Path) -> list[Path]:
     for rel in sorted(set(TARGETS.values())):
         for name in old_skill_names():
             folder = workspace / rel / name
+            if not (folder.is_symlink() or folder.exists()):
+                continue
             if folder.is_dir() and not folder.is_symlink():
                 shutil.rmtree(folder)
-            elif folder.is_symlink() or folder.exists():
-                folder.unlink()
             else:
-                continue
+                folder.unlink()
             removed.append(folder)
     return removed
 
@@ -131,10 +146,14 @@ def old_env_warnings() -> list[str]:
     """One line per set variable with the old prefix, naming the variable that replaced it."""
     prefix = f"{OLD_ENV_PREFIX}_"
     return [
-        f"{name} is no longer read; set {ENV_PREFIX}_{name.removeprefix(prefix)} instead"
+        f"{name} is no longer read; set {_new_env(name, os.environ[name])} instead"
         for name in sorted(os.environ)
         if name.startswith(prefix)
     ]
+
+
+def _new_env(old_name: str, value: str) -> str:
+    return f"{ENV_PREFIX}_{old_name.removeprefix(f'{OLD_ENV_PREFIX}_')}={shlex.quote(value)}"
 
 
 @dataclass(frozen=True)
@@ -147,28 +166,30 @@ def old_cache() -> OldCache | None:
     """The old cache, when it exists and the new default one holds no files yet.
 
     The old cache is where the old cache variable points, else the old platform default. A set
-    new cache variable means the creator chose a location, so no old cache is suggested.
+    new cache variable means the creator chose a location, so no old cache is suggested. A
+    custom old location is adopted by pointing the new variable at it, not by moving it.
     """
     if os.environ.get(CACHE_ENV):
         return None
+    default = platformdirs.user_cache_path(OLD_APP_NAME)
     override = os.environ.get(OLD_CACHE_ENV)
-    old = Path(override) if override else platformdirs.user_cache_path(OLD_APP_NAME)
+    old = Path(override) if override else default
     new = platformdirs.user_cache_path(APP_NAME)
     if not old.is_dir():
         return None
+    if new.exists() and any(_holds_data(p, new / "locks") for p in new.rglob("*")):
+        return None
+    if override and old != default:
+        return OldCache(old, f"export {_new_env(OLD_CACHE_ENV, override)}")
     move = f"mv {shlex.quote(str(old))} {shlex.quote(str(new))}"
     if not new.exists():
         return OldCache(old, move)
-    locks = new / "locks"
-    if any(_holds_data(p, locks) for p in new.rglob("*")):
-        return None
     # Commands create the new cache's empty folders and lock files; mv would nest the old
     # cache inside them.
-    quoted = shlex.quote(str(new))
-    clear = (
-        f"find {quoted} -depth \\( -type f -empty -path {shlex.quote(f'{locks}/*')} "
-        f"-o -type d -empty \\) -delete"
-    )
+    clear = f"find {shlex.quote(str(new))} -depth -type d -empty -delete"
+    locks = new / "locks"
+    if locks.is_dir():
+        clear = f"find {shlex.quote(str(locks))} -type f -empty -delete && {clear}"
     return OldCache(old, f"{clear} && {move}")
 
 

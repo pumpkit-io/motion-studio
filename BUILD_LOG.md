@@ -708,3 +708,18 @@ Checked:
 - New `CliRunner` tests in `tests/unit/test_migration.py` for each case, including a set `MOTION_STUDIO_CACHE_DIR` skipping the old-cache check.
 - `tests/unit/test_docs.py` checks the old-name entries in `docs/renaming.md` for staleness against files that name the old name, and the other entries against files that name the new one.
 - `just lint`, `just test` (385 Python, 42 vitest), `just schema-check` and `just edl-coverage` (99.88%) pass. `just e2e`: 16 passed in 773 s, with `MOTION_STUDIO_CACHE_DIR` pointing at the existing cache under the old name and the fixture media copied from the main checkout.
+
+## Review fixes for the rename, round 2 (spec #25)
+
+Built:
+
+- The edited-`AGENTS.md` rewrite is narrowed to what `docs/cli.md` promises. Shipped skill names, the `.toml` name and the old command name all take the bare-name guards, so `<old>-edit-extra` and `my-<old>-edit` keep their names. The old name changes as a command only when a v0.1.0 command (`OLD_COMMANDS`) or an option follows it, or when it stands alone in backticks, and never after `/` or `.`. Paths such as `~/Library/Caches/<old>/`, repository URLs and `<old>.json` are left alone, and so are prose mentions such as "<old>'s job" (deviation: round 1 renamed those too).
+- A workspace `AGENTS.md` that is not UTF-8 is left untouched with `warning: left <path> alone: it is not UTF-8` on stderr (`warnings` in JSON); the toml rename and the skill migration still happen. It used to exit 3 after the toml was renamed.
+- The adopting command no longer passes the cache path to `find -path`, where `[` and `*` are glob characters: it runs `find <locks> -type f -empty -delete` (only when `locks/` exists), then `find <new> -depth -type d -empty -delete`, then `mv`.
+- A custom old cache (the old `_CACHE_DIR` variable pointing anywhere but the old platform default) is adopted with `export MOTION_STUDIO_CACHE_DIR=<path>` instead of an `mv` into the default location. `old_env_warnings` now carries the value too (`set MOTION_STUDIO_CACHE_DIR=<path> instead`), so the two messages name the same assignment.
+- `remove_old_skills` skips a missing folder with an early `continue`.
+
+Checked:
+
+- New tests in `tests/unit/test_migration.py`: five probes that an edited `AGENTS.md` keeps (two user skill names, a cache path, a URL, `<old>.json`), a Latin-1 `AGENTS.md`, the adopting command run by `/bin/sh` under a home path containing `[`, and a custom old cache whose fix and env warning share the assignment. `test_a_failed_skill_install_leaves_the_old_skills_in_place` now asserts both old folders survive in both skill directories and is skipped as root.
+- `just lint`, `just schema-check`, `just test` (393 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. `just e2e` not run: nothing on the render path changed.

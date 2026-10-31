@@ -56,7 +56,7 @@ $ motion-studio setup [OPTIONS]
 
 Plain `setup` installs, into the cache (`~/Library/Caches/motion-studio` on macOS, `~/.cache/motion-studio` on Linux, or `$MOTION_STUDIO_CACHE_DIR`): the DeepFilterNet binary, the Silero VAD model, both face models, the Whisper model for this platform's backend, and the Remotion renderer with its headless browser (about 570 MB). `--music` adds the ACE-Step 1.5 environment and weights (9.4 GB of weights; the first run took 19 minutes on the build machine) and prints the weights' licence. Items already present are reported, not fetched again. `--crisper` exits 2: CrisperWhisper is on `ROADMAP.md`.
 
-When the cache from before the rename is still there (in the platform cache directory under the previous name, or wherever the previous name's `_CACHE_DIR` variable points) and the new one holds no files apart from empty lock files, `setup` exits 1 before downloading anything and prints the one-line `mv` that adopts it, since the old cache can hold 16 GB. Run that command, or delete the old directory to download everything again. Nothing is moved for you, and a set `$MOTION_STUDIO_CACHE_DIR` skips the check.
+When the cache from before the rename is still there (in the platform cache directory under the previous name, or wherever the previous name's `_CACHE_DIR` variable points) and the new one holds no files apart from empty lock files, `setup` exits 1 before downloading anything and prints the one-line command that adopts it, since the old cache can hold 16 GB. For the platform default that command is an `mv` into the new default location; for a location the old variable chose, it is `export MOTION_STUDIO_CACHE_DIR=<that path>`, so nothing crosses volumes. Run that command, or delete the old directory to download everything again. Nothing is moved for you, and a set `$MOTION_STUDIO_CACHE_DIR` skips the check.
 
 ```console
 $ motion-studio setup
@@ -77,7 +77,7 @@ $ motion-studio doctor [OPTIONS]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the `mv` that adopts it (doctor never moves it).
+Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the command that adopts it, the same `mv` or `export` as `setup` prints (doctor never moves it).
 
 `--fix` runs the installs the build guide calls safe: when the renderer, the speech or face models or DeepFilterNet are missing, it runs the same downloads as plain `setup`, then prints the checks again. It never runs brew, apt or npm for system tools such as ffmpeg and node, and never fetches ACE-Step (`setup --music`); their fixes stay on their lines. With `--json` the result also carries `fixed` (what it installed) and `fix_error`.
 
@@ -184,10 +184,10 @@ Replaces only the `motion-studio-*` skill folders and leaves other skills alone.
 A workspace created before the rename to motion-studio has the previous name's `.toml` file, skill folders and commands in its `AGENTS.md`. Every other command run inside it exits 1 with a hint to run `motion-studio agents sync`. Sync migrates it:
 
 1. It renames the old `.toml` to `motion-studio.toml` with its contents unchanged.
-2. An `AGENTS.md` that `init` wrote and nobody edited is replaced with the current template (`rewrote <path> from the template`). An edited one keeps your text: only the shipped commands, skill names, `.toml` name and variable prefix change to the new name (`renamed <old> to motion-studio in <path> (N places)`). A skill of your own whose name starts with the previous name keeps that name.
+2. An `AGENTS.md` that `init` wrote and nobody edited is replaced with the current template (`rewrote <path> from the template`). An edited one keeps your text: only the old name as a command (followed by one of its commands or an option, or alone in backticks), the five shipped skill names, the `.toml` name and the variable prefix change to the new name (`renamed <old> to motion-studio in <path> (N places)`). The previous name in prose, paths, URLs and other file names stays, and so does a skill of your own whose name contains it. An `AGENTS.md` that is not UTF-8 is left alone with a one-line warning naming it.
 3. It installs the `motion-studio-*` skills, then removes the five shipped skills' old-name folders (edit, look, music, plan, review) from `.claude/skills/` and `.agents/skills/`. Your own skills stay, whatever their name. If the install fails, the old skills are still there.
 
-It prints a line for each change (`renamed`, `agents_md` and `removed` under `--json`; `agents_md` is `null` when the file was left alone). A second run migrates nothing. When both `.toml` files exist, sync exits 1 naming both and changes nothing: keep your settings in `motion-studio.toml` and delete the other.
+It prints a line for each change (`renamed`, `agents_md` and `removed` under `--json`; `agents_md` is `null` when the file was left alone; `warnings` lists the warnings). A second run migrates nothing. When both `.toml` files exist, sync exits 1 naming both and changes nothing: keep your settings in `motion-studio.toml` and delete the other.
 
 ```console
 $ motion-studio agents sync --targets claude,codex
@@ -394,6 +394,6 @@ Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames e
 | `MOTION_STUDIO_RENDERER_DIR` | Use this Remotion project instead of the installed renderer. |
 | `MOTION_STUDIO_MUSIC_TIMEOUT_S` | Timeout for one ACE-Step generation. |
 
-Variables with the previous name's prefix are no longer read: when one is set, every command prints a one-line warning naming its `MOTION_STUDIO_` replacement.
+Variables with the previous name's prefix are no longer read: when one is set, every command prints a one-line warning naming its `MOTION_STUDIO_` replacement with the same value (`set MOTION_STUDIO_CACHE_DIR=<path> instead`).
 
 Tests also use `MOTION_STUDIO_ASR_WORKER`, `MOTION_STUDIO_FACE_WORKER` and `MOTION_STUDIO_MUSIC_WORKER` to replace the model workers with stand-ins.

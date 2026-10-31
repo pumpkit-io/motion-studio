@@ -1,6 +1,7 @@
 """Workspaces, caches and environment variables from before the rename keep working."""
 
 import json
+import os
 import shlex
 import stat
 import subprocess
@@ -114,6 +115,43 @@ def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: 
     assert f"renamed {OLD_APP_NAME} to {APP_NAME} in {agents_md}" in line
 
 
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only directory")
+@pytest.mark.parametrize(
+    "line",
+    [
+        f"Use `{OLD_APP_NAME}-edit-extra` for intros.",
+        f"Use `my-{OLD_APP_NAME}-edit` for intros.",
+        f"Models live in ~/Library/Caches/{OLD_APP_NAME}/models.",
+        f"Source: https://github.com/pumpkit-io/{OLD_APP_NAME}",
+        f"Presets are in {OLD_APP_NAME}.json.",
+    ],
+)
+def test_an_edited_agents_md_keeps_the_users_own_names_paths_and_urls(
+    old_workspace: Path, line: str
+) -> None:
+    agents_md = old_workspace / "AGENTS.md"
+    agents_md.write_text(OLD_AGENTS_MD.read_text(encoding="utf-8") + f"\n{line}\n", "utf-8")
+
+    result = invoke("agents", "sync")
+
+    assert result.exit_code == 0, result.output
+    assert agents_md.read_text(encoding="utf-8").endswith(f"\n{line}\n")
+
+
+def test_a_non_utf8_agents_md_is_left_alone_with_a_warning(old_workspace: Path) -> None:
+    agents_md = old_workspace / "AGENTS.md"
+    latin1 = f"Use `{OLD_APP_NAME} doctor` per caff\u00e8.\n".encode("latin-1")
+    agents_md.write_bytes(latin1)
+
+    result = invoke("agents", "sync")
+
+    assert result.exit_code == 0, result.output
+    assert agents_md.read_bytes() == latin1
+    [line] = [x for x in result.stderr.splitlines() if x.startswith("warning:")]
+    assert str(agents_md) in line
+    assert (old_workspace / NEW_TOML).exists()
+
+
 def test_a_failed_skill_install_leaves_the_old_skills_in_place(old_workspace: Path) -> None:
     claude_skills = old_workspace / ".claude/skills"
     claude_skills.chmod(stat.S_IRUSR | stat.S_IXUSR)
@@ -124,8 +162,7 @@ def test_a_failed_skill_install_leaves_the_old_skills_in_place(old_workspace: Pa
 
     assert result.exit_code != 0
     for skill_dir in SKILL_DIRS:
-        names = skills_in(old_workspace, skill_dir)
-        assert f"{OLD_APP_NAME}-edit" in names or f"{APP_NAME}-edit" in names
+        assert set(OLD_SKILLS) <= set(skills_in(old_workspace, skill_dir))
 
 
 def test_agents_sync_refuses_when_both_workspace_files_exist(old_workspace: Path) -> None:
@@ -283,3 +320,46 @@ def test_setup_stops_before_downloading_and_prints_the_adopting_command(
     assert "mv " in result.output
     assert shlex.quote(str(old)) in result.output
     assert not [p for p in new.rglob("*") if p.is_file()]
+
+
+def test_the_printed_command_adopts_the_old_cache_when_the_home_path_holds_glob_characters(
+    fake_tools: FakeTools, default_caches: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old, _ = default_caches
+    home = Path(os.environ["HOME"]).with_name("home [x]")
+    Path(os.environ["HOME"]).rename(home)
+    monkeypatch.setenv("HOME", str(home))
+    old, new = platformdirs.user_cache_path(OLD_APP_NAME), platformdirs.user_cache_path(APP_NAME)
+    (new / "locks").mkdir(parents=True)
+    (new / "locks" / "heavy-model.lock").touch()
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    payload = json.loads(invoke("doctor", "--json").output)
+    [check] = [c for c in payload["checks"] if c["name"] == "old cache"]
+
+    subprocess.run(["/bin/sh", "-c", check["fix"]], check=True, env={"PATH": "/usr/bin:/bin"})
+
+    assert (new / "models" / "silero_vad.onnx").is_file()
+    assert not old.exists()
+
+
+def test_a_custom_old_cache_is_adopted_by_pointing_the_new_variable_at_it(
+    fake_tools: FakeTools,
+    default_caches: tuple[Path, Path],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    custom = tmp_path / "big disk" / "cache"
+    (custom / "models").mkdir(parents=True)
+    monkeypatch.setenv(f"{OLD_APP_NAME.upper()}_CACHE_DIR", str(custom))
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+
+    result = runner.invoke(app, ["doctor", "--json"])
+
+    [check] = [c for c in json.loads(result.stdout)["checks"] if c["name"] == "old cache"]
+    assignment = f"MOTION_STUDIO_CACHE_DIR={shlex.quote(str(custom))}"
+    assert "mv " not in check["fix"]
+    assert assignment in check["fix"]
+    [warning] = [x for x in result.stderr.splitlines() if "CACHE_DIR" in x]
+    assert assignment in warning
