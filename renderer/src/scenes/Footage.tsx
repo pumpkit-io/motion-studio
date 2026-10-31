@@ -1,5 +1,5 @@
 import { AbsoluteFill, interpolate, OffthreadVideo, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { cssTransform, footagePlayback, frameLayout, frameTransform } from "../lib/deviceFrame";
+import { cameraAt, cssTransform, footagePlayback, frameLayout, frameTransform } from "../lib/deviceFrame";
 import type { LoadedFont } from "../lib/fonts";
 import type { Palette } from "../lib/palette";
 import type { TimelineFootage } from "../lib/timeline";
@@ -7,7 +7,7 @@ import { Backdrop } from "./Backdrop";
 import { BROWSER_BODY, BrowserBar } from "./BrowserFrame";
 import { EXIT_FRAMES } from "./Kinetic";
 
-/** A screen recording in a browser window that tilts in, then blurs out at the scene's end. */
+/** A screen recording in a browser window that tilts in, follows its camera moves, then blurs out. */
 export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font: LoadedFont; unit: number }> = ({
   scene,
   palette,
@@ -24,7 +24,8 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const transform = frameTransform(layout, canvas, { enter });
+  const camera = cameraAt(scene.camera, scene.start + frame, layout, fps);
+  const transform = frameTransform(layout, canvas, { enter, camera });
   return (
     <AbsoluteFill>
       <Backdrop palette={palette} unit={unit} />

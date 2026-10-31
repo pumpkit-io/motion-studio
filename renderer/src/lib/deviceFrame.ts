@@ -1,4 +1,5 @@
-import type { Size } from "./timeline";
+import { Easing } from "remotion";
+import type { Size, TimelineFootage } from "./timeline";
 
 /**
  * Geometry of footage in a device frame, after the Pumpkit launch video: 1600x900 footage sits
@@ -12,6 +13,9 @@ const BAR = 44;
 const ENTER_SCALE = 0.86;
 const ENTER_TILT_X = 18;
 const ENTER_TILT_Y = -12;
+// A smooth camera move settles this long after it starts, on the launch video's ease.
+const MOVE_SECONDS = 0.7;
+const MOVE_EASE = Easing.bezier(0.65, 0, 0.35, 1);
 
 export type FrameLayout = {
   /** Output pixels per footage pixel at rest. */
@@ -39,6 +43,32 @@ export type Camera = { cx: number; cy: number; zoom: number };
 export function restCamera(layout: FrameLayout): Camera {
   const { content, scale, bar } = layout;
   return { cx: content.width / scale / 2, cy: (content.height - bar) / scale / 2, zoom: 1 };
+}
+
+type CameraKey = TimelineFootage["camera"][number];
+
+/**
+ * The camera at output `frame`: at rest until the first move, then each move eased (or cut) to
+ * its target from wherever the camera was when it started, held until the next one.
+ */
+export function cameraAt(keys: readonly CameraKey[], frame: number, layout: FrameLayout, fps: number): Camera {
+  let active: { key: CameraKey; from: Camera } | undefined;
+  for (const key of keys) {
+    if (key.frame > frame) break;
+    const from = active ? moveAt(active.key, active.from, key.frame, layout, fps) : restCamera(layout);
+    active = { key, from };
+  }
+  return active ? moveAt(active.key, active.from, frame, layout, fps) : restCamera(layout);
+}
+
+function moveAt(key: CameraKey, from: Camera, frame: number, layout: FrameLayout, fps: number): Camera {
+  // At zoom 1 there is nothing to crop, so the camera frames the whole window, title bar included.
+  const to = key.zoom <= 1 ? restCamera(layout) : { cx: key.cx, cy: key.cy, zoom: key.zoom };
+  if (key.ease === "snap") return to;
+  const p = MOVE_EASE(Math.min(1, Math.max(0, (frame - key.frame) / (MOVE_SECONDS * fps))));
+  if (p === 1) return to;
+  const mix = (a: number, b: number) => a + (b - a) * p;
+  return { cx: mix(from.cx, to.cx), cy: mix(from.cy, to.cy), zoom: mix(from.zoom, to.zoom) };
 }
 
 export type FrameTransform = {
