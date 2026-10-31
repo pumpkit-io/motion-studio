@@ -1,7 +1,7 @@
 """`motion-studio render`: assemble once, compose and mix each format into preview/ or final/."""
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,7 @@ from motion_studio.errors import MotionStudioError, UserError
 from motion_studio.ingest import MANIFEST, ClipMedia, load_manifest
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.plan import load_edl, timeline_path, validate_project
+from motion_studio.render import share as sharing
 from motion_studio.render.assemble import assemble, assembly_canvas, count_frames, video_size
 from motion_studio.render.compose import compose, find_brand, prepare_public, props
 from motion_studio.render.mix import mix
@@ -33,6 +34,9 @@ DEFAULT_CONCURRENCY = 4
 # Bump when the assemble, compose or mix recipe changes, so earlier renders go stale.
 RECIPE = 2
 ASSEMBLE_RECORD = "render.assemble"
+# Bump when the share copy's encode changes: it redoes the share copies, not the finals.
+SHARE_RECIPE = 1
+SHARE_RECORD = "final.share"
 
 
 @dataclass(frozen=True)
@@ -44,8 +48,17 @@ class Output:
     height: int
     frames: int
     fps: int
+    share: Path | None = None
+    share_written: bool = False
+
+    @property
+    def share_bytes(self) -> int | None:
+        return self.share.stat().st_size if self.share is not None else None
 
     def to_json(self) -> dict[str, Any]:
+        share = None
+        if self.share is not None:
+            share = {"path": str(self.share), "bytes": self.share_bytes}
         return {
             "format": self.format,
             "path": str(self.path),
@@ -53,6 +66,7 @@ class Output:
             "width": self.width,
             "height": self.height,
             "duration_s": round(self.frames / self.fps, 3),
+            "share": share,
         }
 
 
@@ -141,6 +155,7 @@ def render_project(
 
         if stage_is_fresh(project, stage, inputs, params=params):
             done = [_describe(fmt, *outputs[fmt], timeline.fps) for fmt in chosen]
+            done = _share_copies(project, target, done, step)
             return RenderReport(stage, done, assembled, cuts, noop=True)
 
         try:
@@ -198,6 +213,7 @@ def render_project(
         except MotionStudioError as exc:
             mark_failed(project, stage, exc.message)
             raise
+        done = _share_copies(project, target, done, step)
     return RenderReport(stage, done, assembled, cuts, warnings=list(brand.warnings))
 
 
@@ -242,6 +258,31 @@ def _music_file(project: ProjectPaths, timeline: Timeline) -> Path | None:
             "in edl.json",
         )
     return path
+
+
+def _share_copies(
+    project: ProjectPaths, target: RenderTarget, done: list[Output], step: Callable[[str], None]
+) -> list[Output]:
+    """Each final's share copy, kept in its own record so a share change never re-renders."""
+    if target is not RenderTarget.FINAL:
+        return done
+    shared: list[Output] = []
+    params = {"recipe": SHARE_RECIPE, "cap_bytes": sharing.CAP_BYTES}
+    for out in done:
+        record = f"{SHARE_RECORD}.{out.format}"
+        path = sharing.share_path(out.path)
+        written = not stage_is_fresh(project, record, [out.path], params=params)
+        if written:
+            step(f"writing the {out.format} share copy")
+            try:
+                cap = sharing.CAP_BYTES
+                sharing.share_copy(out.path, path, cap_bytes=cap, scratch=project.build)
+            except MotionStudioError as exc:
+                mark_failed(project, record, exc.message)
+                raise
+            mark_done(project, record, [out.path], outputs=[path], params=params)
+        shared.append(replace(out, share=path, share_written=written))
+    return shared
 
 
 def _describe(fmt: str, path: Path, voice: Path, fps: int) -> Output:
