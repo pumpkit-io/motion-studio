@@ -195,6 +195,10 @@ A product video is scenes back to back, in output order: kinetic text, title car
 
 Scene lengths are `beats`, `bars` or `seconds`. Before music exists the grid is a steady 120 bpm with four beats to a bar; once `motion-studio music` has written the bed, its beats and bars are the grid, so run `plan validate` again after music. A scene in beats or bars ends on the nearest beat, even after a scene in seconds. Scene starts are whole output frames, with no gap between scenes.
 
+### The draft
+
+`plan draft` on a product project writes a baseline on the grid: an `intro` title card with the project title; for each screen recording, a numbered title card (`step1`, headline from the file name) and a footage scene (`demo1`) from its first marker to its last at 1x, rounded to whole beats; a `proof1`, `proof2`… scene per image; and a `logo_outro`, with `mascot: false` when no mascot is configured. Cards last whole bars, about 2 s for title cards and 4 s for the proof and outro. A recording without markers plays whole in source seconds, with the `seconds_addressed` warning; one with a single marker plays whole through offsets on it; one with markers but no cursor track or elements (a `record terminal` take) gets the terminal frame. With no `[brand] wordmark` the outro is left out. Its music is a generated bed from the `launch` preset. The `rationale` says which grid the draft used and what to change first. Draft again with `--force` after music to lay the cards on the bed's grid.
+
 ### Scenes
 
 Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `bars` or `seconds`, except for footage, below), `events` (`[]`, below) and an optional `note`.

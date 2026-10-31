@@ -447,7 +447,7 @@ Does not count against the look budget.
 
 ## `motion-studio plan draft`
 
-Write a deterministic baseline edl.json: all usable speech in source order.
+Write a deterministic baseline edl.json: all usable speech, or a scene per recording.
 
 ```console
 $ motion-studio plan draft [OPTIONS] {slug}
@@ -458,7 +458,7 @@ $ motion-studio plan draft [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The draft keeps retake winners, drops hard fillers, tightens pauses and adds a neutral instrumental music prompt. It refuses to overwrite an existing `edl.json` without `--force`.
+On a talk project the draft keeps retake winners, drops hard fillers, tightens pauses and adds a neutral instrumental music prompt. On a product project it writes an intro title card, a numbered title card and a footage scene per screen recording (first to last marker), a proof scene per image and a logo outro, on the bed's beat grid from `build/music.json` or on 120 bpm before music; `--json` adds `scenes`, `scene_ids`, `grid` and `rationale`. The EDL reference's "The draft" section has the details. It refuses to overwrite an existing `edl.json` without `--force`.
 
 ## `motion-studio plan validate`
 

@@ -68,7 +68,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `lang/` | One TOML file per language; see `docs/adding-a-language.md`. |
 | `analyze.py` | The analyze stage: runs the workers, the analysers and the packers per clip. Product projects skip speech, faces and retakes and read each screen recording's markers sidecar. |
 | `look/` | Contact sheets for a time range or an asset, and the look budget. |
-| `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
+| `edl/` | EDL and timeline models, reference resolution, the drafts (`draft.py` for talk, `product_draft.py` for product), the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
 | `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the small-speaker shaping of generated beds, the library picker, the bed analysis (tempo, beat and bar grid, sections and hits), the prompt presets, the candidate store (`build/music-candidates/`) and the fitting of a bed to a product video's scenes (`align.py`). |
 | `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, the share copy beside each final, and locating the installed renderer. |

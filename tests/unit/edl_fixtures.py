@@ -59,12 +59,16 @@ def screen(
     markers: dict[str, float] | None = None,
     elements: dict[str, list[Element]] | None = None,
     size: tuple[int, int] = (1600, 900),
+    source: str | None = None,
 ) -> ClipAnalysis:
-    """A screen recording with these named markers (seconds on its clock) and their elements."""
+    """A screen recording with these named markers (seconds on its clock) and their elements.
+
+    `source` is the recording's file stem in raw/; default: the clip ID.
+    """
     info = ClipInfo(
         id=clip_id,
         role="screen",
-        source=f"raw/{clip_id}.mp4",
+        source=f"raw/{source or clip_id}.mp4",
         mezzanine=f"media/{clip_id}.mp4",
         duration_s=duration,
         fps=30,

@@ -32,7 +32,7 @@ test-all:
 
 # The resolver's test bar (spec #1, seam 2): at least 95% line coverage of src/motion_studio/edl.
 edl-coverage:
-    uv run pytest -q tests/unit/test_edl_*.py tests/unit/test_resolver*.py --cov=motion_studio.edl --cov-report=term-missing --cov-fail-under=95
+    uv run pytest -q tests/unit/test_edl_*.py tests/unit/test_resolver*.py tests/unit/test_product_draft_cli.py --cov=motion_studio.edl --cov-report=term-missing --cov-fail-under=95
 
 schema:
     uv run python scripts/gen_schemas.py
