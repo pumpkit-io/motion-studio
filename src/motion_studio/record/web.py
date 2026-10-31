@@ -9,53 +9,31 @@ markers sidecar, then moves both into raw/. A failed take leaves nothing in raw/
 import bisect
 import json
 import os
-import shutil
 import subprocess
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from PIL import Image
 from pydantic import ValidationError
 
-from motion_studio import APP_NAME
 from motion_studio.analysis.models import CursorSample, Element, Marker, ScreenMarkers
 from motion_studio.errors import InternalError, UserError
-from motion_studio.kind import ProjectKind, require_kind
 from motion_studio.media.ffmpeg import binary, run_ffmpeg
-from motion_studio.paths import project_paths
 from motion_studio.record.install import NODE_DIR, browser_env, find_recorder, node_binary
-from motion_studio.state import ensure_free_disk, heavy_model_holder, project_lock
+from motion_studio.record.take import (
+    Take,
+    place_take,
+    product_project,
+    refuse_existing,
+    refuse_while_heavy,
+    scratch_take,
+)
 
 DEFAULT_VIEWPORT = (1600, 900)
 FPS = 30
 JPEG_QUALITY = 95
 SCRIPT_TIMEOUT_S = 1800
-
-
-@dataclass(frozen=True)
-class WebTake:
-    clip: Path
-    sidecar: Path
-    duration_s: float
-    width: int
-    height: int
-    fps: int
-    frames: int
-    markers: list[str]
-
-    def to_json(self) -> dict[str, Any]:
-        return {
-            "clip": str(self.clip),
-            "sidecar": str(self.sidecar),
-            "duration_s": self.duration_s,
-            "width": self.width,
-            "height": self.height,
-            "fps": self.fps,
-            "frames": self.frames,
-            "markers": self.markers,
-        }
 
 
 def record_web(
@@ -66,51 +44,25 @@ def record_web(
     name: str | None = None,
     viewport: tuple[int, int] = DEFAULT_VIEWPORT,
     on_step: Callable[[str], None] | None = None,
-) -> WebTake:
+) -> Take:
     step = on_step or (lambda _msg: None)
-    project = project_paths(workspace, slug).require()
-    require_kind(
-        project,
-        ProjectKind.PRODUCT,
-        "record web",
-        hint=f"record into a product project: `{APP_NAME} new <slug> --kind product`",
-    )
+    project = product_project(workspace, slug, "record web")
     script = script.expanduser().resolve()
     if not script.is_file():
         raise UserError(f"no recording script at {script}", hint="pass the path of a .mjs file")
     stem = name or script.stem
-    clip = project.raw / f"{stem}.mp4"
-    sidecar = project.raw / f"{stem}.markers.json"
-    for existing in (clip, sidecar):
-        if existing.exists():
-            raise UserError(
-                f"{existing} already exists",
-                hint="pass --name <other> for a new take, or delete the old one first",
-            )
+    refuse_existing(project, stem)
     root = find_recorder()
     node = node_binary()
     binary("ffmpeg")
-    holder = heavy_model_holder()
-    if holder is not None:
-        raise UserError(
-            f"a heavy model is running ({holder}); it would make the recording drop frames",
-            hint="wait for it to finish, then record again",
-        )
-    ensure_free_disk(project.root)
+    refuse_while_heavy(project)
 
-    with project_lock(project):
-        scratch = project.build / "record" / f"{stem}.partial"
-        shutil.rmtree(scratch, ignore_errors=True)
-        scratch.mkdir(parents=True)
-        try:
-            step(f"running {script.name} in headless Chromium")
-            _run_script(node, root, script, scratch, viewport)
-            take = json.loads((scratch / "take.json").read_text(encoding="utf-8"))
-            step("encoding the frames")
-            result = _encode(take, scratch, project.raw, stem)
-        finally:
-            shutil.rmtree(scratch, ignore_errors=True)
-    return result
+    with scratch_take(project, stem) as scratch:
+        step(f"running {script.name} in headless Chromium")
+        _run_script(node, root, script, scratch, viewport)
+        take = json.loads((scratch / "take.json").read_text(encoding="utf-8"))
+        step("encoding the frames")
+        return _encode(take, scratch, project.raw, stem)
 
 
 def _run_script(
@@ -156,7 +108,7 @@ def _run_script(
         raise InternalError(f"the web recorder exited with code {proc.returncode}:\n{tail}")
 
 
-def _encode(take: dict[str, Any], scratch: Path, raw: Path, stem: str) -> WebTake:
+def _encode(take: dict[str, Any], scratch: Path, raw: Path, stem: str) -> Take:
     frames: list[dict[str, Any]] = take["frames"]
     t0 = float(frames[0]["t"])
     end = max(float(take["end"]), float(frames[-1]["t"]) + 1 / FPS)
@@ -215,15 +167,8 @@ def _encode(take: dict[str, Any], scratch: Path, raw: Path, stem: str) -> WebTak
         )
     except ValidationError as exc:
         raise UserError(f"the take's markers do not validate: {exc}") from exc
-    written = scratch / "take.markers.json"
-    written.write_text(markers.model_dump_json(indent=2) + "\n", encoding="utf-8")
-
-    clip = raw / f"{stem}.mp4"
-    sidecar = raw / f"{stem}.markers.json"
-    raw.mkdir(parents=True, exist_ok=True)
-    os.replace(written, sidecar)
-    os.replace(encoded, clip)
-    return WebTake(
+    clip, sidecar = place_take(raw, stem, encoded, markers, scratch)
+    return Take(
         clip=clip,
         sidecar=sidecar,
         duration_s=duration,

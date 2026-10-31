@@ -18,7 +18,7 @@ CI (`.github/workflows/ci.yml`) runs `just lint`, `just schema-check`, `just tes
 
 ## Test markers
 
-Mark any test that cannot run on a Linux CI box: `slow` (long integration or e2e), `mac` (MLX, VideoToolbox, `say`), `models` (loads ASR, VAD or face models; take the machine-wide heavy-model lock), `renderer` (needs the installed Remotion renderer), `music` (needs the ACE-Step environment), `record` (needs Playwright's Chromium; the tests run `setup --record` into the real cache when it is missing).
+Mark any test that cannot run on a Linux CI box: `slow` (long integration or e2e), `mac` (MLX, VideoToolbox, `say`), `models` (loads ASR, VAD or face models; take the machine-wide heavy-model lock), `renderer` (needs the installed Remotion renderer), `music` (needs the ACE-Step environment), `record` (needs Playwright's Chromium, or `vhs`, `ttyd` and `tesseract` for `record terminal`, which are also marked `mac`; the web tests run `setup --record` into the real cache when it is missing).
 
 ## Coding rules
 

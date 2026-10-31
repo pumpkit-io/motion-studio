@@ -25,6 +25,7 @@ from motion_studio.migrate import old_cache
 from motion_studio.music.acestep import env_root
 from motion_studio.music.acestep import installed as acestep_installed
 from motion_studio.paths import cache_dir
+from motion_studio.record.install import TERMINAL_HINT, TERMINAL_TOOLS
 from motion_studio.render.renderer import cached_renderer, is_installed, remotion_version
 from motion_studio.setup import Item, run_setup
 from motion_studio.state import free_disk_gb, min_free_gb
@@ -124,6 +125,7 @@ def run_doctor(workdir: Path) -> Report:
         detail = f"{found.path} is the cache from before the rename to {APP_NAME}"
         checks.append(Check("old cache", "warn", False, detail, found.adopt_command))
     checks += _node_checks()
+    checks += _terminal_checks()
     checks.append(_asr_check())
     checks += _speech_model_checks()
     checks.append(_face_model_check())
@@ -210,6 +212,19 @@ def _node_checks() -> list[Check]:
     checks.append(
         Check("npm", "ok", True, npm) if npm else Check("npm", "missing", True, "not found", fix)
     )
+    return checks
+
+
+def _terminal_checks() -> list[Check]:
+    """vhs and ttyd only matter to `record terminal`, so they warn and are never installed."""
+    checks: list[Check] = []
+    for tool in TERMINAL_TOOLS:
+        path = shutil.which(tool)
+        if path is None:
+            detail = "not found on PATH; `record terminal` needs it"
+            checks.append(Check(tool, "warn", False, detail, TERMINAL_HINT))
+        else:
+            checks.append(Check(tool, "ok", False, _version_of(tool) or path))
     return checks
 
 
