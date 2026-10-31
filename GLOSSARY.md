@@ -15,7 +15,7 @@ _Avoid_: User (ambiguous with the agent's user), customer
 ## Places
 
 **Workspace**:
-A directory created by `reelcut init` that holds the creator's config, library and projects, and in which the host agent is opened.
+A directory created by `motion-studio init` that holds the creator's config, library and projects, and in which the host agent is opened.
 _Avoid_: Repo, folder, project root
 
 **Project**:
@@ -145,7 +145,7 @@ The edit decision list (`edl.json`): the single file in which the host agent rec
 _Avoid_: Plan, script, cut list
 
 **Draft**:
-The deterministic baseline EDL that reelcut writes from the analysis, before the host agent refines it.
+The deterministic baseline EDL that motion-studio writes from the analysis, before the host agent refines it.
 _Avoid_: Auto-edit, first cut
 
 **Segment**:

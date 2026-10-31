@@ -1,7 +1,7 @@
 """Transcript analysers, driven through `analyse_transcript` with constructed transcripts."""
 
-from reelcut.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
-from reelcut.lang import load_language
+from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
+from motion_studio.lang import load_language
 
 WORD_S = 0.25
 GAP_S = 0.05

@@ -2,7 +2,7 @@
 
 import pytest
 
-from reelcut.edl import EdlError, parse_edl
+from motion_studio.edl import EdlError, parse_edl
 
 GUIDE_EXAMPLE = {
     "schema_version": 1,

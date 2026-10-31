@@ -1,7 +1,13 @@
 """The project language from the clips' detected languages."""
 
-from reelcut.analysis import ClipAnalysis, ClipInfo, LanguageGuess, Utterance, project_language
-from reelcut.analysis.models import Role
+from motion_studio.analysis import (
+    ClipAnalysis,
+    ClipInfo,
+    LanguageGuess,
+    Utterance,
+    project_language,
+)
+from motion_studio.analysis.models import Role
 
 
 def clip(clip_id: str, code: str | None, seconds: float, role: Role = "aroll") -> ClipAnalysis:

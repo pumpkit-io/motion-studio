@@ -1,4 +1,4 @@
-"""`reelcut music` on a planned project, with a stand-in ACE-Step worker and voice detector."""
+"""`motion-studio music` on a planned project with a stand-in ACE-Step worker and voice detector."""
 
 import json
 from pathlib import Path
@@ -10,9 +10,9 @@ from conftest import FakeTools
 from edl_fixtures import clip
 from typer.testing import CliRunner
 
-from reelcut.analysis import Span
-from reelcut.cli import app
-from reelcut.edl import Timeline
+from motion_studio.analysis import Span
+from motion_studio.cli import app
+from motion_studio.edl import Timeline
 
 runner = CliRunner()
 
@@ -85,15 +85,15 @@ def worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     tools = tmp_path / "worker"
     tools.mkdir()
     script = FakeTools(tools).add("fake-acestep", FAKE_WORKER)
-    monkeypatch.setenv("REELCUT_MUSIC_WORKER", str(script))
-    monkeypatch.setattr("reelcut.music.vocals.SileroVad", LoudIsSpeech)
+    monkeypatch.setenv("MOTION_STUDIO_MUSIC_WORKER", str(script))
+    monkeypatch.setattr("motion_studio.music.vocals.SileroVad", LoudIsSpeech)
     return tools
 
 
 @pytest.fixture
 def demo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, worker: Path) -> Path:
     # CI runners have less free disk than the guard's default threshold.
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
     ws = tmp_path / "reels"
     assert invoke("init", ws).exit_code == 0
     take = tmp_path / "take.mov"
@@ -195,7 +195,7 @@ def test_an_unchanged_music_block_is_not_generated_again(demo: Path, worker: Pat
 def test_generate_without_the_acestep_environment_exits_2(
     demo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.delenv("REELCUT_MUSIC_WORKER")
+    monkeypatch.delenv("MOTION_STUDIO_MUSIC_WORKER")
 
     result = invoke("music", "demo", "--json")
 
@@ -206,7 +206,7 @@ def test_generate_without_the_acestep_environment_exits_2(
 def test_music_refuses_to_start_below_the_free_disk_threshold(
     demo: Path, worker: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "1000000")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "1000000")
 
     result = invoke("music", "demo")
 

@@ -11,8 +11,8 @@ import typer
 from typer._click import Command
 from typer.core import TyperGroup
 
-from reelcut import APP_NAME
-from reelcut.cli import app
+from motion_studio import APP_NAME
+from motion_studio.cli import app
 
 REPO = Path(__file__).resolve().parents[2]
 CLI_DOC = REPO / "docs" / "cli.md"
@@ -72,8 +72,10 @@ def git_lines(*args: str) -> list[str]:
 def named_files() -> list[str]:
     if shutil.which("git") is None or not (REPO / ".git").exists():
         pytest.skip("needs a git checkout")
-    by_content = git_lines("grep", "-l", "-i", APP_NAME)
-    by_path = [p for p in git_lines("ls-files") if APP_NAME in p.lower()]
+    # The import package spells the name with an underscore, which `-` in APP_NAME does not match.
+    names = (APP_NAME, APP_NAME.replace("-", "_"))
+    by_content = git_lines("grep", "-l", "-i", *(arg for n in names for arg in ("-e", n)))
+    by_path = [p for p in git_lines("ls-files") if any(n in p.lower() for n in names)]
     return sorted(set(by_content) | set(by_path))
 
 

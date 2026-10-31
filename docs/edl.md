@@ -1,1 +1,1 @@
-../src/reelcut/reference/edl.md
+../src/motion_studio/reference/edl.md

@@ -1,6 +1,6 @@
 """Visual analysers: static stretches and role finalisation, from constructed measurements."""
 
-from reelcut.analysis import (
+from motion_studio.analysis import (
     ClipAnalysis,
     ClipInfo,
     Faces,

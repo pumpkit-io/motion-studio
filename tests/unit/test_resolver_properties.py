@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from reelcut.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
-from reelcut.config import Config, Defaults
-from reelcut.edl import Edl, Timeline, resolve
-from reelcut.edl.models import Run
-from reelcut.lang import load_language
+from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
+from motion_studio.config import Config, Defaults
+from motion_studio.edl import Edl, Timeline, resolve
+from motion_studio.edl.models import Run
+from motion_studio.lang import load_language
 
 ENGLISH = load_language("en")
 TOKENS = ["hello", "world.", "um", "uh", "like", "so", "great", "really", "the"]

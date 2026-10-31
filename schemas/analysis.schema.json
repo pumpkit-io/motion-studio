@@ -181,7 +181,7 @@
       "additionalProperties": false,
       "properties": {
         "code": {
-          "description": "Language code with a data file in reelcut's lang directory.",
+          "description": "Language code with a data file in motion-studio's lang directory.",
           "title": "Code",
           "type": "string"
         },
@@ -377,7 +377,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "Everything reelcut knows about one clip: `analysis/<clip>.json`.",
+  "description": "Everything motion-studio knows about one clip: `analysis/<clip>.json`.",
   "properties": {
     "clip": {
       "$ref": "#/$defs/ClipInfo"

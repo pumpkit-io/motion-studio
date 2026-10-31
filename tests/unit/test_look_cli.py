@@ -1,4 +1,4 @@
-"""`reelcut look`, `reelcut look-asset` and the asset contact sheets `analyze` writes.
+"""`motion-studio look`, `motion-studio look-asset` and the asset contact sheets `analyze` writes.
 
 Runs on ingested tiny clips with the stand-in speech-to-text and face workers, and checks the
 PNGs by what can be measured: size, that they are not blank, and the filler colours.
@@ -27,7 +27,7 @@ HARD_RED = (220, 38, 38)
 
 @pytest.fixture(autouse=True)
 def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         json.dumps({"c1": {"language": "en", "vad": [[0.05, 1.1]], "words": SPEECH}}),
         encoding="utf-8",
     )
-    monkeypatch.setenv("REELCUT_ASR_WORKER", str(worker))
+    monkeypatch.setenv("MOTION_STUDIO_ASR_WORKER", str(worker))
     monkeypatch.setenv("FAKE_ASR_SCRIPT", str(script))
     monkeypatch.setenv("FAKE_ASR_LOG", str(tmp_path / "worker.log"))
 
@@ -85,7 +85,7 @@ def test_look_writes_one_sheet_no_wider_than_1600_px_that_is_not_blank(project: 
 
 
 def test_past_the_look_budget_look_warns_and_still_draws_the_sheet(project: Path) -> None:
-    toml = project.parents[1] / "reelcut.toml"
+    toml = project.parents[1] / "motion-studio.toml"
     toml.write_text(
         toml.read_text(encoding="utf-8").replace("look_budget = 8", "look_budget = 1", 1),
         encoding="utf-8",

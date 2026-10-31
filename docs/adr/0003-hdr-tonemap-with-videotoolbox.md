@@ -5,4 +5,4 @@ Phone footage is often HLG or PQ HDR and must become BT.709 SDR at ingest. The u
 ## Considered Options
 
 - Installing ffmpeg from the `homebrew-ffmpeg` tap with zimg. Rejected: it replaces the creator's system ffmpeg and builds from source.
-- Downloading a static ffmpeg build into the reelcut cache. Rejected for v0.1.0: one more binary whose provenance and licence would need tracking.
+- Downloading a static ffmpeg build into the motion-studio cache. Rejected for v0.1.0: one more binary whose provenance and licence would need tracking.

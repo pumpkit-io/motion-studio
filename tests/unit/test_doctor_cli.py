@@ -6,9 +6,9 @@ import pytest
 from conftest import FakeTools
 from typer.testing import CliRunner
 
-from reelcut.asr import DEFAULT_MODELS, default_backend
-from reelcut.asr.vad import SILERO_VERSION
-from reelcut.cli import app
+from motion_studio.asr import DEFAULT_MODELS, default_backend
+from motion_studio.asr.vad import SILERO_VERSION
+from motion_studio.cli import app
 
 runner = CliRunner()
 
@@ -102,7 +102,7 @@ def test_doctor_warns_but_passes_on_low_disk(
 ) -> None:
     fake_ffmpeg(fake_tools, FILTERS)
     fake_node(fake_tools)
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "1000000000")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "1000000000")
     code, payload = doctor_json()
     assert code == 0
     assert check(payload, "disk")["status"] == "warn"
@@ -220,7 +220,7 @@ def test_doctor_reports_the_acestep_env_and_its_weights_licence_once_setup_finis
 
 def fake_setup(monkeypatch: pytest.MonkeyPatch, cache: Path) -> list[dict[str, Any]]:
     """Stand in for `setup`'s downloads: it lays down the DeepFilterNet binary and logs the call."""
-    from reelcut.setup import Item, SetupReport
+    from motion_studio.setup import Item, SetupReport
 
     calls: list[dict[str, Any]] = []
 
@@ -231,7 +231,7 @@ def fake_setup(monkeypatch: pytest.MonkeyPatch, cache: Path) -> list[dict[str, A
         binary.write_text("", encoding="utf-8")
         return SetupReport([Item("deepfilternet", "installed", str(binary))])
 
-    monkeypatch.setattr("reelcut.doctor.run_setup", run_setup)
+    monkeypatch.setattr("motion_studio.doctor.run_setup", run_setup)
     return calls
 
 
@@ -264,7 +264,7 @@ def test_doctor_fix_does_nothing_when_setup_has_nothing_to_add(
     fake_ffmpeg(fake_tools, FILTERS)
     fake_node(fake_tools)
     calls = fake_setup(monkeypatch, isolated_cache)
-    monkeypatch.setattr("reelcut.doctor.SETUP_FIXES", frozenset())
+    monkeypatch.setattr("motion_studio.doctor.SETUP_FIXES", frozenset())
 
     result = runner.invoke(app, ["doctor", "--fix"])
 

@@ -3,9 +3,9 @@
 import pytest
 from edl_fixtures import clip, edl, timed
 
-from reelcut.analysis import Faces, FaceSample, LanguageGuess
-from reelcut.config import Config
-from reelcut.edl import EdlError, Timeline, resolve
+from motion_studio.analysis import Faces, FaceSample, LanguageGuess
+from motion_studio.config import Config
+from motion_studio.edl import EdlError, Timeline, resolve
 
 FILLERS = clip("c1", "We um really like it.")  # um: hard filler; like: soft filler
 

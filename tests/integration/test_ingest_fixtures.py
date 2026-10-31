@@ -1,4 +1,4 @@
-"""`reelcut ingest` on the generated EN and IT fixtures, with the real DeepFilterNet binary."""
+"""`motion-studio ingest` on the generated EN and IT fixtures with the real DeepFilterNet binary."""
 
 import json
 import platform
@@ -9,9 +9,9 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.audio.enhance import deep_filter_binary, install_deep_filter
-from reelcut.cli import app
-from reelcut.media.ffmpeg import run_ffprobe
+from motion_studio.audio.enhance import deep_filter_binary, install_deep_filter
+from motion_studio.cli import app
+from motion_studio.media.ffmpeg import run_ffprobe
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac]
 
@@ -46,8 +46,8 @@ def ingested(
     missing = [name for name in FIXTURES if not (MEDIA / name).exists()]
     if missing:
         pytest.skip(f"fixtures not generated ({', '.join(missing)}); run `just fixtures`")
-    monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
     workspace = tmp_path / "reels"
     assert runner.invoke(app, ["init", str(workspace)]).exit_code == 0
     monkeypatch.chdir(workspace)

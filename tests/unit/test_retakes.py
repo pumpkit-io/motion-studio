@@ -1,6 +1,6 @@
 """Retake clusters, built from transcripts analysed through the analysis entry point."""
 
-from reelcut.analysis import (
+from motion_studio.analysis import (
     ClipAnalysis,
     ClipInfo,
     Retakes,
@@ -9,8 +9,8 @@ from reelcut.analysis import (
     analyse_transcript,
     find_retakes,
 )
-from reelcut.analysis.models import Role
-from reelcut.lang import load_language
+from motion_studio.analysis.models import Role
+from motion_studio.lang import load_language
 
 
 def clip(clip_id: str, *utterances: str, role: Role = "aroll", lang: str = "en") -> ClipAnalysis:

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from reelcut.errors import DependencyError, UserError
-from reelcut.paths import ProjectPaths, project_paths
-from reelcut.state import (
+from motion_studio.errors import DependencyError, UserError
+from motion_studio.paths import ProjectPaths, project_paths
+from motion_studio.state import (
     ensure_free_disk,
     heavy_model_lock,
     load_state,
@@ -134,7 +134,7 @@ def test_project_lock_refuses_a_second_holder(project: ProjectPaths) -> None:
 HOLDER = textwrap.dedent(
     """
     import sys, time
-    from reelcut.state import heavy_model_lock
+    from motion_studio.state import heavy_model_lock
     with heavy_model_lock("asr"):
         print("held", flush=True)
         time.sleep(float(sys.argv[1]))
@@ -148,7 +148,7 @@ def test_heavy_model_lock_makes_a_second_holder_wait(isolated_cache: Path) -> No
         [sys.executable, "-c", HOLDER, str(hold_s)],
         stdout=subprocess.PIPE,
         text=True,
-        env={**os.environ, "REELCUT_CACHE_DIR": str(isolated_cache)},
+        env={**os.environ, "MOTION_STUDIO_CACHE_DIR": str(isolated_cache)},
     )
     try:
         assert holder.stdout is not None
@@ -168,7 +168,7 @@ def test_heavy_model_lock_times_out(isolated_cache: Path) -> None:
         [sys.executable, "-c", HOLDER, "3"],
         stdout=subprocess.PIPE,
         text=True,
-        env={**os.environ, "REELCUT_CACHE_DIR": str(isolated_cache)},
+        env={**os.environ, "MOTION_STUDIO_CACHE_DIR": str(isolated_cache)},
     )
     try:
         assert holder.stdout is not None

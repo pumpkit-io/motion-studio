@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from reelcut.config import Config, load_config
-from reelcut.errors import DependencyError, UserError
+from motion_studio.config import Config, load_config
+from motion_studio.errors import DependencyError, UserError
 
 
 def write(path: Path, text: str) -> Path:
@@ -14,7 +14,7 @@ def write(path: Path, text: str) -> Path:
 
 @pytest.fixture
 def workspace(tmp_path: Path) -> Path:
-    write(tmp_path / "reelcut.toml", "")
+    write(tmp_path / "motion-studio.toml", "")
     (tmp_path / "projects" / "demo").mkdir(parents=True)
     return tmp_path
 
@@ -33,7 +33,7 @@ def test_defaults_match_the_guide() -> None:
 
 def test_each_level_overrides_the_one_below(workspace: Path) -> None:
     write(
-        workspace / "reelcut.toml",
+        workspace / "motion-studio.toml",
         "[edit]\npad_in_ms = 60\npad_out_ms = 100\nmax_pause_ms = 300\n"
         '[brand]\naccent = "#00FF00"\n',
     )
@@ -62,19 +62,19 @@ def test_project_level_ignores_project_metadata_and_clips(workspace: Path) -> No
 
 
 def test_workspace_only_config_without_a_project(workspace: Path) -> None:
-    write(workspace / "reelcut.toml", "[defaults]\nfps = 25\n")
+    write(workspace / "motion-studio.toml", "[defaults]\nfps = 25\n")
     assert load_config(workspace).defaults.fps == 25
 
 
 def test_unknown_key_is_a_user_error_naming_the_file(workspace: Path) -> None:
-    write(workspace / "reelcut.toml", "[edit]\npad_inn_ms = 10\n")
-    with pytest.raises(UserError, match=r"reelcut\.toml.*pad_inn_ms"):
+    write(workspace / "motion-studio.toml", "[edit]\npad_inn_ms = 10\n")
+    with pytest.raises(UserError, match=r"motion-studio\.toml.*pad_inn_ms"):
         load_config(workspace)
 
 
 def test_invalid_toml_is_a_user_error(workspace: Path) -> None:
-    write(workspace / "reelcut.toml", "[edit\n")
-    with pytest.raises(UserError, match=r"reelcut\.toml"):
+    write(workspace / "motion-studio.toml", "[edit\n")
+    with pytest.raises(UserError, match=r"motion-studio\.toml"):
         load_config(workspace)
 
 
@@ -89,7 +89,7 @@ def test_missing_project_is_a_user_error(workspace: Path) -> None:
 
 
 def test_crisper_is_valid_in_config_but_not_implemented_at_runtime(workspace: Path) -> None:
-    write(workspace / "reelcut.toml", '[asr]\nfillers_backend = "crisper"\n')
+    write(workspace / "motion-studio.toml", '[asr]\nfillers_backend = "crisper"\n')
     config = load_config(workspace)
     assert config.asr.fillers_backend == "crisper"
     with pytest.raises(DependencyError, match=r"not implemented in v0\.1\.0") as excinfo:
@@ -99,7 +99,7 @@ def test_crisper_is_valid_in_config_but_not_implemented_at_runtime(workspace: Pa
 
 def test_short_hex_colours_are_normalised(workspace: Path) -> None:
     write(
-        workspace / "reelcut.toml",
+        workspace / "motion-studio.toml",
         '[brand]\nprimary = "#1a2"\naccent = "ffd400"\n[captions]\ntext_color = "#fff"\n',
     )
     config = load_config(workspace)
@@ -110,7 +110,7 @@ def test_short_hex_colours_are_normalised(workspace: Path) -> None:
 
 @pytest.mark.parametrize("value", ["red", "#12345", "#GGGGGG", "rgb(0,0,0)", ""])
 def test_a_colour_that_is_not_hex_is_a_user_error(workspace: Path, value: str) -> None:
-    write(workspace / "reelcut.toml", f'[brand]\nprimary = "{value}"\n')
+    write(workspace / "motion-studio.toml", f'[brand]\nprimary = "{value}"\n')
     with pytest.raises(UserError, match=r"brand\.primary.*#RRGGBB") as excinfo:
         load_config(workspace)
     assert excinfo.value.exit_code == 1

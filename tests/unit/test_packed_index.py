@@ -1,12 +1,12 @@
 """The packed index format, pinned by a golden file.
 
-Set REELCUT_UPDATE_GOLDEN=1 to rewrite the golden file after a deliberate format change.
+Set MOTION_STUDIO_UPDATE_GOLDEN=1 to rewrite the golden file after a deliberate format change.
 """
 
 import os
 from pathlib import Path
 
-from reelcut.analysis import (
+from motion_studio.analysis import (
     ClipAnalysis,
     ClipInfo,
     Faces,
@@ -17,7 +17,7 @@ from reelcut.analysis import (
     find_retakes,
     pack_project,
 )
-from reelcut.lang import load_language
+from motion_studio.lang import load_language
 
 GOLDEN = Path(__file__).parent / "golden" / "packed.md"
 
@@ -85,7 +85,7 @@ def test_packed_index_matches_the_golden_file() -> None:
     clips = project()
     packed = pack_project("launch-teaser", "it", clips, find_retakes(clips))
 
-    if os.environ.get("REELCUT_UPDATE_GOLDEN"):
+    if os.environ.get("MOTION_STUDIO_UPDATE_GOLDEN"):
         GOLDEN.parent.mkdir(exist_ok=True)
         GOLDEN.write_text(packed, encoding="utf-8")
     assert packed == GOLDEN.read_text(encoding="utf-8")

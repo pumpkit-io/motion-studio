@@ -8,18 +8,18 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from reelcut.asr.vad import vad_model_path
-from reelcut.music.vocals import has_vocals, speech_ratio
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.music.vocals import has_vocals, speech_ratio
 
 pytestmark = [pytest.mark.mac, pytest.mark.models]
 
 
 @pytest.fixture
 def vad_model(monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.delenv("REELCUT_CACHE_DIR", raising=False)
+    monkeypatch.delenv("MOTION_STUDIO_CACHE_DIR", raising=False)
     path = vad_model_path()
     if not path.is_file():
-        pytest.skip("run `reelcut setup` for the Silero VAD model")
+        pytest.skip("run `motion-studio setup` for the Silero VAD model")
     return path
 
 

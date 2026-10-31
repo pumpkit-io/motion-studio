@@ -1,6 +1,6 @@
-# Contributing to reelcut
+# Contributing to motion-studio
 
-Thanks for helping. reelcut is deterministic plumbing: the editorial judgement lives in the host agent, and the harness turns footage into text and an EDL into video.
+Thanks for helping. motion-studio is deterministic plumbing: the editorial judgement lives in the host agent, and the harness turns footage into text and an EDL into video.
 
 ## Set up
 
@@ -15,11 +15,11 @@ just test
 ## Before you open a pull request
 
 - `just lint` and `just test` pass. CI runs the same on Linux.
-- If you touched a pipeline stage, run `just e2e` on a Mac (after `reelcut setup --music` and `just fixtures`): the whole pipeline on the EN and IT fixtures, about 10 minutes.
+- If you touched a pipeline stage, run `just e2e` on a Mac (after `motion-studio setup --music` and `just fixtures`): the whole pipeline on the EN and IT fixtures, about 10 minutes.
 - If you changed a Pydantic contract, run `just schema` and commit the regenerated files.
 - Tests drive a module through its public interface. Mark tests that need a Mac, models, the renderer or ACE-Step (see `AGENTS.md`).
 - Add a line to `CHANGELOG.md` under "Unreleased".
 
 ## Adding a language
 
-Add one data file under `src/reelcut/lang/`. See [docs/adding-a-language.md](docs/adding-a-language.md).
+Add one data file under `src/motion_studio/lang/`. See [docs/adding-a-language.md](docs/adding-a-language.md).

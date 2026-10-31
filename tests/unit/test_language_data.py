@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-import reelcut.lang
-from reelcut.analysis import ClipInfo, Span, TranscribedWord, analyse_transcript
-from reelcut.config import Config
-from reelcut.errors import UserError
-from reelcut.lang import available_languages, load_language
+import motion_studio.lang
+from motion_studio.analysis import ClipInfo, Span, TranscribedWord, analyse_transcript
+from motion_studio.config import Config
+from motion_studio.errors import UserError
+from motion_studio.lang import available_languages, load_language
 
 MINIMAL_SPANISH = """
 code = "es"
@@ -35,7 +35,7 @@ def test_english_and_italian_ship_with_the_guide_prompts() -> None:
 
 def test_a_third_language_needs_only_its_data_file(tmp_path: Path) -> None:
     (tmp_path / "es.toml").write_text(MINIMAL_SPANISH, encoding="utf-8")
-    dirs = [reelcut.lang.LANG_DIR, tmp_path]
+    dirs = [motion_studio.lang.LANG_DIR, tmp_path]
 
     spanish = load_language("es", dirs)
     words = [
@@ -56,7 +56,7 @@ def test_the_config_accepts_any_language_with_a_data_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (tmp_path / "es.toml").write_text(MINIMAL_SPANISH, encoding="utf-8")
-    monkeypatch.setattr(reelcut.lang, "LANG_DIR", tmp_path)
+    monkeypatch.setattr(motion_studio.lang, "LANG_DIR", tmp_path)
 
     assert Config.model_validate({"defaults": {"language": "es"}}).defaults.language == "es"
     assert Config.model_validate({"defaults": {"language": "auto"}}).defaults.language == "auto"

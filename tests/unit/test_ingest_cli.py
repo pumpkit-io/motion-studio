@@ -1,4 +1,4 @@
-"""`reelcut ingest` on small generated media, measured with ffprobe."""
+"""`motion-studio ingest` on small generated media, measured with ffprobe."""
 
 import json
 import shutil
@@ -13,8 +13,8 @@ import pytest
 from PIL import Image
 from typer.testing import CliRunner
 
-from reelcut.cli import app
-from reelcut.media.ffmpeg import ffmpeg_caps, run_ffmpeg, run_ffprobe
+from motion_studio.cli import app
+from motion_studio.media.ffmpeg import ffmpeg_caps, run_ffmpeg, run_ffprobe
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -63,7 +63,7 @@ def clips(project: Path) -> dict[str, dict[str, Any]]:
 @pytest.fixture(autouse=True)
 def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     # CI runners have less free disk than the 20 GB default.
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
 
 
 @pytest.fixture
@@ -306,7 +306,7 @@ def test_a_heic_photo_keeps_its_orientation(workspace: Path, tmp_path: Path) -> 
 def test_a_heic_photo_is_skipped_with_a_warning_when_nothing_can_decode_it(
     workspace: Path, tmp_path: Path, take: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("reelcut.ingest.heif_decoder", lambda: None)
+    monkeypatch.setattr("motion_studio.ingest.heif_decoder", lambda: None)
     project = new_project(workspace, take)
     (project / "raw" / "IMG_0001.HEIC").write_bytes(b"not decoded here")
 
@@ -338,7 +338,7 @@ def test_ingest_refuses_to_start_when_disk_is_low(
     workspace: Path, take: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     new_project(workspace, take)
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "1000000")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "1000000")
 
     result = invoke("ingest", "demo", "--json")
 
@@ -432,7 +432,7 @@ def test_an_hlg_clip_is_tone_mapped_and_tagged_bt709(workspace: Path, tmp_path: 
 def test_the_colorspace_fallback_warns_and_is_recorded(
     workspace: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("REELCUT_TONEMAP", "colorspace")
+    monkeypatch.setenv("MOTION_STUDIO_TONEMAP", "colorspace")
     project = new_project(workspace, make_hlg(tmp_path / "hlg.mov"))
 
     result = invoke("ingest", "demo")
@@ -448,7 +448,7 @@ def test_the_colorspace_fallback_warns_and_is_recorded(
 def test_without_deepfilternet_arnndn_cleans_the_voice_and_warns(
     workspace: Path, take: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("REELCUT_DEEP_FILTER", str(workspace / "no-such-binary"))
+    monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(workspace / "no-such-binary"))
     project = new_project(workspace, take)
 
     result = invoke("ingest", "demo")

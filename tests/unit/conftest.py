@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from reelcut.media.ffmpeg import ffmpeg_caps
+from motion_studio.media.ffmpeg import ffmpeg_caps
 
 
 class FakeTools:
@@ -36,14 +36,14 @@ def fake_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Fake
 def isolated_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep tests out of the real machine-wide cache, including its heavy-model lock."""
     cache = tmp_path / "cache"
-    monkeypatch.setenv("REELCUT_CACHE_DIR", str(cache))
+    monkeypatch.setenv("MOTION_STUDIO_CACHE_DIR", str(cache))
     return cache
 
 
 FAKE_FACE_WORKER = """
 import fcntl, json, math, os, sys
-from reelcut.paths import locks_dir
-from reelcut.state import HEAVY_MODEL_LOCK
+from motion_studio.paths import locks_dir
+from motion_studio.state import HEAVY_MODEL_LOCK
 
 request = json.load(sys.stdin)
 with open(locks_dir() / HEAVY_MODEL_LOCK, "a+") as handle:
@@ -87,5 +87,5 @@ def fake_face_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     worker = tmp_path / "fake-face-worker"
     worker.write_text(f"#!{sys.executable}\n{textwrap.dedent(FAKE_FACE_WORKER)}", encoding="utf-8")
     worker.chmod(worker.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("REELCUT_FACE_WORKER", str(worker))
+    monkeypatch.setenv("MOTION_STUDIO_FACE_WORKER", str(worker))
     return worker

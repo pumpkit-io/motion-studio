@@ -1,5 +1,5 @@
 [project]
-name = "reelcut"
+name = "motion-studio"
 version = "0.1.0"
 description = "Agent-driven video editing harness: turns talking-head footage into finished short videos."
 readme = "README.md"
@@ -31,7 +31,7 @@ mac = [
 cpu = ["faster-whisper==1.2.1"]
 
 [project.scripts]
-reelcut = "reelcut.cli:app"
+motion-studio = "motion_studio.cli:app"
 
 [dependency-groups]
 dev = [
@@ -48,15 +48,15 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/reelcut"]
+packages = ["src/motion_studio"]
 
-# `setup` copies these into the cache and runs `npm ci` there (reelcut.render.renderer).
+# `setup` copies these into the cache and runs `npm ci` there (motion_studio.render.renderer).
 [tool.hatch.build.targets.wheel.force-include]
-"renderer/package.json" = "reelcut/_renderer/package.json"
-"renderer/package-lock.json" = "reelcut/_renderer/package-lock.json"
-"renderer/tsconfig.json" = "reelcut/_renderer/tsconfig.json"
-"renderer/remotion.config.ts" = "reelcut/_renderer/remotion.config.ts"
-"renderer/src" = "reelcut/_renderer/src"
+"renderer/package.json" = "motion_studio/_renderer/package.json"
+"renderer/package-lock.json" = "motion_studio/_renderer/package-lock.json"
+"renderer/tsconfig.json" = "motion_studio/_renderer/tsconfig.json"
+"renderer/remotion.config.ts" = "motion_studio/_renderer/remotion.config.ts"
+"renderer/src" = "motion_studio/_renderer/src"
 
 [tool.ruff]
 line-length = 100
@@ -74,7 +74,7 @@ include = ["src", "tests", "scripts"]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".claude"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
-strict = ["src/reelcut/edl", "src/reelcut/analysis"]
+strict = ["src/motion_studio/edl", "src/motion_studio/analysis"]
 venvPath = "."
 venv = ".venv"
 

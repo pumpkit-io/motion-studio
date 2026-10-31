@@ -1,0 +1,6 @@
+# Brand
+
+- `logo.png`: your logo, used on titles (the path is `[brand] logo` in `motion-studio.toml`).
+- `fonts/`: font files for captions and titles. Set `[captions] font` to a file here, or leave it as `Inter`.
+
+Brand colours live in `motion-studio.toml` under `[brand]` and `[captions]`.

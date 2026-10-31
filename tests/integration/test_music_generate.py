@@ -1,6 +1,6 @@
-"""`reelcut music` with the real ACE-Step environment: a 60 s instrumental bed on this machine.
+"""`motion-studio music` with the real ACE-Step environment: a 60 s instrumental bed, made here.
 
-Uses the real cache and its heavy-model lock; run `reelcut setup --music` first.
+Uses the real cache and its heavy-model lock; run `motion-studio setup --music` first.
 """
 
 import json
@@ -11,11 +11,11 @@ import pytest
 import soundfile as sf
 from typer.testing import CliRunner
 
-from reelcut.analysis import Span, TranscribedWord, analyse_transcript
-from reelcut.analysis.models import ClipInfo
-from reelcut.cli import app
-from reelcut.lang import load_language
-from reelcut.music import acestep
+from motion_studio.analysis import Span, TranscribedWord, analyse_transcript
+from motion_studio.analysis.models import ClipInfo
+from motion_studio.cli import app
+from motion_studio.lang import load_language
+from motion_studio.music import acestep
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.music]
 
@@ -41,7 +41,7 @@ def test_music_generates_a_60_second_instrumental(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     if acestep.installed() is None:
-        pytest.skip("run `reelcut setup --music` first")
+        pytest.skip("run `motion-studio setup --music` first")
     ws = tmp_path / "reels"
     assert invoke("init", ws).exit_code == 0
     take = tmp_path / "take.mov"

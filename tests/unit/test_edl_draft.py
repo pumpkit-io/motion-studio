@@ -3,10 +3,10 @@
 import pytest
 from edl_fixtures import asset, clip, timed
 
-from reelcut.analysis import ClipAnalysis, Retakes, find_retakes
-from reelcut.config import Config
-from reelcut.edl import draft, resolve
-from reelcut.errors import UserError
+from motion_studio.analysis import ClipAnalysis, Retakes, find_retakes
+from motion_studio.config import Config
+from motion_studio.edl import draft, resolve
+from motion_studio.errors import UserError
 
 
 def segments(clips: list[ClipAnalysis], retakes: Retakes | None = None) -> list[tuple[str, str]]:
