@@ -9,14 +9,22 @@ from motion_studio import APP_NAME
 from motion_studio.config import Brand as BrandConfig
 from motion_studio.config import load_config
 from motion_studio.edl import Timeline
-from motion_studio.edl.models import TimelineBroll, TimelineImage
+from motion_studio.edl.models import TimelineBroll, TimelineFootage, TimelineImage
 from motion_studio.errors import MotionStudioError, UserError
 from motion_studio.ingest import MANIFEST, ClipMedia, load_manifest
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.plan import load_edl, timeline_path, validate_project
 from motion_studio.render import share as sharing
 from motion_studio.render.assemble import assemble, assembly_canvas, count_frames, video_size
-from motion_studio.render.compose import compose, find_brand, prepare_public, props
+from motion_studio.render.compose import (
+    PRODUCT,
+    REEL,
+    compose,
+    find_brand,
+    prepare_public,
+    product_props,
+    props,
+)
 from motion_studio.render.mix import mix
 from motion_studio.render.renderer import find_renderer, remotion_version
 from motion_studio.state import (
@@ -74,7 +82,8 @@ class Output:
 class RenderReport:
     stage: str
     outputs: list[Output]
-    assembled: Path
+    # None for a product video, which has no A-roll to assemble.
+    assembled: Path | None
     cuts_s: list[float]
     noop: bool = False
     warnings: list[str] = field(default_factory=list)
@@ -84,7 +93,7 @@ class RenderReport:
             "stage": self.stage,
             "noop": self.noop,
             "outputs": [o.to_json() for o in self.outputs],
-            "assembled": str(self.assembled),
+            "assembled": str(self.assembled) if self.assembled is not None else None,
             "cuts_s": self.cuts_s,
             "warnings": self.warnings,
         }
@@ -136,8 +145,13 @@ def render_project(
         brand = find_brand(timeline, workspace, BrandConfig().logo)
         manifest = project.media / MANIFEST
         clips = {c.id: c for c in load_manifest(project).clips}
-        a_roll = _a_roll_media(project, timeline, clips)
-        assemble_inputs = [timeline_path(project), manifest, *a_roll]
+        product = timeline.kind == "product"
+        media = (
+            _footage_media(project, timeline)
+            if product
+            else _a_roll_media(project, timeline, clips)
+        )
+        assemble_inputs = [timeline_path(project), manifest, *media]
         inputs = [*assemble_inputs, *_overlay_media(project, timeline)]
         inputs += [p for p in (music_file, brand.font, brand.logo) if p is not None]
         params = {
@@ -150,8 +164,8 @@ def render_project(
         outputs = {
             fmt: (output_path(project, target, fmt), voice_path(project, fmt)) for fmt in chosen
         }
-        assembled = project.build / "assembled.mp4"
-        cuts = [round(run.out_in / timeline.fps, 3) for run in timeline.runs[1:]]
+        assembled = None if product else project.build / "assembled.mp4"
+        cuts = [round(start / timeline.fps, 3) for start in _cut_frames(timeline)]
 
         if stage_is_fresh(project, stage, inputs, params=params):
             done = [_describe(fmt, *outputs[fmt], timeline.fps) for fmt in chosen]
@@ -162,7 +176,7 @@ def render_project(
             for message in brand.warnings:
                 record_warning(project, stage, message)
                 warn(message)
-            if not stage_is_fresh(
+            if assembled is not None and not stage_is_fresh(
                 project, ASSEMBLE_RECORD, assemble_inputs, params={"recipe": RECIPE}
             ):
                 step("assembling the A-roll cuts")
@@ -177,11 +191,14 @@ def render_project(
                     params={"recipe": RECIPE},
                 )
             public = prepare_public(project.build, assembled, timeline, project.root, brand)
-            canvas = assembly_canvas(timeline, clips)
             done: list[Output] = []
             for fmt in chosen:
                 step(f"composing {fmt} with Remotion")
-                data = props(timeline, fmt, canvas, assembled.name, brand)
+                if assembled is None:
+                    data = product_props(timeline, fmt, brand)
+                else:
+                    canvas = assembly_canvas(timeline, clips)
+                    data = props(timeline, fmt, canvas, assembled.name, brand)
                 composed = compose(
                     renderer,
                     data,
@@ -189,6 +206,7 @@ def render_project(
                     public,
                     preview=target is RenderTarget.PREVIEW,
                     concurrency=concurrency,
+                    composition=PRODUCT if product else REEL,
                 )
                 step(f"mixing and mastering {fmt}")
                 out, voice = outputs[fmt]
@@ -240,6 +258,18 @@ def _a_roll_media(
         if media is not None:
             found += [project.root / p for p in (media.mezzanine, media.audio) if p]
     return found
+
+
+def _footage_media(project: ProjectPaths, timeline: Timeline) -> list[Path]:
+    """The recordings product scenes play, so replacing one re-renders."""
+    srcs = [s.src for s in timeline.scenes if isinstance(s, TimelineFootage)]
+    return [project.root / src for src in dict.fromkeys(srcs)]
+
+
+def _cut_frames(timeline: Timeline) -> list[int]:
+    if timeline.kind == "product":
+        return [scene.start for scene in timeline.scenes[1:]]
+    return [run.out_in for run in timeline.runs[1:]]
 
 
 def _overlay_media(project: ProjectPaths, timeline: Timeline) -> list[Path]:

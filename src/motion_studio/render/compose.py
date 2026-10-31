@@ -20,6 +20,9 @@ DEFAULT_FONT = "Inter"
 PREVIEW_SCALE = 0.5
 FINAL_CRF = 16
 PREVIEW_CRF = 23
+# The renderer's compositions: talk videos and product videos.
+REEL = "Reel"
+PRODUCT = "Product"
 
 
 @dataclass(frozen=True)
@@ -77,15 +80,19 @@ def _key(name: str) -> str:
 
 
 def prepare_public(
-    build: Path, assembled: Path, timeline: Timeline, project_root: Path, brand: Brand
+    build: Path, assembled: Path | None, timeline: Timeline, project_root: Path, brand: Brand
 ) -> Path:
-    """Fill `build/public/` with everything the composition loads through `staticFile()`."""
+    """Fill `build/public/` with everything the composition loads through `staticFile()`.
+
+    `assembled` is the cut A-roll; None for a product video, which has none.
+    """
     public = build / "public"
     shutil.rmtree(public, ignore_errors=True)
     public.mkdir(parents=True)
-    _link(assembled, public / assembled.name)
-    for event in timeline.events:
-        src = getattr(event, "src", None)
+    if assembled is not None:
+        _link(assembled, public / assembled.name)
+    for item in [*timeline.events, *timeline.scenes]:
+        src = getattr(item, "src", None)
         if src is not None and not (public / src).exists():
             _link(project_root / src, public / src)
     if brand.font is not None:
@@ -107,6 +114,17 @@ def _link(source: Path, target: Path) -> None:
 
 
 def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand) -> dict[str, Any]:
+    """The Reel composition's props: the timeline and the assembled A-roll's canvas."""
+    return {
+        **product_props(timeline, fmt, brand),
+        "source": {"width": canvas.width, "height": canvas.height},
+        "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
+        "video": video,
+    }
+
+
+def product_props(timeline: Timeline, fmt: str, brand: Brand) -> dict[str, Any]:
+    """The Product composition's props; scenes name their footage files themselves."""
     data = timeline.model_dump(mode="json")
     font_file = logo_file = None
     if brand.font is not None:
@@ -115,15 +133,7 @@ def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand
         data["captions"]["font"] = "Brand" + _key(brand.font.stem).capitalize()
     if brand.logo is not None:
         logo_file = f"brand/logo{brand.logo.suffix.lower()}"
-    return {
-        "timeline": data,
-        "format": fmt,
-        "source": {"width": canvas.width, "height": canvas.height},
-        "regions": {clip: r.to_json() for clip, r in canvas.regions.items()},
-        "video": video,
-        "font_file": font_file,
-        "logo_file": logo_file,
-    }
+    return {"timeline": data, "format": fmt, "font_file": font_file, "logo_file": logo_file}
 
 
 def compose(
@@ -134,6 +144,7 @@ def compose(
     *,
     preview: bool,
     concurrency: int,
+    composition: str = REEL,
 ) -> Path:
     """Render `build/composed_<fmt>.mp4` with the Remotion CLI; previews at half size."""
     fmt = props_data["format"]
@@ -144,7 +155,7 @@ def compose(
         str(remotion_bin(renderer)),
         "render",
         "src/index.ts",
-        "Reel",
+        composition,
         str(out),
         f"--props={props_path}",
         f"--public-dir={public}",
@@ -155,6 +166,9 @@ def compose(
     ]
     if preview:
         argv.append(f"--scale={PREVIEW_SCALE}")
+    if composition == PRODUCT:
+        # A product video has no voice; mix expects an audio stream to put the bed beside.
+        argv.append("--enforce-audio-track")
     result = subprocess.run(
         argv, cwd=renderer, stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False
     )

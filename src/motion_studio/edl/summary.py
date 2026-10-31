@@ -2,11 +2,12 @@
 
 from collections import Counter
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, overload
 
 from motion_studio.config import Config
+from motion_studio.edl.grid import BeatGrid
 from motion_studio.edl.issues import EdlError, Issue
-from motion_studio.edl.models import Edl, EmphasisEvent
+from motion_studio.edl.models import EmphasisEvent, ProductEdl, TalkEdl
 from motion_studio.edl.resolve import Resolution
 
 HOOK_MS = 3000
@@ -75,8 +76,70 @@ class Summary:
         }
 
 
-def summarize(edl: Edl, resolution: Resolution, config: Config, timeline_path: str) -> Summary:
+@dataclass
+class ProductSummary:
+    """The validate summary of a product EDL: scenes, length and the grid they sit on."""
+
+    language: str | None
+    scenes: int
+    formats: list[str]
+    duration_s: float
+    limit_s: float
+    grid: BeatGrid
+    scene_types: dict[str, int]
+    warnings: list[Issue]
+    timeline: str
+
+    def lines(self) -> list[str]:
+        source = "from the music" if self.grid.from_music else "steady (no music yet)"
+        lines = [
+            f"✓ edl.json valid · product · {self.scenes} scenes · {', '.join(self.formats)}",
+            f"Duration {self.duration_s:.1f}s (limit {self.limit_s:g}s) · "
+            f"grid {self.grid.bpm:g} bpm, {source}",
+            "Scenes: " + " · ".join(f"{n} {kind}" for kind, n in self.scene_types.items()),
+        ]
+        lines += _issue_lines("⚠", self.warnings, "warnings")
+        lines.append(f"→ {self.timeline}")
+        return lines
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "valid": True,
+            "kind": "product",
+            "language": self.language,
+            "scenes": self.scenes,
+            "formats": self.formats,
+            "duration_s": self.duration_s,
+            "limit_s": self.limit_s,
+            "grid": {
+                "bpm": round(self.grid.bpm, 2),
+                "beats_per_bar": self.grid.beats_per_bar,
+                "from_music": self.grid.from_music,
+            },
+            "scene_types": self.scene_types,
+            "warnings": [w.model_dump() for w in self.warnings],
+            "timeline": self.timeline,
+        }
+
+
+@overload
+def summarize(
+    edl: TalkEdl, resolution: Resolution, config: Config, timeline_path: str
+) -> Summary: ...
+@overload
+def summarize(
+    edl: ProductEdl, resolution: Resolution, config: Config, timeline_path: str
+) -> ProductSummary: ...
+@overload
+def summarize(
+    edl: TalkEdl | ProductEdl, resolution: Resolution, config: Config, timeline_path: str
+) -> Summary | ProductSummary: ...
+def summarize(
+    edl: TalkEdl | ProductEdl, resolution: Resolution, config: Config, timeline_path: str
+) -> Summary | ProductSummary:
     """Summarise a resolved EDL; `timeline_path` is where the timeline was written."""
+    if isinstance(edl, ProductEdl):
+        return _product_summary(edl, resolution, config, timeline_path)
     timeline = resolution.timeline
     stats = resolution.stats
     hook = [w for w in timeline.words if w.start_ms < HOOK_MS]
@@ -119,3 +182,21 @@ def _issue_lines(mark: str, issues: list[Issue], noun: str) -> list[str]:
             f"{mark} … and {len(issues) - MAX_ISSUE_LINES} more {noun} (--json lists them all)"
         )
     return lines
+
+
+def _product_summary(
+    edl: ProductEdl, resolution: Resolution, config: Config, timeline_path: str
+) -> ProductSummary:
+    timeline = resolution.timeline
+    assert resolution.grid is not None
+    return ProductSummary(
+        language=timeline.language,
+        scenes=len(timeline.scenes),
+        formats=[f.name for f in timeline.formats],
+        duration_s=round(timeline.duration_frames / timeline.fps, 1),
+        limit_s=edl.max_duration_s or config.defaults.max_duration_s,
+        grid=resolution.grid,
+        scene_types=dict(Counter(s.type for s in timeline.scenes)),
+        warnings=list(resolution.warnings),
+        timeline=timeline_path,
+    )

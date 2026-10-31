@@ -267,6 +267,156 @@
       "title": "EmphasisEvent",
       "type": "object"
     },
+    "FootageScene": {
+      "additionalProperties": false,
+      "description": "A stretch of one screen recording, played in a device frame.\n\nIts length is `from` to `to` at `rate`, rounded to whole beats, unless a length is given;\nthen `from` to `to` is played to fill it and `rate` must be left out.",
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Text in the browser frame's address bar, such as example.com.",
+          "title": "Address"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "clip": {
+          "description": "Screen recording ID: c1.",
+          "title": "Clip",
+          "type": "string"
+        },
+        "device_frame": {
+          "const": "browser",
+          "default": "browser",
+          "description": "The frame drawn around the footage.",
+          "title": "Device Frame",
+          "type": "string"
+        },
+        "from": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where the footage starts.",
+          "title": "From"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Playback speed; default 1. Typing reads well at 2.6-3.2.",
+          "title": "Rate"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/MarkerPoint"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "description": "Where the footage ends.",
+          "title": "To"
+        },
+        "type": {
+          "const": "footage",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "clip",
+        "from",
+        "to"
+      ],
+      "title": "FootageScene",
+      "type": "object"
+    },
     "ImageEvent": {
       "additionalProperties": false,
       "properties": {
@@ -316,6 +466,48 @@
         "end"
       ],
       "title": "ImageEvent",
+      "type": "object"
+    },
+    "MarkerPoint": {
+      "additionalProperties": false,
+      "description": "A marker nudged by an offset, in seconds or in beats of the music's grid.",
+      "properties": {
+        "marker": {
+          "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+          "title": "Marker",
+          "type": "string"
+        },
+        "offset_beats": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Beats after the marker on the music's grid; negative is before.",
+          "title": "Offset Beats"
+        },
+        "offset_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Seconds after the marker; negative is before.",
+          "title": "Offset S"
+        }
+      },
+      "required": [
+        "marker"
+      ],
+      "title": "MarkerPoint",
       "type": "object"
     },
     "Policy": {
@@ -427,6 +619,115 @@
       "title": "Policy",
       "type": "object"
     },
+    "ProductEdl": {
+      "additionalProperties": false,
+      "description": "A product video: scenes in output order, with the talk EDL's top-level fields (ADR 0004).",
+      "properties": {
+        "captions": {
+          "$ref": "#/$defs/EdlCaptions"
+        },
+        "formats": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "9x16",
+                  "16x9",
+                  "4x5"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Product videos render in 16x9 only, the default.",
+          "title": "Formats"
+        },
+        "kind": {
+          "const": "product",
+          "title": "Kind",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Caption language; default: project's.",
+          "title": "Language"
+        },
+        "max_duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration S"
+        },
+        "music": {
+          "$ref": "#/$defs/EdlMusic"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "scenes": {
+          "description": "In output order.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "footage": "#/$defs/FootageScene",
+                "title_card": "#/$defs/TitleCardScene"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TitleCardScene"
+              },
+              {
+                "$ref": "#/$defs/FootageScene"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Scenes",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "scenes"
+      ],
+      "title": "ProductEdl",
+      "type": "object"
+    },
     "PushEvent": {
       "additionalProperties": false,
       "properties": {
@@ -493,6 +794,280 @@
         "to"
       ],
       "title": "Segment",
+      "type": "object"
+    },
+    "TalkEdl": {
+      "additionalProperties": false,
+      "description": "A talk edit: which words to keep, in which order, and what to layer on top.",
+      "properties": {
+        "captions": {
+          "$ref": "#/$defs/EdlCaptions"
+        },
+        "drop_ranges": {
+          "items": {
+            "$ref": "#/$defs/DropRange"
+          },
+          "title": "Drop Ranges",
+          "type": "array"
+        },
+        "drop_words": {
+          "description": "Word IDs cut out of their segments.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Drop Words",
+          "type": "array"
+        },
+        "events": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "broll": "#/$defs/BrollEvent",
+                "emphasis": "#/$defs/EmphasisEvent",
+                "image": "#/$defs/ImageEvent",
+                "push": "#/$defs/PushEvent",
+                "title": "#/$defs/TitleEvent",
+                "zoom": "#/$defs/ZoomEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ZoomEvent"
+              },
+              {
+                "$ref": "#/$defs/PushEvent"
+              },
+              {
+                "$ref": "#/$defs/BrollEvent"
+              },
+              {
+                "$ref": "#/$defs/ImageEvent"
+              },
+              {
+                "$ref": "#/$defs/TitleEvent"
+              },
+              {
+                "$ref": "#/$defs/EmphasisEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "formats": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "9x16",
+                  "16x9",
+                  "4x5"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: config formats.",
+          "title": "Formats"
+        },
+        "keep_words": {
+          "description": "Word IDs kept although the policy drops them as fillers.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Keep Words",
+          "type": "array"
+        },
+        "kind": {
+          "const": "talk",
+          "default": "talk",
+          "description": "The project kind; an EDL without one is a talk EDL.",
+          "title": "Kind",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Caption language; default: project's.",
+          "title": "Language"
+        },
+        "max_duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Duration S"
+        },
+        "music": {
+          "$ref": "#/$defs/EdlMusic"
+        },
+        "policy": {
+          "$ref": "#/$defs/Policy"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/Segment"
+          },
+          "minItems": 1,
+          "title": "Segments",
+          "type": "array"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segments"
+      ],
+      "title": "TalkEdl",
+      "type": "object"
+    },
+    "TitleCardScene": {
+      "additionalProperties": false,
+      "description": "A full-frame card that introduces a step of the story.",
+      "properties": {
+        "accent": {
+          "description": "Words of the headline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "headline": {
+          "minLength": 1,
+          "title": "Headline",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Step number shown above, such as \"01\".",
+          "title": "Step"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A smaller line under the headline.",
+          "title": "Subline"
+        },
+        "type": {
+          "const": "title_card",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "headline"
+      ],
+      "title": "TitleCardScene",
       "type": "object"
     },
     "TitleEvent": {
@@ -579,153 +1154,12 @@
       "type": "object"
     }
   },
-  "additionalProperties": false,
-  "description": "The edit: which words to keep, in which order, and what to layer on top.",
-  "properties": {
-    "captions": {
-      "$ref": "#/$defs/EdlCaptions"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/TalkEdl"
     },
-    "drop_ranges": {
-      "items": {
-        "$ref": "#/$defs/DropRange"
-      },
-      "title": "Drop Ranges",
-      "type": "array"
-    },
-    "drop_words": {
-      "description": "Word IDs cut out of their segments.",
-      "items": {
-        "type": "string"
-      },
-      "title": "Drop Words",
-      "type": "array"
-    },
-    "events": {
-      "items": {
-        "discriminator": {
-          "mapping": {
-            "broll": "#/$defs/BrollEvent",
-            "emphasis": "#/$defs/EmphasisEvent",
-            "image": "#/$defs/ImageEvent",
-            "push": "#/$defs/PushEvent",
-            "title": "#/$defs/TitleEvent",
-            "zoom": "#/$defs/ZoomEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/$defs/ZoomEvent"
-          },
-          {
-            "$ref": "#/$defs/PushEvent"
-          },
-          {
-            "$ref": "#/$defs/BrollEvent"
-          },
-          {
-            "$ref": "#/$defs/ImageEvent"
-          },
-          {
-            "$ref": "#/$defs/TitleEvent"
-          },
-          {
-            "$ref": "#/$defs/EmphasisEvent"
-          }
-        ]
-      },
-      "title": "Events",
-      "type": "array"
-    },
-    "formats": {
-      "anyOf": [
-        {
-          "items": {
-            "enum": [
-              "9x16",
-              "16x9",
-              "4x5"
-            ],
-            "type": "string"
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Default: config formats.",
-      "title": "Formats"
-    },
-    "keep_words": {
-      "description": "Word IDs kept although the policy drops them as fillers.",
-      "items": {
-        "type": "string"
-      },
-      "title": "Keep Words",
-      "type": "array"
-    },
-    "language": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "description": "Caption language; default: project's.",
-      "title": "Language"
-    },
-    "max_duration_s": {
-      "anyOf": [
-        {
-          "exclusiveMinimum": 0,
-          "type": "number"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Max Duration S"
-    },
-    "music": {
-      "$ref": "#/$defs/EdlMusic"
-    },
-    "policy": {
-      "$ref": "#/$defs/Policy"
-    },
-    "rationale": {
-      "default": "",
-      "title": "Rationale",
-      "type": "string"
-    },
-    "schema_version": {
-      "const": 1,
-      "default": 1,
-      "title": "Schema Version",
-      "type": "integer"
-    },
-    "segments": {
-      "items": {
-        "$ref": "#/$defs/Segment"
-      },
-      "minItems": 1,
-      "title": "Segments",
-      "type": "array"
-    },
-    "title": {
-      "default": "",
-      "title": "Title",
-      "type": "string"
+    {
+      "$ref": "#/$defs/ProductEdl"
     }
-  },
-  "required": [
-    "segments"
-  ],
-  "title": "Edl",
-  "type": "object"
+  ]
 }

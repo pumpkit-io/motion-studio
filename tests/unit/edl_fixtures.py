@@ -3,8 +3,8 @@
 from typing import Any
 
 from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
-from motion_studio.analysis.models import Role
-from motion_studio.edl import Edl
+from motion_studio.analysis.models import Marker, Role
+from motion_studio.edl.models import ProductEdl, TalkEdl
 from motion_studio.lang import load_language
 
 WORD_S = 0.3
@@ -36,8 +36,8 @@ def timed(clip_id: str, *words: tuple[str, float, float], tail: float = 0.5) -> 
     )
 
 
-def edl(*segments: tuple[str, str, str], **extra: Any) -> Edl:
-    return Edl.model_validate(
+def edl(*segments: tuple[str, str, str], **extra: Any) -> TalkEdl:
+    return TalkEdl.model_validate(
         {"segments": [{"id": i, "from": f, "to": t} for i, f, t in segments], **extra}
     )
 
@@ -51,3 +51,27 @@ def asset(clip_id: str, role: Role, duration: float) -> ClipAnalysis:
         duration_s=duration,
     )
     return ClipAnalysis(clip=info)
+
+
+def screen(clip_id: str, duration: float, markers: dict[str, float] | None = None) -> ClipAnalysis:
+    """A 1600x900 screen recording with these named markers (seconds on its clock)."""
+    info = ClipInfo(
+        id=clip_id,
+        role="screen",
+        source=f"raw/{clip_id}.mp4",
+        mezzanine=f"media/{clip_id}.mp4",
+        duration_s=duration,
+        fps=30,
+        width=1600,
+        height=900,
+    )
+    marks = [Marker(name=n, t=t) for n, t in (markers or {}).items()]
+    return ClipAnalysis(
+        clip=info,
+        markers_source=f"raw/{clip_id}.markers.json" if markers else None,
+        markers=marks,
+    )
+
+
+def product(*scenes: dict[str, Any], **extra: Any) -> ProductEdl:
+    return ProductEdl.model_validate({"kind": "product", "scenes": list(scenes), **extra})

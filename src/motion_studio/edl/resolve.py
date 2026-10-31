@@ -9,19 +9,23 @@ from motion_studio import lang
 from motion_studio.analysis import ClipAnalysis, project_language
 from motion_studio.config import Config, Edit
 from motion_studio.edl.events import OutputMap, resolve_events
+from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR, BeatGrid
 from motion_studio.edl.issues import Issue, Problems
 from motion_studio.edl.models import (
     Crop,
     DropRange,
     Edl,
     FormatSpec,
+    ProductEdl,
     Run,
     SafeZone,
+    TalkEdl,
     Timeline,
     TimelineBrand,
     TimelineCaptions,
     TimelineWord,
 )
+from motion_studio.edl.product import PRODUCT_FORMATS, resolve_scenes
 from motion_studio.edl.refs import RefIndex, WordSpan
 from motion_studio.edl.runs import SourceRun, cut_segment
 
@@ -45,6 +49,8 @@ class Resolution:
     timeline: Timeline
     warnings: list[Issue]
     stats: ResolveStats
+    # The beat grid a product EDL's scenes sit on.
+    grid: BeatGrid | None = None
 
 
 def resolve(
@@ -52,12 +58,78 @@ def resolve(
     edl: Edl,
     config: Config,
     beats: Sequence[float] | None = None,
+    *,
+    beats_per_bar: int = DEFAULT_BEATS_PER_BAR,
 ) -> Resolution:
     """Resolve `edl` against the analyses. Raises EdlError listing every error found.
 
-    `config` is the effective config; the EDL's own policy is applied on top of its [edit].
-    `beats` are music beat times in output seconds; B-roll and image starts snap to them.
+    `config` is the effective config; a talk EDL's own policy is applied on top of its [edit].
+    `beats` are music beat times in output seconds. B-roll and image starts snap to them in a
+    talk EDL; a product EDL's scenes are laid on them, or on 120 bpm without music.
     """
+    if isinstance(edl, ProductEdl):
+        return _resolve_product(clips, edl, config, BeatGrid.of(beats, beats_per_bar))
+    return _resolve_talk(clips, edl, config, beats)
+
+
+def _resolve_product(
+    clips: Sequence[ClipAnalysis], edl: ProductEdl, config: Config, grid: BeatGrid
+) -> Resolution:
+    problems = Problems()
+    language = _language(edl, clips, config, problems)
+    resolved = resolve_scenes(clips, edl, config, grid, problems)
+    problems.raise_errors()
+    fps = config.defaults.fps
+    _check_length(resolved.duration_frames / fps, edl, config, problems)
+    music_mode = edl.music.mode or config.music.mode
+    timeline = Timeline(
+        kind="product",
+        title=edl.title,
+        language=language,
+        fps=fps,
+        duration_frames=resolved.duration_frames,
+        formats=[_format_spec(name) for name in PRODUCT_FORMATS],
+        runs=[],
+        words=[],
+        events=[],
+        scenes=resolved.scenes,
+        captions=_captions(config, edl, language),
+        brand=TimelineBrand(**config.brand.model_dump()),
+        music_path=None if music_mode == "none" else MUSIC_PATH,
+    )
+    return Resolution(
+        timeline=timeline, warnings=problems.warnings, stats=ResolveStats(), grid=grid
+    )
+
+
+def _language(edl: Edl, clips: Sequence[ClipAnalysis], config: Config, problems: Problems) -> str:
+    language = edl.language or project_language(clips, config.defaults.language)
+    if language not in lang.available_languages():
+        problems.error(
+            "unknown_language",
+            f"language {language} has no data file; available: "
+            + ", ".join(lang.available_languages()),
+        )
+    return language
+
+
+def _check_length(seconds: float, edl: Edl, config: Config, problems: Problems) -> None:
+    limit = edl.max_duration_s or config.defaults.max_duration_s
+    if seconds > limit:
+        hint = (
+            "shorten or drop a scene"
+            if isinstance(edl, ProductEdl)
+            else "drop or shorten a segment, or lower policy.max_pause_ms"
+        )
+        problems.warn("too_long", f"duration {seconds:.1f} s is over the {limit:.1f} s limit", hint)
+
+
+def _resolve_talk(
+    clips: Sequence[ClipAnalysis],
+    edl: TalkEdl,
+    config: Config,
+    beats: Sequence[float] | None,
+) -> Resolution:
     policy = _policy(config, edl)
     fps = config.defaults.fps
     problems = Problems()
@@ -68,13 +140,7 @@ def resolve(
     dropped = index.word_list(edl.drop_words, "drop_words", problems)
     keep = index.word_list(edl.keep_words, "keep_words", problems)
     index.check_ranges(edl.drop_ranges, problems)
-    language = edl.language or project_language(clips, config.defaults.language)
-    if language not in lang.available_languages():
-        problems.error(
-            "unknown_language",
-            f"language {language} has no data file; available: "
-            + ", ".join(lang.available_languages()),
-        )
+    language = _language(edl, clips, config, problems)
     problems.raise_errors()
     for clip_id, i in sorted(dropped & keep):
         problems.warn(
@@ -154,13 +220,7 @@ def resolve(
     for word in timeline_words:
         word.emphasis = word.id in resolved.emphasis
 
-    limit = edl.max_duration_s or config.defaults.max_duration_s
-    if out / fps > limit:
-        problems.warn(
-            "too_long",
-            f"duration {out / fps:.1f} s is over the {limit:.1f} s limit",
-            hint="drop or shorten a segment, or lower policy.max_pause_ms",
-        )
+    _check_length(out / fps, edl, config, problems)
 
     music_mode = edl.music.mode or config.music.mode
     timeline = Timeline(
@@ -216,7 +276,7 @@ def _captions(config: Config, edl: Edl, language: str) -> TimelineCaptions:
     return TimelineCaptions.model_validate(settings)
 
 
-def _policy(config: Config, edl: Edl) -> Edit:
+def _policy(config: Config, edl: TalkEdl) -> Edit:
     overrides = edl.policy.model_dump(exclude_none=True)
     return Edit.model_validate({**config.edit.model_dump(), **overrides})
 
