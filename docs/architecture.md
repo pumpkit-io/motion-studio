@@ -51,16 +51,17 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `paths.py` | Finds the workspace, resolves a project's directories, and locates the cache (`~/Library/Caches/motion-studio` on macOS). |
 | `state.py` | `state.json`: per-stage status, input fingerprints and warnings; the per-project lock; the machine-wide heavy-model lock in the cache; the free-disk guard. |
 | `migrate.py` | Recognises what the previous name left behind: `agents sync` migrates old workspaces, `doctor` and `setup` print the `mv` for the old cache, and old environment variables warn. The only module that keeps the previous name. |
+| `kind.py` | The project kind (`talk` or `product`, ADR 0004) read from `project.toml`, and the guard that makes a command for the other kind exit 1. |
 | `workspace.py` | `init`, `new`, `status`, `clean`, and copying the workspace template. |
 | `doctor.py`, `setup.py` | Machine checks, and one-time downloads into the cache. |
 | `media/` | ffmpeg and ffprobe as argument lists (never shell strings), probing the installed ffmpeg's filters and options, mezzanine normalisation, frame reading. |
 | `audio/` | Voice extraction and denoising: DeepFilterNet, or ffmpeg `arnndn` with a vendored model as the fallback. |
-| `ingest.py` | Clip IDs, provisional roles, mezzanines, enhanced audio, image normalisation, `media/manifest.json`. |
+| `ingest.py` | Clip IDs, provisional roles, mezzanines, enhanced audio, image normalisation, `media/manifest.json`; in product projects, screen recordings and their 1 fps contact sheets. |
 | `asr/` | Silero VAD, the `ASRBackend` protocol with `mlx-whisper` and `faster-whisper`, and the worker subprocess. |
 | `vision/` | Shot and motion detection in-process; face detection (MediaPipe, YuNet fallback) in a worker subprocess. |
 | `analysis/` | Pure functions over transcripts and spans: filler tagging, utterances, pauses, unaligned voice, retake clusters, role finalisation, and the packers that write `packed.md` and `assets.md`. |
 | `lang/` | One TOML file per language; see `docs/adding-a-language.md`. |
-| `analyze.py` | The analyze stage: runs the workers, the analysers and the packers per clip. |
+| `analyze.py` | The analyze stage: runs the workers, the analysers and the packers per clip. Product projects skip speech, faces and retakes and read each screen recording's markers sidecar. |
 | `look/` | Contact sheets for a time range or an asset, and the look budget. |
 | `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
@@ -81,6 +82,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 |---|---|---|---|---|
 | Config | `motion_studio.config.Config` | `schemas/config.schema.json` | the creator | every stage |
 | Clip analysis | `motion_studio.analysis.models.ClipAnalysis` | `schemas/analysis.schema.json` | analyze | plan, look, check |
+| Markers sidecar | `motion_studio.analysis.models.ScreenMarkers` | `schemas/markers.schema.json` | the recorders, or the creator by hand (`raw/<name>.markers.json`) | analyze, into `analysis/<id>.json` |
 | EDL | `motion_studio.edl.models.Edl` | `schemas/edl.schema.json` | the host agent (`plan draft` for the baseline) | plan validate |
 | Timeline | `motion_studio.edl.models.Timeline` | `schemas/timeline.schema.json`, `renderer/src/types.gen.ts` | plan validate | render, the renderer, check |
 

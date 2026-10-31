@@ -749,3 +749,20 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
+
+## Product project kind with screen recordings (ticket #30, spec #26)
+
+Built:
+
+- `new --kind talk|product` writes `[project] kind` to `project.toml` (default `talk`; a `project.toml` without it reads as talk). `status` prints `<slug> (<kind>): ...` and `kind` in JSON. `src/motion_studio/kind.py` holds `ProjectKind`, `project_kind` and `require_kind`; `words` uses the guard and exits 1 on a product project with a hint pointing at the markers in `packed.md`.
+- A new role, `screen`, with the `c` prefix. In a product project every video ingests as a screen recording: a mezzanine, no voice files (its sound is never cut or mixed), and a 1 fps contact sheet at `contact/<id>.png` drawn at ingest, outside the look budget (capped at 180 frames with a warning). `<name>.markers.json` files in `raw/` are skipped as clips. Ingest's stage parameters gain `project_kind` only for product projects, so existing talk projects stay fresh.
+- The markers sidecar contract, `ScreenMarkers` (`schemas/markers.schema.json`): `width`/`height` of the recorded frame, `markers` (name, `t`, `elements` with `x`, `y`, `w`, `h`) and the `cursor` track (`t`, `x`, `y`, `down`). Marker names are unique, element names unique per marker, and neither holds a dot, so `c1.m.<name>` and `c1.e.<name>` parse. `ClipAnalysis` gains `markers_source`, `markers` and `cursor`, with boxes and cursor scaled to the mezzanine's pixels (a sidecar whose aspect ratio differs from the clip exits 1).
+- Analyze on a product project resolves no ASR backend, starts neither worker, skips role finalisation and writes no `retakes.json`. It keeps shots and static stretches, and the sidecar is an input of the clip and of the stage, so editing it re-analyses. `packed.md` has a product layout: per recording, length, frame size, marker count, one line per marker with its element boxes, and static stretches.
+- `docs/cli.md` covers `new --kind`, the kind in `status`, screen recordings at ingest and analyze, the sidecar format, and `words` on product projects. The glossary's A-roll and screen recording entries say the `c` prefix is shared.
+
+Deviation: element boxes in `analysis/<id>.json` and `packed.md` are in mezzanine pixels, not the raw clip's, because the mezzanine is what every later stage reads; they only differ for recordings with a side over the mezzanine limit.
+
+Checked:
+
+- `tests/unit/test_product_kind_cli.py` drives `new`, `status`, `words`, `ingest` and `analyze` through `CliRunner` on a generated 4.5 s recording with a hand-written sidecar.
+- `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass. Local-only: `tests/integration/test_ingest_fixtures.py` and `test_analyze_fixtures.py` pass for mlx-whisper; their faster-whisper cases need the `cpu` extra, which the Mac install lacks. No renderer, music or record tests are touched.

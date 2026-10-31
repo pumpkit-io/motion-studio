@@ -41,11 +41,11 @@ One file in a project's `raw/` directory, given a stable short ID at ingest.
 _Avoid_: File, take, source
 
 **Role**:
-What a clip is used for: A-roll, B-roll or image.
+What a clip is used for: A-roll, B-roll, image or screen recording.
 _Avoid_: Type, kind, category
 
 **A-roll**:
-A clip of the speaker talking; its speech is what the edit cuts. IDs start with `c`.
+A clip of the speaker talking; its speech is what the edit cuts. IDs start with `c`, a prefix shared with screen recordings, which only product projects have.
 _Avoid_: Main footage, talking head clip
 
 **B-roll**:
@@ -65,7 +65,7 @@ One attempt by the speaker at delivering some lines. A clip can hold several tak
 _Avoid_: Clip (a clip is a file; a take is a performance), Screen recording
 
 **Screen recording**:
-A clip made by running a recording script against a browser or a terminal, carrying the markers the script wrote.
+A clip made by running a recording script against a browser or a terminal, carrying the markers the script wrote. Every video in a product project is one. IDs start with `c`, as A-roll IDs do.
 _Avoid_: Take (a take is a speaker's performance), capture, screencast
 
 **Recording script**:

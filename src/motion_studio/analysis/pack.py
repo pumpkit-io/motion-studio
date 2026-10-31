@@ -4,12 +4,16 @@ import statistics
 from collections.abc import Sequence
 from pathlib import PurePosixPath
 
-from motion_studio.analysis.models import ClipAnalysis, Retakes, Utterance, Word
+from motion_studio.analysis.models import ClipAnalysis, Marker, Retakes, Utterance, Word
 from motion_studio.text import strip_punctuation
 
 LEGEND = (
     "Legend: {ehm#c1.w1}=hard filler (id) · ~tipo~=soft filler · ‖1.7s‖=pause ≥0.7s · "
     "⟂0.4s=unaligned voice · ✗=incomplete utterance"
+)
+SCREEN_LEGEND = (
+    "Legend: c1.m.<name> mm:ss.s = marker · c1.e.<name> x,y wxh = element box at that marker, "
+    "in mezzanine pixels · static = a still screen ≥2s"
 )
 PAUSE_MIN_S = 0.7
 DASH = "\u2013"  # en dash between the two ends of a time range
@@ -45,6 +49,40 @@ def pack_project(title: str, language: str, clips: Sequence[ClipAnalysis], retak
             for clip_id, s in static
         )
     return "\n".join(lines) + "\n"
+
+
+def pack_screen_project(title: str, clips: Sequence[ClipAnalysis]) -> str:
+    """The packed index of a product project: each screen recording's markers and stills."""
+    screens = [c for c in clips if c.clip.role == "screen"]
+    images = sum(1 for c in clips if c.clip.role == "image")
+    total = sum(c.clip.duration_s for c in screens)
+    noun = "screen recording" if len(screens) == 1 else "screen recordings"
+    lines = [
+        f"# Project: {title} · product · {len(screens)} {noun}, {_seconds(total)} · "
+        f"images {images}",
+        SCREEN_LEGEND,
+    ]
+    for analysis in screens:
+        clip = analysis.clip
+        count = len(analysis.markers)
+        parts = [clip.id, PurePosixPath(clip.source).name, _seconds(clip.duration_s)]
+        if clip.width and clip.height:
+            parts.append(f"{clip.width}x{clip.height}")
+        parts.append(f"{count} marker{'' if count == 1 else 's'}" if count else "no markers")
+        lines += ["", "## " + " · ".join(parts)]
+        if analysis.markers_source is None:
+            lines.append("No markers sidecar: address this clip in source seconds.")
+        lines += [_marker_line(clip.id, m) for m in analysis.markers]
+        lines += [f"- static [{_ts(s.start)}{DASH}{_ts(s.end)}]" for s in analysis.static]
+    return "\n".join(lines) + "\n"
+
+
+def _marker_line(clip_id: str, marker: Marker) -> str:
+    boxes = [
+        f"{clip_id}.e.{e.name} {round(e.x)},{round(e.y)} {round(e.w)}x{round(e.h)}"
+        for e in marker.elements
+    ]
+    return " · ".join([f"- {clip_id}.m.{marker.name} {_ts(marker.t)}", *boxes])
 
 
 def _header(
@@ -136,6 +174,10 @@ def _ts(seconds: float) -> str:
 def _duration(seconds: float) -> str:
     total = round(seconds)
     return f"{total}s" if total < 60 else f"{total // 60}m{total % 60:02d}s"
+
+
+def _seconds(seconds: float) -> str:
+    return f"{seconds:.1f} s" if seconds < 60 else _duration(seconds)
 
 
 def _mark(utt_id: str, complete: dict[str, bool]) -> str:

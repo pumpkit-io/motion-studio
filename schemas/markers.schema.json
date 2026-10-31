@@ -1,0 +1,150 @@
+{
+  "$defs": {
+    "CursorSample": {
+      "additionalProperties": false,
+      "description": "Where the recorder's cursor was, in the same pixels as the element boxes.",
+      "properties": {
+        "down": {
+          "default": false,
+          "description": "True while the button is pressed.",
+          "title": "Down",
+          "type": "boolean"
+        },
+        "t": {
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "x",
+        "y"
+      ],
+      "title": "CursorSample",
+      "type": "object"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "description": "A named on-screen box at one marker, in the pixels of the frame the sidecar declares.",
+      "properties": {
+        "h": {
+          "exclusiveMinimum": 0,
+          "title": "H",
+          "type": "number"
+        },
+        "name": {
+          "description": "Addressed as `<clip>.e.<name>`.",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "w": {
+          "exclusiveMinimum": 0,
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge, pixels from the frame's left.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge, pixels from the frame's top.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Element",
+      "type": "object"
+    },
+    "Marker": {
+      "additionalProperties": false,
+      "description": "A named moment on the clip's clock, with the boxes of the elements captured then.",
+      "properties": {
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "title": "Elements",
+          "type": "array"
+        },
+        "name": {
+          "description": "Addressed as `<clip>.m.<name>`.",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "t": {
+          "description": "Seconds from the clip's first frame.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "t"
+      ],
+      "title": "Marker",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The markers sidecar: `raw/<name>.markers.json` next to `raw/<name>.<ext>`.\n\nThe recorders write it; it can also be written by hand for footage brought in.",
+  "properties": {
+    "cursor": {
+      "items": {
+        "$ref": "#/$defs/CursorSample"
+      },
+      "title": "Cursor",
+      "type": "array"
+    },
+    "height": {
+      "description": "Height of the recorded frame the boxes are in.",
+      "exclusiveMinimum": 0,
+      "title": "Height",
+      "type": "integer"
+    },
+    "markers": {
+      "items": {
+        "$ref": "#/$defs/Marker"
+      },
+      "title": "Markers",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "width": {
+      "description": "Width of the recorded frame the boxes are in.",
+      "exclusiveMinimum": 0,
+      "title": "Width",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "width",
+    "height"
+  ],
+  "title": "ScreenMarkers",
+  "type": "object"
+}

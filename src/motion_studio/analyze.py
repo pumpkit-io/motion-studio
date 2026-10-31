@@ -13,24 +13,36 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
 from motion_studio import APP_NAME, lang
 from motion_studio.analysis import (
     ClipAnalysis,
     ClipInfo,
     Faces,
+    Retakes,
+    ScreenMarkers,
     analyse_transcript,
     finalise_role,
     find_retakes,
     find_static,
     pack_assets,
     pack_project,
+    pack_screen_project,
     project_language,
     read_descriptions,
 )
 from motion_studio.asr import SpeechJob, SpeechResult, model_ref, resolve_backend, transcribe_clips
 from motion_studio.config import load_config
 from motion_studio.errors import UserError
-from motion_studio.ingest import ClipMedia, load_clips, load_manifest, record_auto_role
+from motion_studio.ingest import (
+    ClipMedia,
+    load_clips,
+    load_manifest,
+    markers_sidecar,
+    record_auto_role,
+)
+from motion_studio.kind import ProjectKind, project_kind
 from motion_studio.look import write_asset_sheet
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.state import mark_done, mark_failed, project_lock, record_warning, stage_is_fresh
@@ -56,6 +68,7 @@ class ClipSummary:
     utterances: int
     path: Path
     analysed: bool
+    markers: int = 0
 
 
 @dataclass
@@ -66,7 +79,7 @@ class AnalyzeReport:
     clips: list[ClipSummary]
     retake_clusters: int
     packed: Path
-    retakes: Path
+    retakes: Path | None
     assets: Path
     sheets: list[Path] = field(default_factory=lambda: list[Path]())
     backend: str | None = None
@@ -94,6 +107,7 @@ class AnalyzeReport:
                     "confidence": c.confidence,
                     "words": c.words,
                     "utterances": c.utterances,
+                    "markers": c.markers,
                     "analysis": str(c.path),
                     "status": "analysed" if c.analysed else "unchanged",
                 }
@@ -102,7 +116,7 @@ class AnalyzeReport:
             "retake_clusters": self.retake_clusters,
             "packed": str(self.packed),
             "packed_tokens": self.packed_tokens,
-            "retakes": str(self.retakes),
+            "retakes": str(self.retakes) if self.retakes else None,
             "assets": str(self.assets),
             "sheets": [str(p) for p in self.sheets],
             "asr": {
@@ -155,35 +169,48 @@ def _analyze(
             f"no clip {only!r} in {project.slug!r}",
             hint=f"clips: {', '.join(c.id for c in media)}",
         )
-    backend = resolve_backend(config.asr.backend)
-    ref = model_ref(backend, config.asr.model)
+    kind = project_kind(project)
+    talk = kind is ProjectKind.TALK
     configured = config.defaults.language
-    params = {
-        "recipe": RECIPE,
-        "backend": backend,
-        "model": f"{ref.repo}@{ref.revision}",
-        "language": configured,
-        "lang_data": _lang_data_hash(),
-    }
+    if talk:
+        backend = resolve_backend(config.asr.backend)
+        ref = model_ref(backend, config.asr.model)
+        params: dict[str, Any] = {
+            "recipe": RECIPE,
+            "backend": backend,
+            "model": f"{ref.repo}@{ref.revision}",
+            "language": configured,
+            "lang_data": _lang_data_hash(),
+        }
+    else:
+        backend = None
+        params = {"recipe": RECIPE, "project_kind": kind.value}
     manifest_path = project.media / "manifest.json"
-    stage_inputs = [manifest_path, project.project_toml]
+    stage_inputs = [
+        manifest_path,
+        project.project_toml,
+        *(markers_sidecar(project, c.source) for c in media if c.role == "screen"),
+    ]
     project.analysis.mkdir(exist_ok=True)
-    outputs = [project.analysis / PACKED, project.analysis / RETAKES, project.analysis / ASSETS]
+    outputs = [project.analysis / PACKED, project.analysis / ASSETS]
+    if talk:
+        outputs.append(project.analysis / RETAKES)
 
     if only is None and stage_is_fresh(project, STAGE, stage_inputs, params=params):
         analyses = [load_analysis(project, c.id) for c in media]
-        return _report(project, media, analyses, set(), configured, noop=True)
+        return _report(project, kind, media, analyses, set(), configured, noop=True)
 
     stale = [
         c
         for c in media
         if (only is None or c.id == only) and (c.id == only or not _clip_fresh(project, c, params))
     ]
-    jobs = [_job(project, c, configured) for c in stale if c.audio_16k]
+    jobs = [_job(project, c, configured) for c in stale if c.audio_16k] if talk else []
     speech: dict[str, SpeechResult] = {}
     run = None
     warnings: list[str] = []
     if jobs:
+        assert backend is not None
 
         def waiting(holder: str) -> None:
             message = f"waiting for the heavy-model lock ({holder})"
@@ -192,10 +219,12 @@ def _analyze(
         run = transcribe_clips(jobs, backend=backend, model=config.asr.model, on_wait=waiting)
         speech = {r.id: r for r in run.results}
 
-    faces = _faces(project, stale, on_warning=on_warning, warnings=warnings)
+    faces = _faces(project, stale, on_warning=on_warning, warnings=warnings) if talk else {}
     for c in stale:
         analysis = _clip_analysis(project, c, speech.get(c.id))
         analysis = _with_visuals(project, c, analysis, faces.get(c.id))
+        if c.role == "screen":
+            analysis = _with_markers(project, c, analysis, warnings)
         path = analysis_path(project, c.id)
         path.write_text(analysis.model_dump_json(indent=2) + "\n", encoding="utf-8")
         mark_done(
@@ -205,7 +234,8 @@ def _analyze(
             outputs=[path],
             params=_clip_params(c, params),
         )
-    media = _finalise_roles(project, media)
+    if talk:
+        media = _finalise_roles(project, media)
 
     analyses: list[ClipAnalysis] = []
     for c in media:
@@ -224,7 +254,7 @@ def _analyze(
     for message in warnings:
         on_warning(message)
 
-    report = _report(project, media, analyses, {c.id for c in stale}, configured)
+    report = _report(project, kind, media, analyses, {c.id for c in stale}, configured)
     if only is None:
         mark_done(
             project,
@@ -246,6 +276,7 @@ def _analyze(
 
 def _report(
     project: ProjectPaths,
+    kind: ProjectKind,
     media: list[ClipMedia],
     analyses: list[ClipAnalysis],
     analysed: set[str],
@@ -253,17 +284,21 @@ def _report(
     *,
     noop: bool = False,
 ) -> AnalyzeReport:
+    talk = kind is ProjectKind.TALK
     language = project_language(analyses, configured)
-    retakes = find_retakes(analyses)
+    retakes = find_retakes(analyses) if talk else Retakes(threshold=0)
     retakes_path = project.analysis / RETAKES
     packed_path = project.analysis / PACKED
     assets_path = project.analysis / ASSETS
     sheets_written: list[Path] = []
     if not noop:
-        retakes_path.write_text(retakes.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        packed_path.write_text(
-            pack_project(project_title(project), language, analyses, retakes), encoding="utf-8"
-        )
+        title = project_title(project)
+        if talk:
+            retakes_path.write_text(retakes.model_dump_json(indent=2) + "\n", encoding="utf-8")
+            packed = pack_project(title, language, analyses, retakes)
+        else:
+            packed = pack_screen_project(title, analyses)
+        packed_path.write_text(packed, encoding="utf-8")
         old = assets_path.read_text(encoding="utf-8") if assets_path.exists() else ""
         sheets = {
             a.clip.id: project.asset_sheet(a.clip.id).relative_to(project.root).as_posix()
@@ -295,12 +330,13 @@ def _report(
                 utterances=len(a.utterances),
                 path=analysis_path(project, a.clip.id),
                 analysed=a.clip.id in analysed,
+                markers=len(a.markers),
             )
             for a in analyses
         ],
         retake_clusters=len(retakes.clusters),
         packed=packed_path,
-        retakes=retakes_path,
+        retakes=retakes_path if talk else None,
         assets=assets_path,
         sheets=sheets_written,
         noop=noop,
@@ -317,6 +353,8 @@ def _clip_params(clip: ClipMedia, params: dict[str, Any]) -> dict[str, Any]:
 
 def _clip_inputs(project: ProjectPaths, clip: ClipMedia) -> list[Path]:
     inputs = [project.root / clip.mezzanine]
+    if clip.role == "screen":
+        inputs.append(markers_sidecar(project, clip.source))
     return [*inputs, project.root / clip.audio_16k] if clip.audio_16k else inputs
 
 
@@ -373,6 +411,68 @@ def _with_visuals(
         )
         update["shots"] = find_shots(video, clip.duration_s)
     return analysis.model_copy(update=update)
+
+
+def _with_markers(
+    project: ProjectPaths, clip: ClipMedia, analysis: ClipAnalysis, warnings: list[str]
+) -> ClipAnalysis:
+    """Read the clip's markers sidecar, if any, with its boxes scaled to the mezzanine."""
+    path = markers_sidecar(project, clip.source)
+    if not path.is_file():
+        return analysis
+    hint = (
+        "give width and height of the recorded frame, and each marker a unique name "
+        "(letters, digits, _ or -) and a time t in seconds; or delete the file"
+    )
+    try:
+        sidecar = ScreenMarkers.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc']) or 'file'}: {e['msg']}" for e in exc.errors()
+        )
+        raise UserError(f"{path}: {problems}", hint=hint) from exc
+    sx, sy = clip.width / sidecar.width, clip.height / sidecar.height
+    if abs(sx - sy) > 0.01 * max(sx, sy):
+        raise UserError(
+            f"{path}: the boxes are in a {sidecar.width}x{sidecar.height} frame, but "
+            f"{clip.id} is {clip.width}x{clip.height}",
+            hint="set width and height to the size the clip was recorded at",
+        )
+    markers = [
+        m.model_copy(
+            update={
+                "elements": [
+                    e.model_copy(
+                        update={
+                            "x": round(e.x * sx, 2),
+                            "y": round(e.y * sy, 2),
+                            "w": round(e.w * sx, 2),
+                            "h": round(e.h * sy, 2),
+                        }
+                    )
+                    for e in m.elements
+                ]
+            }
+        )
+        for m in sorted(sidecar.markers, key=lambda m: m.t)
+    ]
+    duration = clip.duration_s or 0.0
+    late = [m.name for m in markers if m.t > duration]
+    if late:
+        warnings.append(
+            f"{clip.id}: marker {', '.join(late)} is after the clip's end ({duration:.2f} s)"
+        )
+    cursor = [
+        c.model_copy(update={"x": round(c.x * sx, 2), "y": round(c.y * sy, 2)})
+        for c in sidecar.cursor
+    ]
+    return analysis.model_copy(
+        update={
+            "markers_source": path.relative_to(project.root).as_posix(),
+            "markers": markers,
+            "cursor": cursor,
+        }
+    )
 
 
 def _finalise_roles(project: ProjectPaths, media: list[ClipMedia]) -> list[ClipMedia]:

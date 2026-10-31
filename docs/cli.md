@@ -113,13 +113,17 @@ $ motion-studio new [OPTIONS] {slug} [more]...
 * `more...`: More files or directories, as in `--from a.mov b.mov`.
 * `--from <path>`: A file or directory to put in raw/. Repeatable.
 * `--title <str>`: Human title; defaults to the slug.
+* `--kind [talk|product]`: talk (a talking-head video) or product (from screen recordings).  [default: talk]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
 ```console
 $ motion-studio new launch-day --from ~/Desktop/takes/ --title "Launch day"
 $ motion-studio new launch-day --from take1.mov take2.mov broll.mp4 logo.png
+$ motion-studio new launch --kind product --from demo.mp4 demo.markers.json post.png
 ```
+
+The kind is written to `project.toml` as `[project] kind` and never changes or gets guessed from the footage (ADR 0004). A `project.toml` without one is a talk project. In a product project every video is a screen recording and ingest, analyze and the packed index follow the product layout; `words` exits 1 there.
 
 ## `motion-studio status`
 
@@ -133,7 +137,7 @@ $ motion-studio status [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Stages are `ingest`, `analyze`, `plan`, `music`, `preview`, `check` and `final`; each is `pending`, `done`, `stale` (an input changed since it ran) or `failed`.
+The first line names the project's kind, as in `launch (product): 2 clip(s) in raw/`. Stages are `ingest`, `analyze`, `plan`, `music`, `preview`, `check` and `final`; each is `pending`, `done`, `stale` (an input changed since it ran) or `failed`.
 
 ## `motion-studio clean`
 
@@ -209,6 +213,8 @@ $ motion-studio ingest [OPTIONS] {slug}
 
 Writes `media/<id>.mp4` (constant frame rate, rotation applied, HDR tone-mapped to BT.709), `media/<id>.wav` (denoised voice, 48 kHz) and `media/<id>_16k.wav` per video, a normalised `media/<id>.jpg` or `.png` per image (HEIC and HEIF become PNG, decoded with `sips` on macOS or `heif-convert` from libheif elsewhere; with neither installed they are skipped with a warning), and `media/manifest.json`. Clip IDs and roles go in `project.toml`; edit a clip's `role` there to override the classification. Re-running with unchanged inputs does nothing.
 
+In a product project every video is a screen recording (role `screen`, IDs `c1`, `c2`, ...). It gets a mezzanine but no voice files, and ingest draws it once at one frame per second into `contact/<id>.png`; that sheet does not count against the look budget. A recording longer than 180 s is drawn in 180 evenly spaced frames, with a warning. A `<name>.markers.json` file in `raw/` is the markers sidecar of the clip `<name>.<ext>` beside it, not a clip of its own.
+
 ## `motion-studio analyze`
 
 Transcribe speech, find shots, static stretches and faces, and write the indexes.
@@ -223,6 +229,25 @@ $ motion-studio analyze [OPTIONS] {slug}
 * `--help`: Show this message and exit.
 
 Writes `analysis/<id>.json` per clip, `analysis/retakes.json`, `analysis/packed.md` (the index the agent reads first), `analysis/assets.md` and a contact sheet `contact/<id>.png` per B-roll clip and image. Descriptions written into `assets.md` survive re-analysis.
+
+In a product project analyze loads no speech-to-text or face model and writes no `retakes.json`. For each screen recording it finds shots and static stretches and reads its markers sidecar, if there is one. `packed.md` then lists each recording's length, frame size, markers (`c1.m.<name>`), the element boxes captured at each marker (`c1.e.<name> x,y wxh`, in mezzanine pixels) and static stretches. A recording without a sidecar says so; it can only be addressed in source seconds.
+
+### The markers sidecar
+
+The recorders write it, and you can write one by hand for footage you bring. `schemas/markers.schema.json` is its contract. Times are seconds from the clip's first frame; boxes and the cursor are pixels of a `width` x `height` frame, the size the clip was recorded at, and analyze scales them to the mezzanine. Marker names are unique, element names are unique within a marker, and both use letters, digits, `_` and `-`. A sidecar that does not validate makes analyze exit 1 naming the file and the problem.
+
+```json
+{
+  "schema_version": 1,
+  "width": 1600,
+  "height": 900,
+  "markers": [
+    {"name": "brief_sent", "t": 2.4},
+    {"name": "v1_shown", "t": 9.8, "elements": [{"name": "post", "x": 420, "y": 180, "w": 760, "h": 300}]}
+  ],
+  "cursor": [{"t": 0.0, "x": 800, "y": 450}, {"t": 2.3, "x": 1210, "y": 640, "down": true}]
+}
+```
 
 ## Looking at footage
 
@@ -244,6 +269,8 @@ $ motion-studio words [OPTIONS] {slug} {start} [end]
 $ motion-studio words talk c1.s4
 $ motion-studio words talk c1.w40 c1.w60
 ```
+
+`words` is for talk projects; on a product project it exits 1 and points to the markers in `packed.md`.
 
 ## `motion-studio look`
 

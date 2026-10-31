@@ -21,6 +21,7 @@ from motion_studio.analysis.models import Role
 from motion_studio.audio.enhance import Denoiser, denoiser_available, extract_voice
 from motion_studio.config import load_config
 from motion_studio.errors import UserError
+from motion_studio.kind import ProjectKind, project_kind
 from motion_studio.media.ffmpeg import FFmpegCaps, ffmpeg_caps, run_ffmpeg
 from motion_studio.media.normalise import (
     HEIF_EXTENSIONS,
@@ -45,8 +46,11 @@ STAGE = "ingest"
 # Bump when the mezzanine or audio recipe changes, so existing projects re-ingest.
 RECIPE = 1
 
-ROLES: tuple[Role, ...] = ("aroll", "broll", "image")
-PREFIX: dict[Role, str] = {"aroll": "c", "broll": "b", "image": "i"}
+ROLES: tuple[Role, ...] = ("aroll", "broll", "image", "screen")
+# Product projects have no A-roll, so screen recordings take its prefix (ADR 0005's `c2.m.<name>`).
+PREFIX: dict[Role, str] = {"aroll": "c", "broll": "b", "image": "i", "screen": "c"}
+# A recording's markers sidecar sits next to it in raw/: `demo.mp4` and `demo.markers.json`.
+MARKERS_SUFFIX = ".markers.json"
 
 # A video whose loudest moment is quieter than this has no speech worth cutting.
 SPEECH_PEAK_DB = -35.0
@@ -98,6 +102,7 @@ class IngestReport:
     ingested: list[str]
     unchanged: list[str]
     warnings: list[str] = field(default_factory=list)
+    sheets: list[Path] = field(default_factory=lambda: list[Path]())
     noop: bool = False
 
     def to_json(self) -> dict[str, Any]:
@@ -116,6 +121,7 @@ class IngestReport:
                 for c in self.clips
             ],
             "manifest": str(self.project.media / MANIFEST),
+            "sheets": [str(p) for p in self.sheets],
             "warnings": self.warnings,
         }
 
@@ -152,6 +158,12 @@ def record_auto_role(project: ProjectPaths, clip_id: str, role: Role) -> ClipEnt
     entries[clip_id] = updated
     _write_clips(project, entries)
     return updated
+
+
+def markers_sidecar(project: ProjectPaths, source: str) -> Path:
+    """Where the markers of the clip from `source` (relative to the project) would be."""
+    path = project.root / source
+    return path.with_name(path.stem + MARKERS_SUFFIX)
 
 
 def load_manifest(project: ProjectPaths) -> Manifest:
@@ -194,14 +206,18 @@ def _ingest(
     on_progress: Progress,
 ) -> IngestReport:
     fps = load_config(workspace, project.slug).defaults.fps
+    kind = project_kind(project)
     caps = ffmpeg_caps()
     heif = heif_decoder()
-    params = {
+    params: dict[str, Any] = {
         "recipe": RECIPE,
         "fps": fps,
         "denoiser": denoiser_available(caps),
         "heif": heif,
     }
+    # Only product projects carry the kind, so existing talk projects stay fresh.
+    if kind is ProjectKind.PRODUCT:
+        params["project_kind"] = kind.value
     project.media.mkdir(exist_ok=True)
     if stage_is_fresh(project, STAGE, [project.raw], params=params):
         entries = load_clips(project)
@@ -227,6 +243,8 @@ def _ingest(
     probes: dict[str, Probe] = {}
     added = False
     for source in sorted(p for p in project.raw.iterdir() if _visible_file(p)):
+        if source.name.endswith(MARKERS_SUFFIX):
+            continue
         rel = source.relative_to(project.root).as_posix()
         if heif is None and source.suffix.lower() in HEIF_EXTENSIONS:
             warn(f"skipped {rel}: nothing here decodes HEIC/HEIF; {HEIF_HINT}")
@@ -238,7 +256,7 @@ def _ingest(
         if info.kind == "unsupported":
             warn(f"skipped {rel}: not a video or image ({info.reason})")
             continue
-        role = _provisional_role(source, info)
+        role = _provisional_role(source, info, kind)
         clip_id = _next_id(entries, role)
         entries[clip_id] = ClipEntry(source=rel, role=role, auto_role=role)
         known[rel] = clip_id
@@ -257,6 +275,7 @@ def _ingest(
     ingested: list[str] = []
     unchanged: list[str] = []
     retained: list[str] = []
+    sheets: list[Path] = []
     for clip_id in sorted(probes, key=_id_order):
         entry, info = entries[clip_id], probes[clip_id]
         source = project.root / entry.source
@@ -274,6 +293,13 @@ def _ingest(
         for message in clip_warnings:
             warn(message)
         outputs = [project.root / p for p in (clip.mezzanine, clip.audio, clip.audio_16k) if p]
+        if clip.role == "screen":
+            sheet, sheet_warnings = write_screen_sheet(project, clip)
+            for message in sheet_warnings:
+                warn(message)
+            clip_warnings = [*clip_warnings, *sheet_warnings]
+            outputs.append(sheet)
+            sheets.append(sheet)
         mark_done(
             project,
             record_key,
@@ -292,8 +318,9 @@ def _ingest(
     outputs = [manifest_path] + [
         project.root / p for c in media for p in (c.mezzanine, c.audio, c.audio_16k) if p
     ]
+    outputs += [project.asset_sheet(c.id) for c in media if c.role == "screen"]
     mark_done(project, STAGE, [project.raw], outputs=outputs, params=params, warnings=retained)
-    return IngestReport(project, media, ingested, unchanged, [*warnings, *retained])
+    return IngestReport(project, media, ingested, unchanged, [*warnings, *retained], sheets)
 
 
 def _normalise(
@@ -328,7 +355,8 @@ def _normalise(
     warnings += mezzanine.warnings
     audio = audio_16k = None
     denoiser: Denoiser | None = None
-    if info.has_audio:
+    # A screen recording's sound is never cut or mixed, so it gets no voice track.
+    if info.has_audio and entry.role != "screen":
         voice = extract_voice(
             source,
             project.media / f"{clip_id}.wav",
@@ -369,13 +397,15 @@ def _manifest_entry(project: ProjectPaths, clip_id: str) -> ClipMedia | None:
     return next((c for c in clips if c.id == clip_id), None)
 
 
-def _provisional_role(source: Path, info: Probe) -> Role:
-    """Image, or video split on whether its audio is loud enough to hold speech.
+def _provisional_role(source: Path, info: Probe, kind: ProjectKind) -> Role:
+    """Image; in a product project, a screen recording; else video split on its audio level.
 
-    The analysis stage replaces this with speech and face evidence.
+    The analysis stage replaces a talk project's guess with speech and face evidence.
     """
     if info.kind == "image":
         return "image"
+    if kind is ProjectKind.PRODUCT:
+        return "screen"
     if not info.has_audio:
         return "broll"
     lines = run_ffmpeg(["-i", source, "-map", "0:a:0", "-af", "volumedetect", "-f", "null", "-"])
@@ -385,6 +415,13 @@ def _provisional_role(source: Path, info: Probe) -> Role:
             peak = float(match.group(1))
             return "aroll" if peak > SPEECH_PEAK_DB else "broll"
     return "aroll"
+
+
+def write_screen_sheet(project: ProjectPaths, clip: ClipMedia) -> tuple[Path, list[str]]:
+    # look imports this module, so it can only be imported at call time.
+    from motion_studio.look import write_screen_sheet as write
+
+    return write(project, clip)
 
 
 def _next_id(entries: dict[str, ClipEntry], role: Role) -> str:

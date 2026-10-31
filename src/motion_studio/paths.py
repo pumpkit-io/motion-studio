@@ -130,7 +130,7 @@ class ProjectPaths:
         )
 
     def asset_sheet(self, clip_id: str) -> Path:
-        """The contact sheet of one B-roll clip or image, which assets.md links to."""
+        """The contact sheet of one B-roll clip, image or screen recording, made once per clip."""
         return self.contact / f"{clip_id}.png"
 
     def require(self) -> "ProjectPaths":
