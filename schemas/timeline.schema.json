@@ -157,17 +157,44 @@
           "title": "Logo",
           "type": "string"
         },
+        "mascot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimelineMascot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Product videos only."
+        },
         "primary": {
           "description": "#RRGGBB; #RGB is accepted and expanded.",
           "pattern": "^#[0-9A-F]{6}$",
           "title": "Primary",
           "type": "string"
+        },
+        "wordmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wordmark image relative to the workspace; product videos only.",
+          "title": "Wordmark"
         }
       },
       "required": [
         "primary",
         "accent",
-        "logo"
+        "logo",
+        "wordmark",
+        "mascot"
       ],
       "title": "TimelineBrand",
       "type": "object"
@@ -330,7 +357,10 @@
           "type": "string"
         },
         "device_frame": {
-          "const": "browser",
+          "enum": [
+            "browser",
+            "terminal"
+          ],
           "title": "Device Frame",
           "type": "string"
         },
@@ -473,6 +503,272 @@
       "title": "TimelineImage",
       "type": "object"
     },
+    "TimelineKineticLine": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "words": {
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Words",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "words"
+      ],
+      "title": "TimelineKineticLine",
+      "type": "object"
+    },
+    "TimelineKineticText": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "lines": {
+          "description": "Back to back from the scene's start.",
+          "items": {
+            "$ref": "#/$defs/TimelineKineticLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "kinetic_text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "lines"
+      ],
+      "title": "TimelineKineticText",
+      "type": "object"
+    },
+    "TimelineLogoOutro": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mascot": {
+          "description": "Draw brand.mascot beside the wordmark.",
+          "title": "Mascot",
+          "type": "boolean"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "tagline": {
+          "description": "Empty for no tagline.",
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Tagline",
+          "type": "array"
+        },
+        "type": {
+          "const": "logo_outro",
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "tagline",
+        "url",
+        "mascot"
+      ],
+      "title": "TimelineLogoOutro",
+      "type": "object"
+    },
+    "TimelineMascot": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_height": {
+          "title": "Frame Height",
+          "type": "integer"
+        },
+        "frame_width": {
+          "title": "Frame Width",
+          "type": "integer"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/TimelineSpriteFrame"
+          },
+          "title": "Frames",
+          "type": "array"
+        },
+        "loops": {
+          "description": "Times the frames play before the last one holds; 0 is forever.",
+          "title": "Loops",
+          "type": "integer"
+        },
+        "sheet": {
+          "description": "Sprite sheet image, relative to the workspace.",
+          "title": "Sheet",
+          "type": "string"
+        },
+        "sheet_height": {
+          "title": "Sheet Height",
+          "type": "integer"
+        },
+        "sheet_width": {
+          "title": "Sheet Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sheet",
+        "sheet_width",
+        "sheet_height",
+        "frame_width",
+        "frame_height",
+        "frames",
+        "loops"
+      ],
+      "title": "TimelineMascot",
+      "type": "object"
+    },
+    "TimelineProof": {
+      "additionalProperties": false,
+      "properties": {
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Badge"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "headline": {
+          "description": "Empty for an image on its own.",
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Headline",
+          "type": "array"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Height"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "src": {
+          "description": "The image, relative to the project.",
+          "title": "Src",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subline"
+        },
+        "type": {
+          "const": "proof",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Pixel size of the image, when ingest measured it.",
+          "title": "Width"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "src",
+        "width",
+        "height",
+        "headline",
+        "subline",
+        "badge"
+      ],
+      "title": "TimelineProof",
+      "type": "object"
+    },
     "TimelinePush": {
       "additionalProperties": false,
       "properties": {
@@ -502,6 +798,32 @@
         "scale"
       ],
       "title": "TimelinePush",
+      "type": "object"
+    },
+    "TimelineSpriteFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "ms": {
+          "description": "How long the frame shows.",
+          "title": "Ms",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Left edge of the frame in the sheet, in sheet pixels.",
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "ms"
+      ],
+      "title": "TimelineSpriteFrame",
       "type": "object"
     },
     "TimelineTitle": {
@@ -778,6 +1100,9 @@
         "discriminator": {
           "mapping": {
             "footage": "#/$defs/TimelineFootage",
+            "kinetic_text": "#/$defs/TimelineKineticText",
+            "logo_outro": "#/$defs/TimelineLogoOutro",
+            "proof": "#/$defs/TimelineProof",
             "title_card": "#/$defs/TimelineTitleCard"
           },
           "propertyName": "type"
@@ -788,6 +1113,15 @@
           },
           {
             "$ref": "#/$defs/TimelineFootage"
+          },
+          {
+            "$ref": "#/$defs/TimelineKineticText"
+          },
+          {
+            "$ref": "#/$defs/TimelineProof"
+          },
+          {
+            "$ref": "#/$defs/TimelineLogoOutro"
           }
         ]
       },

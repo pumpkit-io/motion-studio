@@ -204,6 +204,9 @@ FootagePoint = Annotated[
 ]
 
 
+DeviceFrame = Literal["browser", "terminal"]
+
+
 class _Scene(_Model):
     id: str = Field(description="Unique name: intro, step1, demo.")
     beats: float | None = Field(default=None, gt=0, description="Length in beats of the grid.")
@@ -239,15 +242,63 @@ class FootageScene(_Scene):
     rate: float | None = Field(
         default=None, gt=0, description="Playback speed; default 1. Typing reads well at 2.6-3.2."
     )
-    device_frame: Literal["browser"] = Field(
+    device_frame: DeviceFrame = Field(
         default="browser", description="The frame drawn around the footage."
     )
     address: str | None = Field(
-        default=None, description="Text in the browser frame's address bar, such as example.com."
+        default=None,
+        description="Text in the browser's address bar, such as example.com, or the terminal's "
+        "title bar.",
     )
 
 
-Scene = Annotated[TitleCardScene | FootageScene, Field(discriminator="type")]
+class KineticTextScene(_Scene):
+    """Lines that spring in word by word, one after another, sharing the scene's length."""
+
+    type: Literal["kinetic_text"]
+    lines: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+    accent: list[str] = Field(
+        default_factory=lambda: list[str](),
+        description="Words of any line drawn in the brand accent colour.",
+    )
+
+
+class ProofScene(_Scene):
+    """An image, such as the published post, that swings in in 3D beside an optional headline."""
+
+    type: Literal["proof"]
+    image: str = Field(description="Image clip ID: i1.")
+    headline: str | None = Field(default=None, description="Drawn left of the image.")
+    accent: list[str] = Field(
+        default_factory=lambda: list[str](),
+        description="Words of the headline drawn in the brand accent colour.",
+    )
+    subline: str | None = Field(default=None, description="A smaller line under the headline.")
+    badge: str | None = Field(
+        default=None, description='A stamp that pops onto the image\'s corner, such as "Posted".'
+    )
+
+
+class LogoOutroScene(_Scene):
+    """The brand's mascot and wordmark, a tagline and a URL, fading to black at the end."""
+
+    type: Literal["logo_outro"]
+    tagline: str | None = Field(default=None, description="A line under the wordmark.")
+    accent: list[str] = Field(
+        default_factory=lambda: list[str](),
+        description="Words of the tagline drawn in the brand accent colour.",
+    )
+    url: str | None = Field(default=None, description="Shown in a pill under the tagline.")
+    mascot: bool = Field(
+        default=True,
+        description="Draw the [brand] mascot beside the wordmark; false leaves it out.",
+    )
+
+
+Scene = Annotated[
+    TitleCardScene | FootageScene | KineticTextScene | ProofScene | LogoOutroScene,
+    Field(discriminator="type"),
+]
 
 
 class ProductEdl(_Model):
@@ -350,10 +401,30 @@ class Run(_Out):
     )
 
 
+class TimelineSpriteFrame(_Out):
+    x: int = Field(description="Left edge of the frame in the sheet, in sheet pixels.")
+    y: int
+    ms: int = Field(description="How long the frame shows.")
+
+
+class TimelineMascot(_Out):
+    sheet: str = Field(description="Sprite sheet image, relative to the workspace.")
+    sheet_width: int
+    sheet_height: int
+    frame_width: int
+    frame_height: int
+    frames: list[TimelineSpriteFrame]
+    loops: int = Field(description="Times the frames play before the last one holds; 0 is forever.")
+
+
 class TimelineBrand(_Out):
     primary: HexColor
     accent: HexColor
     logo: str = Field(description="Relative to the workspace.")
+    wordmark: str | None = Field(
+        default=None, description="Wordmark image relative to the workspace; product videos only."
+    )
+    mascot: TimelineMascot | None = Field(default=None, description="Product videos only.")
 
 
 class TimelineWord(_Out):
@@ -439,11 +510,51 @@ class TimelineFootage(_Out):
     src_in_s: float = Field(description="Source seconds of the scene's first frame.")
     src_out_s: float = Field(description="Source seconds where the scene ends.")
     rate: float = Field(description="Playback speed that fits src_in_s to src_out_s in the scene.")
-    device_frame: Literal["browser"]
+    device_frame: DeviceFrame
     address: str | None
 
 
-TimelineScene = Annotated[TimelineTitleCard | TimelineFootage, Field(discriminator="type")]
+class TimelineKineticLine(_Out):
+    start: int
+    end: int
+    words: list[TimelineHeadlineWord]
+
+
+class TimelineKineticText(_Out):
+    type: Literal["kinetic_text"]
+    id: str
+    start: int
+    end: int
+    lines: list[TimelineKineticLine] = Field(description="Back to back from the scene's start.")
+
+
+class TimelineProof(_Out):
+    type: Literal["proof"]
+    id: str
+    start: int
+    end: int
+    src: str = Field(description="The image, relative to the project.")
+    width: int | None = Field(description="Pixel size of the image, when ingest measured it.")
+    height: int | None
+    headline: list[TimelineHeadlineWord] = Field(description="Empty for an image on its own.")
+    subline: str | None
+    badge: str | None
+
+
+class TimelineLogoOutro(_Out):
+    type: Literal["logo_outro"]
+    id: str
+    start: int
+    end: int
+    tagline: list[TimelineHeadlineWord] = Field(description="Empty for no tagline.")
+    url: str | None
+    mascot: bool = Field(description="Draw brand.mascot beside the wordmark.")
+
+
+TimelineScene = Annotated[
+    TimelineTitleCard | TimelineFootage | TimelineKineticText | TimelineProof | TimelineLogoOutro,
+    Field(discriminator="type"),
+]
 
 
 class TimelineCaptions(_Out):

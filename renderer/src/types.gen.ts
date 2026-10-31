@@ -26,7 +26,7 @@ export interface Timeline {
   /**
    * Product videos: scenes back to back in output order.
    */
-  scenes: (TimelineTitleCard | TimelineFootage)[];
+  scenes: (TimelineTitleCard | TimelineFootage | TimelineKineticText | TimelineProof | TimelineLogoOutro)[];
   schema_version: 1;
   title: string;
   /**
@@ -44,9 +44,43 @@ export interface TimelineBrand {
    */
   logo: string;
   /**
+   * Product videos only.
+   */
+  mascot: TimelineMascot | null;
+  /**
    * #RRGGBB; #RGB is accepted and expanded.
    */
   primary: string;
+  /**
+   * Wordmark image relative to the workspace; product videos only.
+   */
+  wordmark: string | null;
+}
+export interface TimelineMascot {
+  frame_height: number;
+  frame_width: number;
+  frames: TimelineSpriteFrame[];
+  /**
+   * Times the frames play before the last one holds; 0 is forever.
+   */
+  loops: number;
+  /**
+   * Sprite sheet image, relative to the workspace.
+   */
+  sheet: string;
+  sheet_height: number;
+  sheet_width: number;
+}
+export interface TimelineSpriteFrame {
+  /**
+   * How long the frame shows.
+   */
+  ms: number;
+  /**
+   * Left edge of the frame in the sheet, in sheet pixels.
+   */
+  x: number;
+  y: number;
 }
 export interface TimelineCaptions {
   enabled: boolean;
@@ -201,7 +235,7 @@ export interface TimelineHeadlineWord {
 export interface TimelineFootage {
   address: string | null;
   clip: string;
-  device_frame: "browser";
+  device_frame: "browser" | "terminal";
   end: number;
   /**
    * Pixel height of the footage.
@@ -230,6 +264,57 @@ export interface TimelineFootage {
    * Pixel width of the footage.
    */
   width: number;
+}
+export interface TimelineKineticText {
+  end: number;
+  id: string;
+  /**
+   * Back to back from the scene's start.
+   */
+  lines: TimelineKineticLine[];
+  start: number;
+  type: "kinetic_text";
+}
+export interface TimelineKineticLine {
+  end: number;
+  start: number;
+  words: TimelineHeadlineWord[];
+}
+export interface TimelineProof {
+  badge: string | null;
+  end: number;
+  /**
+   * Empty for an image on its own.
+   */
+  headline: TimelineHeadlineWord[];
+  height: number | null;
+  id: string;
+  /**
+   * The image, relative to the project.
+   */
+  src: string;
+  start: number;
+  subline: string | null;
+  type: "proof";
+  /**
+   * Pixel size of the image, when ingest measured it.
+   */
+  width: number | null;
+}
+export interface TimelineLogoOutro {
+  end: number;
+  id: string;
+  /**
+   * Draw brand.mascot beside the wordmark.
+   */
+  mascot: boolean;
+  start: number;
+  /**
+   * Empty for no tagline.
+   */
+  tagline: TimelineHeadlineWord[];
+  type: "logo_outro";
+  url: string | null;
 }
 export interface TimelineWord {
   emphasis: boolean;

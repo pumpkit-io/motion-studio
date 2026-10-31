@@ -122,10 +122,21 @@ class Master(_Section):
     lra: float = 11
 
 
+class Mascot(_Section):
+    sheet: str = Field(description="Sprite sheet image, relative to the workspace.")
+    timings: str = Field(description="The sheet's frame-timing JSON, relative to the workspace.")
+
+
 class Brand(_Section):
     primary: HexColor = "#111111"
     accent: HexColor = "#FFD400"
     logo: str = "library/brand/logo.png"
+    wordmark: str | None = Field(
+        default=None, description="Wordmark image for product outros, relative to the workspace."
+    )
+    mascot: Mascot | None = Field(
+        default=None, description="Sprite-sheet mascot for product outros."
+    )
 
 
 class Config(_Section):

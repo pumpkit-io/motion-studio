@@ -6,8 +6,9 @@ import type { TimelineFootage } from "../lib/timeline";
 import { Backdrop } from "./Backdrop";
 import { BROWSER_BODY, BrowserBar } from "./BrowserFrame";
 import { EXIT_FRAMES } from "./Kinetic";
+import { TERMINAL_BODY, TerminalBar } from "./TerminalFrame";
 
-/** A screen recording in a browser window that tilts in, then blurs out at the scene's end. */
+/** A screen recording in a browser or terminal window that tilts in, then blurs out at the end. */
 export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font: LoadedFont; unit: number }> = ({
   scene,
   palette,
@@ -25,6 +26,7 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
     extrapolateRight: "clamp",
   });
   const transform = frameTransform(layout, canvas, { enter });
+  const terminal = scene.device_frame === "terminal";
   return (
     <AbsoluteFill>
       <Backdrop palette={palette} unit={unit} />
@@ -41,10 +43,14 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
             borderRadius: 18 * unit,
             overflow: "hidden",
             boxShadow: `0 ${40 * unit}px ${120 * unit}px rgba(0, 0, 0, 0.55), 0 0 0 ${unit}px rgba(255, 255, 255, 0.08)`,
-            backgroundColor: BROWSER_BODY,
+            backgroundColor: terminal ? TERMINAL_BODY : BROWSER_BODY,
           }}
         >
-          <BrowserBar height={layout.bar} address={scene.address} font={font} />
+          {terminal ? (
+            <TerminalBar height={layout.bar} title={scene.address} font={font} />
+          ) : (
+            <BrowserBar height={layout.bar} address={scene.address} font={font} />
+          )}
           <div style={{ position: "relative", width: layout.content.width, height: layout.content.height, overflow: "hidden" }}>
             <OffthreadVideo
               src={staticFile(scene.src)}

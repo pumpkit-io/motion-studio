@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import BaseModel, TypeAdapter
 
 from motion_studio.analysis import ClipAnalysis, ScreenMarkers
+from motion_studio.brand import SpriteTimings
 from motion_studio.config import Config
 from motion_studio.edl import Timeline
 from motion_studio.edl.models import EDL_ADAPTER
@@ -30,6 +31,7 @@ CONTRACTS: dict[str, type[BaseModel] | TypeAdapter[Any]] = {
     "edl": EDL_ADAPTER,
     "markers": ScreenMarkers,
     "music": MusicInfo,
+    "sprite": SpriteTimings,
     "timeline": Timeline,
 }
 

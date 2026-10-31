@@ -25,7 +25,7 @@ from motion_studio.edl.models import (
     TimelineCaptions,
     TimelineWord,
 )
-from motion_studio.edl.product import PRODUCT_FORMATS, resolve_scenes
+from motion_studio.edl.product import PRODUCT_FORMATS, BrandAssets, resolve_scenes
 from motion_studio.edl.refs import RefIndex, WordSpan
 from motion_studio.edl.runs import SourceRun, cut_segment
 
@@ -60,24 +60,31 @@ def resolve(
     beats: Sequence[float] | None = None,
     *,
     beats_per_bar: int = DEFAULT_BEATS_PER_BAR,
+    brand: BrandAssets | None = None,
 ) -> Resolution:
     """Resolve `edl` against the analyses. Raises EdlError listing every error found.
 
     `config` is the effective config; a talk EDL's own policy is applied on top of its [edit].
     `beats` are music beat times in output seconds. B-roll and image starts snap to them in a
-    talk EDL; a product EDL's scenes are laid on them, or on 120 bpm without music.
+    talk EDL; a product EDL's scenes are laid on them, or on 120 bpm without music. `brand` holds
+    the `[brand]` files a product EDL's scenes may need, loaded by the caller.
     """
     if isinstance(edl, ProductEdl):
-        return _resolve_product(clips, edl, config, BeatGrid.of(beats, beats_per_bar))
+        grid = BeatGrid.of(beats, beats_per_bar)
+        return _resolve_product(clips, edl, config, grid, brand or BrandAssets())
     return _resolve_talk(clips, edl, config, beats)
 
 
 def _resolve_product(
-    clips: Sequence[ClipAnalysis], edl: ProductEdl, config: Config, grid: BeatGrid
+    clips: Sequence[ClipAnalysis],
+    edl: ProductEdl,
+    config: Config,
+    grid: BeatGrid,
+    brand: BrandAssets,
 ) -> Resolution:
     problems = Problems()
     language = _language(edl, clips, config, problems)
-    resolved = resolve_scenes(clips, edl, config, grid, problems)
+    resolved = resolve_scenes(clips, edl, config, grid, problems, brand)
     problems.raise_errors()
     fps = config.defaults.fps
     _check_length(resolved.duration_frames / fps, edl, config, problems)
@@ -94,7 +101,13 @@ def _resolve_product(
         events=[],
         scenes=resolved.scenes,
         captions=_captions(config, edl, language),
-        brand=TimelineBrand(**config.brand.model_dump()),
+        brand=TimelineBrand(
+            primary=config.brand.primary,
+            accent=config.brand.accent,
+            logo=config.brand.logo,
+            wordmark=brand.wordmark,
+            mascot=brand.mascot,
+        ),
         music_path=None if music_mode == "none" else MUSIC_PATH,
     )
     return Resolution(
@@ -233,7 +246,9 @@ def _resolve_talk(
         words=timeline_words,
         events=resolved.events,
         captions=_captions(config, edl, language),
-        brand=TimelineBrand(**config.brand.model_dump()),
+        brand=TimelineBrand(
+            primary=config.brand.primary, accent=config.brand.accent, logo=config.brand.logo
+        ),
         music_path=None if music_mode == "none" else MUSIC_PATH,
     )
     return Resolution(timeline=timeline, warnings=problems.warnings, stats=stats)

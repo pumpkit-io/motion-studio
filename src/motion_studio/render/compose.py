@@ -32,6 +32,12 @@ class Brand:
     font: Path | None
     logo: Path | None
     warnings: tuple[str, ...]
+    # Product outros only; validation has checked the files exist.
+    wordmark: Path | None = None
+    mascot: Path | None = None
+
+    def files(self) -> list[Path]:
+        return [p for p in (self.font, self.logo, self.wordmark, self.mascot) if p is not None]
 
 
 def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
@@ -55,7 +61,15 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
             logo = candidate
         elif timeline.brand.logo != default_logo:
             warnings.append(f"brand logo {candidate} not found; rendering without a logo")
-    return Brand(font=font, logo=logo, warnings=tuple(warnings))
+    wordmark = timeline.brand.wordmark
+    mascot = timeline.brand.mascot
+    return Brand(
+        font=font,
+        logo=logo,
+        warnings=tuple(warnings),
+        wordmark=workspace / wordmark if wordmark is not None else None,
+        mascot=workspace / mascot.sheet if mascot is not None else None,
+    )
 
 
 def _find_font(name: str, workspace: Path) -> Path | None:
@@ -97,9 +111,15 @@ def prepare_public(
             _link(project_root / src, public / src)
     if brand.font is not None:
         _link(brand.font, public / "brand" / f"font{brand.font.suffix.lower()}")
-    if brand.logo is not None:
-        _link(brand.logo, public / "brand" / f"logo{brand.logo.suffix.lower()}")
+    for name, path in _brand_files(brand).items():
+        _link(path, public / name)
     return public
+
+
+def _brand_files(brand: Brand) -> dict[str, Path]:
+    """The brand's images by their path in the public dir."""
+    named = {"logo": brand.logo, "wordmark": brand.wordmark, "mascot": brand.mascot}
+    return {f"brand/{n}{p.suffix.lower()}": p for n, p in named.items() if p is not None}
 
 
 def _link(source: Path, target: Path) -> None:
@@ -126,14 +146,20 @@ def props(timeline: Timeline, fmt: str, canvas: Canvas, video: str, brand: Brand
 def product_props(timeline: Timeline, fmt: str, brand: Brand) -> dict[str, Any]:
     """The Product composition's props; scenes name their footage files themselves."""
     data = timeline.model_dump(mode="json")
-    font_file = logo_file = None
+    font_file = None
     if brand.font is not None:
         font_file = f"brand/font{brand.font.suffix.lower()}"
         # A plain family name keeps CSS happy whatever the configured value looks like.
         data["captions"]["font"] = "Brand" + _key(brand.font.stem).capitalize()
-    if brand.logo is not None:
-        logo_file = f"brand/logo{brand.logo.suffix.lower()}"
-    return {"timeline": data, "format": fmt, "font_file": font_file, "logo_file": logo_file}
+    files = {Path(name).stem: name for name in _brand_files(brand)}
+    return {
+        "timeline": data,
+        "format": fmt,
+        "font_file": font_file,
+        "logo_file": files.get("logo"),
+        "wordmark_file": files.get("wordmark"),
+        "mascot_file": files.get("mascot"),
+    }
 
 
 def compose(

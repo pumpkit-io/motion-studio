@@ -153,7 +153,7 @@ def render_project(
         )
         assemble_inputs = [timeline_path(project), manifest, *media]
         inputs = [*assemble_inputs, *_overlay_media(project, timeline)]
-        inputs += [p for p in (music_file, brand.font, brand.logo) if p is not None]
+        inputs += [*([music_file] if music_file is not None else []), *brand.files()]
         params = {
             "recipe": RECIPE,
             "formats": chosen,

@@ -20,6 +20,7 @@ from motion_studio.analysis import (
     project_language,
 )
 from motion_studio.analyze import RETAKES, project_title
+from motion_studio.brand import load_brand_assets
 from motion_studio.config import load_config
 from motion_studio.edl import (
     Edl,
@@ -33,7 +34,7 @@ from motion_studio.edl import (
 )
 from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR
 from motion_studio.edl.issues import Problems
-from motion_studio.edl.models import TalkEdl
+from motion_studio.edl.models import ProductEdl, TalkEdl
 from motion_studio.edl.refs import RefIndex
 from motion_studio.edl.summary import ProductSummary, Summary
 from motion_studio.errors import UserError
@@ -112,7 +113,11 @@ def resolve_project(workspace: Path, slug: str) -> tuple[Edl, Resolution]:
     edl = load_edl(project)
     config = load_config(workspace, slug)
     beats, beats_per_bar = _beat_grid(project)
-    return edl, resolve(load_analyses(project), edl, config, beats, beats_per_bar=beats_per_bar)
+    brand = load_brand_assets(workspace, config.brand) if isinstance(edl, ProductEdl) else None
+    resolution = resolve(
+        load_analyses(project), edl, config, beats, beats_per_bar=beats_per_bar, brand=brand
+    )
+    return edl, resolution
 
 
 def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftReport:

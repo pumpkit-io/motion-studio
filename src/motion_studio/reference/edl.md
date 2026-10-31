@@ -141,7 +141,7 @@ Warnings: `short_run`, `empty_segment`, `drop_and_keep`, `too_long`, `asset_shor
 
 ## Product EDLs
 
-A product video is scenes back to back, in output order: title cards and footage of screen recordings in a device frame. Screen recordings have no words, so you point into them by marker (ADR 0005), and scene lengths are in beats or bars so cuts land on the music.
+A product video is scenes back to back, in output order: kinetic text, title cards, footage of screen recordings in a device frame, proof shots and a logo outro. Screen recordings have no words, so you point into them by marker (ADR 0005), and scene lengths are in beats or bars so cuts land on the music.
 
 ### IDs
 
@@ -159,13 +159,16 @@ A product video is scenes back to back, in output order: title cards and footage
   "kind": "product",
   "title": "Pumpkit launch",
   "scenes": [
-    { "id": "intro", "type": "title_card", "bars": 2, "headline": "Got an idea?", "accent": ["idea"] },
+    { "id": "intro", "type": "kinetic_text", "bars": 3, "lines": ["Got an idea?", "Turning it into a post…", "…is the hard part."], "accent": ["idea?", "hard"] },
     { "id": "step1", "type": "title_card", "beats": 2, "step": "01", "headline": "Pick who inspires you.", "accent": ["inspires"] },
     { "id": "pick", "type": "footage", "clip": "c1", "from": "c1.m.open", "to": { "marker": "c1.m.picked", "offset_s": 0.4 }, "rate": 1.8, "address": "pumpkit.io" },
-    { "id": "brief", "type": "footage", "clip": "c2", "from": "c2.m.typing", "to": "c2.m.sent", "bars": 2 }
+    { "id": "brief", "type": "footage", "clip": "c2", "from": "c2.m.typing", "to": "c2.m.sent", "bars": 2 },
+    { "id": "posted", "type": "proof", "bars": 2, "image": "i1", "headline": "Live on X.", "subline": "One click.", "badge": "Posted" },
+    { "id": "mcp", "type": "footage", "clip": "c3", "from": "c3.m.start", "to": "c3.m.scheduled", "rate": 2.6, "device_frame": "terminal", "address": "claude: ~/pumpkit-demo" },
+    { "id": "outro", "type": "logo_outro", "bars": 4, "tagline": "Write like the people you admire.", "url": "pumpkit.io" }
   ],
   "music": { "mode": "generate", "prompt": "bright electronic launch, instrumental", "bpm": 120, "seed": 7 },
-  "rationale": "Hook question, then one numbered step per recording."
+  "rationale": "Hook lines, one numbered step per recording, the published post, then the brand."
 }
 ```
 
@@ -184,7 +187,10 @@ Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `b
 | Type | Fields | Meaning |
 |---|---|---|
 | `title_card` | `headline`, `accent` (`[]`), `step`, `subline` | A full-frame card that introduces a step: the `step` number (such as `"01"`) above, the `headline` springing in word by word with the `accent` words in the brand accent colour, and the `subline` smaller underneath. |
-| `footage` | `clip`, `from`, `to`, `rate`, `device_frame` (`browser`), `address` | A stretch of a screen recording in a browser frame; `address` is the text in its address bar. |
+| `kinetic_text` | `lines`, `accent` (`[]`) | Lines that spring in word by word, one after another, each getting an equal share of the scene; `accent` words of any line are in the brand accent colour. Suits an intro with no footage. |
+| `footage` | `clip`, `from`, `to`, `rate`, `device_frame` (`browser` or `terminal`), `address` | A stretch of a screen recording in a browser window or a terminal window; `address` is the text in the browser's address bar or the terminal's title bar. |
+| `proof` | `image`, `headline`, `accent` (`[]`), `subline`, `badge` | An image clip (`i1`), such as a screenshot of the published post, that swings in in 3D. With a `headline` (and its `subline`) the text sits on the left and the image on the right; without one the image is centred. `badge` is a short stamp, such as `"Posted"`, that pops onto the image's corner. |
+| `logo_outro` | `tagline`, `accent` (`[]`), `url`, `mascot` (`true`) | The brand's mascot and wordmark, the `tagline` under them and the `url` in a pill, fading to black at the end. It needs `[brand] wordmark`, and `[brand] mascot` unless `mascot` is `false`. |
 
 A footage scene's `from` and `to` are each one of:
 
@@ -192,10 +198,12 @@ A footage scene's `from` and `to` are each one of:
 - a marker with an offset: `{ "marker": "c1.m.open", "offset_s": 0.4 }` or `{ "marker": "c1.m.open", "offset_beats": -1 }`. `marker` is the marker ID, `offset_s` is seconds after it and `offset_beats` beats of the grid after it (negative is before; both add up);
 - source seconds, such as `12.5`, only for a recording that has no markers (footage you brought in). Each such scene gets a warning.
 
-Its length comes one of two ways. With `rate` (default 1) and no length, it plays from `from` to `to` at that speed and lasts that long, rounded to whole beats (at least one); the speed is adjusted slightly so the footage fills the scene. With a length, `from` to `to` is played at whatever speed fills it, and `rate` must be left out. Typing reads well at a `rate` of 2.6 to 3.2.
+A footage scene's length comes one of two ways. With `rate` (default 1) and no length, it plays from `from` to `to` at that speed and lasts that long, rounded to whole beats (at least one); the speed is adjusted slightly so the footage fills the scene. With a length, `from` to `to` is played at whatever speed fills it, and `rate` must be left out. Typing reads well at a `rate` of 2.6 to 3.2.
+
+A logo outro draws two `[brand]` files from `motion-studio.toml` or `project.toml`: `wordmark`, an image path, and `mascot`, a sprite sheet and its frame-timing JSON (`mascot = { sheet = "library/brand/mascot.png", timings = "library/brand/mascot.json" }`). The timing JSON gives `frame_width` and `frame_height`, `frames` in playing order (each with its `x` and `y` in the sheet and `ms`, how long it shows) and `loops` (times the frames play before the last one holds; `0`, the default, loops forever). Sprites play at their own timings and are drawn without smoothing, so pixel art stays crisp. Paths are relative to the workspace; see `library/brand/README.md`.
 
 ### Product errors and warnings
 
-Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `unknown_language`.
+Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline, tagline or any line), `unknown_image` (a proof scene's `image` is not an image clip), `missing_brand_asset` (a logo outro's `[brand] wordmark` or `mascot` is not set, names a file that does not exist, or has timings that do not parse; the message names the config key), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `unknown_language`.
 
 Warnings: `seconds_addressed` (a footage scene in source seconds), `too_long`.
