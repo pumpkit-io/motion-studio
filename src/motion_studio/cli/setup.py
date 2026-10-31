@@ -14,6 +14,10 @@ def setup(
     music: Annotated[
         bool, typer.Option("--music", help="Also create the ACE-Step music environment.")
     ] = False,
+    record: Annotated[
+        bool,
+        typer.Option("--record", help="Also install Playwright and Chromium for `record web`."),
+    ] = False,
     crisper: Annotated[
         bool, typer.Option("--crisper", help="CrisperWhisper fillers backend (not in v0.1.0).")
     ] = False,
@@ -21,7 +25,9 @@ def setup(
 ) -> None:
     """Download the speech, voice-activity and denoiser models and the renderer, for offline use."""
     with Reporter(as_json) as reporter:
-        report = run_setup(music=music, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step)
+        report = run_setup(
+            music=music, record=record, crisper=crisper, workdir=Path.cwd(), on_step=reporter.step
+        )
     lines: list[str] = []
     for item in report.items:
         lines.append(f"{item.status} {item.path} ({item.name})")

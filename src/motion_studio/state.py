@@ -194,6 +194,17 @@ def heavy_model_lock(
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
+def heavy_model_holder() -> str | None:
+    """Who holds the heavy-model lock right now, or None; never waits and never keeps it."""
+    with open(locks_dir() / HEAVY_MODEL_LOCK, "a+", encoding="utf-8") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return _holder(handle)
+        fcntl.flock(handle, fcntl.LOCK_UN)
+        return None
+
+
 def _acquire(
     handle: IO[str],
     model: str,

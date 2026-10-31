@@ -807,3 +807,24 @@ Checked:
 
 - `tests/unit/test_product_kind_cli.py` drives `new`, `status`, `words`, `ingest` and `analyze` through `CliRunner` on a generated 4.5 s recording with a hand-written sidecar.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass. Local-only: `tests/integration/test_ingest_fixtures.py` and `test_analyze_fixtures.py` pass for mlx-whisper; their faster-whisper cases need the `cpu` extra, which the Mac install lacks. No renderer, music or record tests are touched.
+
+## Web recording with `record web` and `setup --record` (ticket #31, spec #26)
+
+Built:
+
+- `motion-studio record web <slug> <script> [--name] [--viewport 1600x900]` (product projects only). `record/node/runner.mjs` imports the agent's ES module, launches headless Chromium from the cached Playwright, and hands the script's default export the helper library from `record/node/studio.mjs`. The library injects a fake cursor (an SVG arrow that shrinks on press, with a click ripple) into every page, glides it with eased mouse moves, and offers `goto`, `startCapture`, `moveTo`, `click`, `type`, `press`, `park`, `mark(name, {element: target})` and `wait`, plus `page` and `context`. `park` (also a `park` option on every action) moves the cursor just outside a region plus 60 px. `mark` stamps wall-clock time, the screencast's clock, and saves the bounding box of each named element.
+- Frames come from `Page.startScreencast` (JPEG quality 95) with their timestamps. Python lays them on a 30 fps grid by hard-linking, for each output frame, the last screencast frame sent by then, and encodes H.264 CRF 12. A page that is still during slow work holds its frame for the whole wait. The sidecar (`ScreenMarkers`) gets the frame size, markers and elements, and the cursor track, all relative to the first frame. Clip and sidecar are written in `build/record/<name>.partial/` and moved into `raw/` only after both succeed; the scratch directory is always removed.
+- A script error exits 1 with its message and the script's own stack lines; Chromium failing to start exits 3. Missing Node or Playwright exits 2 with the `setup --record` hint. Recording refuses to start (exit 1) while another process holds the heavy-model lock, and never takes it (`state.heavy_model_holder`).
+- `setup --record` installs the pinned Playwright 1.64.1 (`record/node/package.json` and lock) with `npm ci` and its headless Chromium shell into `<cache>/recorder/playwright-1.64.1/`, built in a `.partial` sibling and renamed into place.
+- New pytest marker `record`, registered in `pyproject.toml`, skipped by `just test`, documented in AGENTS.md.
+
+Deviations:
+
+- The ticket's prior art encodes through an ffmpeg concat list with per-frame durations; on ffmpeg 9.0.2 that produced 12% more frames than the take lasted, so frames are hard-linked into a constant-rate sequence instead.
+- An existing `raw/<name>.mp4` makes `record web` exit 1 rather than overwrite a take; `--name` records another one.
+- Only Chromium's headless shell is installed (`--only-shell`), since recording never runs headed.
+
+Checked:
+
+- `tests/unit/test_record_cli.py` (CI): missing Playwright exits 2 naming `setup --record` and leaves `raw/` empty; a talk project and a missing script exit 1.
+- `tests/integration/test_record_web.py` (`record`) on `tests/fixtures/record/page.html`, in a workspace path with spaces and accents: a 30/1 constant-frame-rate clip whose frame count matches the take's length; element boxes equal to the page's absolute layout; markers on the frames' clock (the click's result is absent 150 ms before the press and present at the next marker); the cursor track in the sidecar and the arrow visible in the frame where the track ends; `park` leaving the cursor off the region; the text block above 30 dB PSNR against a Playwright screenshot after a 2x Lanczos zoom; a throwing script exiting 1 with its error and no clip; and the take ingesting and analysing with its markers and element IDs in `packed.md`.

@@ -1,7 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-# Markers that need a Mac, models, the renderer or ACE-Step; CI and `just test` skip them.
-local_only := "not slow and not mac and not models and not renderer and not music"
+# Markers that need a Mac, models, the renderer, ACE-Step or Playwright; CI and `just test` skip them.
+local_only := "not slow and not mac and not models and not renderer and not music and not record"
 
 default:
     @just --list
@@ -25,7 +25,7 @@ test:
     uv run pytest -m "{{ local_only }}"
     cd renderer && npx vitest run --passWithNoTests
 
-# Everything, including tests that need a Mac, models, the renderer or music.
+# Everything, including tests that need a Mac, models, the renderer, music or Playwright.
 test-all:
     uv run pytest
     cd renderer && npx vitest run --passWithNoTests

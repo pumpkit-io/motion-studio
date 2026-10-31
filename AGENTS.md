@@ -7,7 +7,7 @@ This file is for agents working on motion-studio itself: a tool that edits video
 - `just setup`: install Python dependencies (the `mac` extra on macOS, `cpu` elsewhere) and the renderer's npm packages.
 - `just lint`: ruff check, ruff format check, pyright, and `tsc --noEmit` in `renderer/`.
 - `just test`: pytest without the local-only markers, then vitest in `renderer/`. This is what CI runs.
-- `just test-all`: every test, including those marked `slow`, `mac`, `models`, `renderer` and `music`.
+- `just test-all`: every test, including those marked `slow`, `mac`, `models`, `renderer`, `music` and `record`.
 - `just edl-coverage`: the resolver's tests with the 95% line-coverage gate on `src/motion_studio/edl`.
 - `just e2e`: the whole pipeline on the EN and IT fixtures (macOS, after `motion-studio setup --music` and `just fixtures`; about 10 minutes).
 - `just schema`: regenerate `schemas/` from the Pydantic contracts. `just schema-check` fails when the committed copies are stale.
@@ -18,7 +18,7 @@ CI (`.github/workflows/ci.yml`) runs `just lint`, `just schema-check`, `just tes
 
 ## Test markers
 
-Mark any test that cannot run on a Linux CI box: `slow` (long integration or e2e), `mac` (MLX, VideoToolbox, `say`), `models` (loads ASR, VAD or face models; take the machine-wide heavy-model lock), `renderer` (needs the installed Remotion renderer), `music` (needs the ACE-Step environment).
+Mark any test that cannot run on a Linux CI box: `slow` (long integration or e2e), `mac` (MLX, VideoToolbox, `say`), `models` (loads ASR, VAD or face models; take the machine-wide heavy-model lock), `renderer` (needs the installed Remotion renderer), `music` (needs the ACE-Step environment), `record` (needs Playwright's Chromium; the tests run `setup --record` into the real cache when it is missing).
 
 ## Coding rules
 

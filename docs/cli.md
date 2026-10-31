@@ -50,17 +50,19 @@ $ motion-studio setup [OPTIONS]
 ```
 
 * `--music`: Also create the ACE-Step music environment.
+* `--record`: Also install Playwright and Chromium for `record web`.
 * `--crisper`: CrisperWhisper fillers backend (not in v0.1.0).
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Plain `setup` installs, into the cache (`~/Library/Caches/motion-studio` on macOS, `~/.cache/motion-studio` on Linux, or `$MOTION_STUDIO_CACHE_DIR`): the DeepFilterNet binary, the Silero VAD model, both face models, the Whisper model for this platform's backend, and the Remotion renderer with its headless browser (about 570 MB). `--music` adds the ACE-Step 1.5 environment and weights (9.4 GB of weights; the first run took 19 minutes on the build machine) and prints the weights' licence. Items already present are reported, not fetched again. `--crisper` exits 2: CrisperWhisper is on `ROADMAP.md`.
+Plain `setup` installs, into the cache (`~/Library/Caches/motion-studio` on macOS, `~/.cache/motion-studio` on Linux, or `$MOTION_STUDIO_CACHE_DIR`): the DeepFilterNet binary, the Silero VAD model, both face models, the Whisper model for this platform's backend, and the Remotion renderer with its headless browser (about 570 MB). `--record` adds Playwright 1.64.1 and its headless Chromium (about 210 MB) under `recorder/` in the cache, for `record web`. `--music` adds the ACE-Step 1.5 environment and weights (9.4 GB of weights; the first run took 19 minutes on the build machine) and prints the weights' licence. Items already present are reported, not fetched again. `--crisper` exits 2: CrisperWhisper is on `ROADMAP.md`.
 
 When the cache from before the rename is still there (in the platform cache directory under the previous name, or wherever the previous name's `_CACHE_DIR` variable points) and the new one holds no files apart from empty lock files, `setup` exits 1 before downloading anything and prints the one-line command that adopts it, since the old cache can hold 16 GB. For the platform default that command is an `mv` into the new default location, after it clears the empty folders and lock files that commands lay down there. It stops without moving anything when that location holds anything else by then. For a location the old variable chose, it is `export MOTION_STUDIO_CACHE_DIR=<that path>`, so nothing crosses volumes. Put that `export` in your shell profile so it lasts past the current shell. Run that command, or delete the old directory to download everything again. Nothing is moved for you, and a set `$MOTION_STUDIO_CACHE_DIR` skips the check.
 
 ```console
 $ motion-studio setup
 $ motion-studio setup --music
+$ motion-studio setup --record
 ```
 
 ## `motion-studio doctor`
@@ -195,6 +197,67 @@ It prints a line for each change (`renamed`, `agents_md` and `removed` under `--
 
 ```console
 $ motion-studio agents sync --targets claude,codex
+```
+
+## Recording
+
+## `motion-studio record web`
+
+Run a recording script in headless Chromium; write raw/<name>.mp4 and its markers.
+
+```console
+$ motion-studio record web [OPTIONS] {slug} {script}
+```
+
+* `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
+* `script`: Recording script: an ES module (.mjs).  [required]
+* `--name <str>`: Clip name in raw/; defaults to the script's file name.
+* `--viewport <str>`: Browser viewport, WIDTHxHEIGHT.  [default: 1600x900]
+* `--json`: Print machine-readable JSON.
+* `--help`: Show this message and exit.
+
+For product projects only; a talk project exits 1. The script drives the creator's product, not motion-studio's rendering, so writing it does not break the rule that the agent edits data. The recorder runs it in Node against headless Chromium at the viewport size (1600x900 fills a browser frame on a 1920-wide canvas at 1:1, with room to zoom), captures the page through the Chrome DevTools screencast as JPEG frames at quality 95 with their timestamps, and encodes `raw/<name>.mp4` at a constant 30 fps (H.264, CRF 12) together with its markers sidecar `raw/<name>.markers.json` (see [the markers sidecar](#the-markers-sidecar)). The screencast only sends a frame when the page changes, so a page waiting on slow work holds its last frame for as long as the wait lasts and the edit can cut it at the markers. Nothing needs macOS screen-recording permission. Run `ingest` next.
+
+A script that throws, or ends without opening a page, exits 1 with its error and the script's lines from the stack, and adds nothing to `raw/`. An existing `raw/<name>.mp4` or sidecar exits 1; pass `--name` for another take. Missing Node, Playwright or its Chromium exits 2 with the `setup --record` hint. Recording refuses to start (exit 1) while another command holds a heavy model (speech-to-text, faces or music), since a busy machine drops frames; it does not take that lock itself.
+
+The script's default export receives the helper library, `r`:
+
+```js
+// takes/brief.mjs
+export const contextOptions = { storageState: 'demo-kit/state.json' }; // optional, for newContext
+
+export default async function take(r) {
+  await r.goto('http://localhost:5173/new');          // the first page starts the capture once loaded
+  await r.mark('new_page');
+  await r.type('textarea', 'Write a post about ADRs', { delay: 30 });
+  await r.click('button:has-text("Write the post")', { park: 'main' });
+  await r.mark('brief_sent');
+  await r.page.getByText('V1').waitFor({ timeout: 60_000 });   // slow work keeps recording
+  await r.mark('v1_shown', { post: '[data-testid=post]', hook: r.page.getByText('Most developers').first() });
+  await r.park('[data-testid=post]');
+  await r.wait(2000);
+}
+```
+
+| Helper | What it does |
+|---|---|
+| `r.goto(url, options?)` | Open a page (`page.goto` with `waitUntil: 'load'`). The first one starts the capture. |
+| `r.startCapture()` | Start the capture on the page as it is, for a script that loads it another way. |
+| `r.moveTo(target, {offset, ms, park}?)` | Glide the fake cursor to an element's centre (plus `offset: {x, y}`) or to a point `{x, y}`, eased in and out over `ms` (default from the distance, 300 to 1100 ms). |
+| `r.click(target, {offset, ms, park}?)` | Glide there and click; the cursor shrinks and a ripple spreads under it. |
+| `r.type(target, text, {delay, park}?)` | Click `target` (or skip with `null`) and type key by key, `delay` ms apart (default 45). |
+| `r.press(key, {park}?)` | Press one key, such as `Enter`. |
+| `r.park(region, {margin}?)` | Move the cursor just outside `region` plus `margin` pixels (default 60), along the shortest way that stays on screen. A cursor already clear stays put. |
+| `r.mark(name, elements?)` | Record marker `name` now, on the clip's clock, and the on-screen box of each element in `{name: target}`. Await it. The take fails when an element is not visible or a name repeats. |
+| `r.wait(ms)` | Wait while the capture runs. |
+| `r.page`, `r.context` | The Playwright page and browser context, for waits and anything the helpers do not cover. |
+| `r.viewport`, `r.cursor` | The viewport size, and where the cursor is now. |
+
+A target is a CSS or Playwright selector string, a Playwright `Locator`, or a box `{x, y, w, h}` in viewport pixels (a point `{x, y}` for `moveTo` and `click`). A selector must match one element. `park` on `moveTo`, `click`, `type` and `press` parks off that region after the action, so the cursor never rests on the text the shot is about. Marker and element names use letters, digits, `_` and `-` and become IDs: `c2.m.v1_shown`, `c2.e.post`. The fake cursor is part of the page, so it shows in the frames, and every move and press goes into the sidecar's cursor track.
+
+```console
+$ motion-studio record web launch takes/brief.mjs
+$ motion-studio record web launch takes/brief.mjs --name brief-take2
 ```
 
 ## Ingest and analysis
