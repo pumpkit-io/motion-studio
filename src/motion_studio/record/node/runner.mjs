@@ -61,6 +61,7 @@ if (process.exitCode !== 1) {
   } catch (err) {
     scriptFailed(err);
   } finally {
+    // The take's outcome is already decided; a browser that dies while closing changes nothing.
     await browser.close().catch(() => {});
   }
 }

@@ -18,4 +18,8 @@ describe("withAlpha", () => {
   it("writes a #RRGGBB colour as rgba", () => {
     expect(withAlpha("#D96B45", 0.25)).toBe("rgba(217, 107, 69, 0.25)");
   });
+
+  it("refuses a colour that is not #RRGGBB, as readableOn does", () => {
+    expect(() => withAlpha("#FFF", 0.5)).toThrow(/#RRGGBB/);
+  });
 });

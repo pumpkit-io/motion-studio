@@ -62,6 +62,7 @@ export async function createStudio({ context, out, quality, viewport }) {
     const file = `f/${String(frames.length).padStart(6, '0')}.jpg`;
     frames.push({ file, t: metadata.timestamp ?? now() });
     writes.push(fs.promises.writeFile(path.join(out, file), Buffer.from(data, 'base64')));
+    // Frames still arrive while the session closes; their acks fail and nothing waits on them.
     cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
   });
 
