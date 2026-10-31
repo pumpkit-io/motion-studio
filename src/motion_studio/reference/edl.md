@@ -171,6 +171,12 @@ A product video is scenes back to back, in output order: kinetic text, title car
       "camera": [
         { "at": "c2.m.typing", "target": "c2.e.brief" },
         { "at": "c2.m.sent", "target": "full", "ease": "snap" }
+      ],
+      "events": [
+        { "type": "caption_pill", "text": "Write a brief. As long as you like." },
+        { "type": "highlight", "target": "c2.e.brief", "start": "c2.m.typing", "end": "c2.m.sent", "label": "Your idea" },
+        { "type": "mask", "target": { "x": 0, "y": 0, "w": 1600, "h": 60 } },
+        { "type": "flash" }
       ] },
     { "id": "posted", "type": "proof", "bars": 2, "image": "i1", "headline": "Live on X.", "subline": "One click.", "badge": "Posted" },
     { "id": "mcp", "type": "footage", "clip": "c3", "from": "c3.m.start", "to": "c3.m.scheduled", "rate": 2.6, "device_frame": "terminal", "address": "claude: ~/pumpkit-demo" },
@@ -191,7 +197,7 @@ Scene lengths are `beats`, `bars` or `seconds`. Before music exists the grid is 
 
 ### Scenes
 
-Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `bars` or `seconds`, except for footage, below) and an optional `note`.
+Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `bars` or `seconds`, except for footage, below), `events` (`[]`, below) and an optional `note`.
 
 | Type | Fields | Meaning |
 |---|---|---|
@@ -224,9 +230,22 @@ A footage scene's `camera` lists moves that direct attention. Until the first mo
 
 The camera holds each move until the next one. The zoom limit is 2 on footage the frame shows 1:1 (1600x900, the `record web` and `record terminal` default, in a browser or terminal frame alike): past it, recorded text goes soft. Larger recordings can zoom further (4 at 3200x1800), smaller ones less (none at 800x450).
 
+### Events on scenes
+
+A scene's `events` lists overlays. `caption_pill` and `flash` go on any scene, at most one of each; `highlight` and `mask` only on footage, where they point into the scene's recording.
+
+| Type | Fields | Meaning |
+|---|---|---|
+| `caption_pill` | `text` | A short line in a pill at the bottom of the frame, springing in after the cut and leaving with the scene. Say what is happening in a few words. |
+| `flash` | `strength` | A white flash on the cut into the scene, fading out over 5 frames. `strength` (above 0, at most 1) is the opacity of its first frame: by default 0.35, or 0.12 on terminal footage, which a bright flash washes out. |
+| `highlight` | `target`, `start`, `end`, `label` | An animated box in the brand accent colour around `target`, with an optional `label` tag of a few words. It is drawn on the footage, so it stays on its target while the camera moves. |
+| `mask` | `target`, `start`, `end`, `color` | Fills `target` with `color` (default: the device frame's background, the browser page's grey or the terminal's) from `start` to exactly `end`, to hide a leaked path, a key or an off-message line. |
+
+`target` is what a camera move takes: an element ID, `"full"` or a box in footage pixels; on a terminal recording, which has no elements, use a box. An element is boxed where it was captured at the marker nearest `start`. `start` and `end` are points on the recording's clock, as in `from` and `to`; they default to the scene's `from` and `to` and must fall between them.
+
 ### Product errors and warnings
 
-Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline, tagline or any line), `unknown_image` (a proof scene's `image` is not an image clip), `missing_brand_asset` (a logo outro's `[brand] wordmark` or `mascot` is not set, names a file that does not exist, or has timings that do not parse; the message names the config key), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker or element of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `move_outside_scene` (a camera move's `at` outside the scene's footage), `bad_target` (a target that is no element ID, `full` or box), `unknown_element` (an element no marker captured), `target_outside` (a target box not inside the footage), `zoom_too_far` (a zoom past the limit), `unknown_language`.
+Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline, tagline or any line), `unknown_image` (a proof scene's `image` is not an image clip), `missing_brand_asset` (a logo outro's `[brand] wordmark` or `mascot` is not set, names a file that does not exist, or has timings that do not parse; the message names the config key), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker or element of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `move_outside_scene` (a camera move's `at` outside the scene's footage), `bad_target` (a target that is no element ID, `full` or box), `unknown_element` (an element no marker captured), `target_outside` (a target box not inside the footage), `zoom_too_far` (a zoom past the limit), `event_needs_footage` (a highlight or mask on a scene that is not footage), `duplicate_event` (a second caption_pill or flash on one scene), `reversed_event` (an event's end not after its start), `event_outside_scene` (an event's start or end outside the scene's footage), `unknown_language`. A bad event target gives the camera's target errors.
 
 Music errors: `align_scene` (`music.align.at` is not a scene ID), `align_mode` (`music.align` on a bed that is not generated), `align_kind` (`music.align` in a talk EDL).
 

@@ -17,6 +17,7 @@ from motion_studio.edl.models import (
     ProductEdl,
     Rect,
     Scene,
+    SceneEvent,
     TalkEdl,
 )
 
@@ -32,6 +33,7 @@ def test_every_edl_field_is_documented() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
     event_models: tuple[type[BaseModel], ...] = get_args(get_args(Event)[0])
     scene_models: tuple[type[BaseModel], ...] = get_args(get_args(Scene)[0])
+    scene_event_models: tuple[type[BaseModel], ...] = get_args(get_args(SceneEvent)[0])
     models = (
         TalkEdl,
         ProductEdl,
@@ -43,6 +45,7 @@ def test_every_edl_field_is_documented() -> None:
         Rect,
         *event_models,
         *scene_models,
+        *scene_event_models,
     )
 
     missing = sorted(

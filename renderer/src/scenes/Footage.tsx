@@ -2,19 +2,25 @@ import { AbsoluteFill, interpolate, OffthreadVideo, spring, staticFile, useCurre
 import { cameraAt, cssTransform, footagePlayback, frameLayout, frameTransform } from "../lib/deviceFrame";
 import type { LoadedFont } from "../lib/fonts";
 import type { Palette } from "../lib/palette";
-import type { TimelineFootage } from "../lib/timeline";
+import type { TimelineFootage, TimelineHighlight, TimelineMask } from "../lib/timeline";
 import { Backdrop } from "./Backdrop";
 import { BROWSER_BODY, BrowserBar } from "./BrowserFrame";
 import { EXIT_FRAMES } from "./Kinetic";
+import { Highlights, Masks } from "./Overlays";
 import { TERMINAL_BODY, TerminalBar } from "./TerminalFrame";
 
-/** A screen recording in a browser or terminal window that tilts in, follows its camera moves, then blurs out. */
-export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font: LoadedFont; unit: number }> = ({
-  scene,
-  palette,
-  font,
-  unit,
-}) => {
+/**
+ * A screen recording in a browser or terminal window that tilts in, follows its camera moves, then
+ * blurs out. Masks and highlights sit on the footage, so they move with the camera.
+ */
+export const Footage: React.FC<{
+  scene: TimelineFootage;
+  highlights: TimelineHighlight[];
+  masks: TimelineMask[];
+  palette: Palette;
+  font: LoadedFont;
+  unit: number;
+}> = ({ scene, highlights, masks, palette, font, unit }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const duration = scene.end - scene.start;
@@ -28,6 +34,7 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
   const camera = cameraAt(scene.camera, scene.start + frame, layout, fps);
   const transform = frameTransform(layout, canvas, { enter, camera });
   const terminal = scene.device_frame === "terminal";
+  const body = terminal ? TERMINAL_BODY : BROWSER_BODY;
   return (
     <AbsoluteFill>
       <Backdrop palette={palette} unit={unit} />
@@ -44,7 +51,7 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
             borderRadius: 18 * unit,
             overflow: "hidden",
             boxShadow: `0 ${40 * unit}px ${120 * unit}px rgba(0, 0, 0, 0.55), 0 0 0 ${unit}px rgba(255, 255, 255, 0.08)`,
-            backgroundColor: terminal ? TERMINAL_BODY : BROWSER_BODY,
+            backgroundColor: body,
           }}
         >
           {terminal ? (
@@ -58,6 +65,16 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
               muted
               {...footagePlayback(scene, fps)}
               style={{ width: layout.content.width, height: layout.content.height, display: "block" }}
+            />
+            <Masks masks={masks} fill={body} frame={scene.start + frame} scale={layout.scale} unit={unit} />
+            <Highlights
+              highlights={highlights}
+              footageWidth={scene.width}
+              palette={palette}
+              font={font}
+              frame={scene.start + frame}
+              scale={layout.scale}
+              unit={unit}
             />
           </div>
         </div>

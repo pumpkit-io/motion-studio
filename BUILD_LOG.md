@@ -956,3 +956,23 @@ Checked:
 
 - `tests/unit/test_product_music_cli.py` (CI) with a stand-in worker writing a synthetic sectioned bed at 120 bpm: the bed sized from the scenes; the launch preset's prompt and tempo; the drop's 660 Hz lead landing within a frame of the scene start in `music.wav`, the bed exactly the scenes' length, a 4-bar cut on a bar line before the natural ending; 2 bars repeated before the hit when it comes too early, the beats still 0.5 s apart; the echo tail decaying beat by beat to silence; a missing hit; `align_scene` and `align_mode`; three candidates from one worker pid, listed with tempo and hits; the EDL seed picking a made candidate without a model load; low memory before candidate 3 keeping two, and the next run making only the third.
 - `tests/integration/test_music_generate.py::test_three_candidates_load_the_model_once` (`music`) was not run: ACE-Step fails to import on the build machine (`No module named 'acestep.handler'`), so the real worker's line protocol, the model loading once and real hit detection on generated beds are unverified.
+
+## Highlight, mask, caption pill and flash events (ticket #34, spec #26)
+
+Built:
+
+- `events` on every product scene, a `SceneEvent` union: `caption_pill` (`text`) and `flash` (`strength`) on any scene, at most one of each; `highlight` (`target`, `start`, `end`, `label`) and `mask` (`target`, `start`, `end`, `color`) on footage only. `start` and `end` are footage points on the recording's clock and default to the scene's `from` and `to`.
+- `edl/product.py` resolves them into `timeline.events` (talk events stay there too), sorted by start frame. Highlights and masks reuse the camera's `_target_box` (an element boxed at the marker nearest `start`) and its frame mapping (`_frame_at`), and carry `scene`, `clip`, output `start`/`end`, `src_start_s`/`src_end_s`, `element` and the box in footage pixels. A caption pill spans its scene; a flash its first 5 frames, at 0.35 by default or 0.12 on terminal footage.
+- Issue codes: `event_needs_footage`, `duplicate_event`, `reversed_event`, `event_outside_scene`; bad targets give the camera's codes.
+- Renderer: `scenes/Overlays.tsx` with `Masks` and `Highlights` drawn inside the footage's frame (so they move with the camera and the entrance tilt), and `CaptionPill` and `Flash` over the canvas, each in its own `Sequence`. Timing lives in `lib/overlays.ts`. The look follows the launch video: an accent box that springs open from its left edge with a tag at its top-right corner, a dark translucent pill with an accent square.
+
+Deviations:
+
+- A flash marks the cut into its scene rather than a time inside it: product scenes have one continuous range each, so the cut is the scene boundary.
+- A mask's default fill is the device frame's background (the browser page grey or the terminal's), not a colour sampled from the footage; `color` overrides it.
+
+Checked:
+
+- `tests/unit/test_resolver_scene_events.py` (resolver seam): frames, defaults, nearest capture, and every issue code.
+- vitest in `lib/overlays.test.ts`: highlight draw-in and fades, mask range exclusivity, flash fade, tag side.
+- `tests/integration/test_product_render.py` (`renderer`): stills show the flash on the cut, the mask hiding the red box from its marker on, the pill at the bottom, and the highlight's tag above the box both mid camera move and held.

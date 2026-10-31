@@ -254,6 +254,63 @@ class CameraMove(_Model):
     )
 
 
+class HighlightEvent(_Model):
+    """An animated box, with an optional label, around a target of a footage scene's recording."""
+
+    type: Literal["highlight"]
+    target: Target
+    start: FootagePoint | None = Field(
+        default=None, description="When the box draws in, on the recording's clock; default: from."
+    )
+    end: FootagePoint | None = Field(
+        default=None, description="When it fades out, on the recording's clock; default: to."
+    )
+    label: str | None = Field(default=None, description="A few words on a tag at the box.")
+
+
+class MaskEvent(_Model):
+    """A box of a footage scene's recording filled with one colour, to hide what is under it."""
+
+    type: Literal["mask"]
+    target: Target
+    start: FootagePoint | None = Field(
+        default=None, description="First moment hidden, on the recording's clock; default: from."
+    )
+    end: FootagePoint | None = Field(
+        default=None, description="When the region shows again; default: to."
+    )
+    color: HexColor | None = Field(
+        default=None,
+        description="The fill; default: the device frame's background, the browser page's grey or "
+        "the terminal's.",
+    )
+
+
+class CaptionPillEvent(_Model):
+    """A short line in a pill at the bottom of the frame, for the whole scene."""
+
+    type: Literal["caption_pill"]
+    text: str = Field(min_length=1, description="What is happening, in a few words.")
+
+
+class FlashEvent(_Model):
+    """A white flash on the cut into the scene, fading out over 5 frames."""
+
+    type: Literal["flash"]
+    strength: float | None = Field(
+        default=None,
+        gt=0,
+        le=1,
+        description="Opacity of the flash's first frame; default 0.35, or 0.12 on terminal "
+        "footage, which a bright flash washes out.",
+    )
+
+
+SceneEvent = Annotated[
+    HighlightEvent | MaskEvent | CaptionPillEvent | FlashEvent, Field(discriminator="type")
+]
+
+
 DeviceFrame = Literal["browser", "terminal"]
 
 
@@ -262,6 +319,10 @@ class _Scene(_Model):
     beats: float | None = Field(default=None, gt=0, description="Length in beats of the grid.")
     bars: float | None = Field(default=None, gt=0, description="Length in bars of the grid.")
     seconds: float | None = Field(default=None, gt=0, description="Length in seconds.")
+    events: list[SceneEvent] = Field(
+        default_factory=lambda: list[SceneEvent](),
+        description="Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+    )
     note: str | None = None
 
 
@@ -531,8 +592,60 @@ class TimelineTitle(_Out):
     end: int
 
 
+class _TimelineFootageBox(_Out):
+    scene: str
+    clip: str
+    start: int = Field(description="First output frame.")
+    end: int = Field(description="Output frame after the last one.")
+    src_start_s: float = Field(description="Source seconds of the first frame, on clip's clock.")
+    src_end_s: float = Field(description="Source seconds where it ends.")
+    element: str | None = Field(description="The element ID targeted, or null for a box.")
+    x: float = Field(description="Left edge in footage pixels.")
+    y: float = Field(description="Top edge in footage pixels.")
+    w: float
+    h: float
+
+
+class TimelineHighlight(_TimelineFootageBox):
+    """A box drawn on the footage, so it follows the camera."""
+
+    type: Literal["highlight"]
+    label: str | None
+
+
+class TimelineMask(_TimelineFootageBox):
+    """A box of the footage filled over exactly start to end."""
+
+    type: Literal["mask"]
+    color: HexColor | None = Field(description="Null: the device frame's background.")
+
+
+class TimelineCaptionPill(_Out):
+    type: Literal["caption_pill"]
+    scene: str
+    start: int
+    end: int
+    text: str
+
+
+class TimelineFlash(_Out):
+    type: Literal["flash"]
+    scene: str
+    start: int
+    end: int
+    strength: float = Field(description="Opacity at start, fading to 0 at end.")
+
+
 TimelineEvent = Annotated[
-    TimelineZoom | TimelinePush | TimelineBroll | TimelineImage | TimelineTitle,
+    TimelineZoom
+    | TimelinePush
+    | TimelineBroll
+    | TimelineImage
+    | TimelineTitle
+    | TimelineHighlight
+    | TimelineMask
+    | TimelineCaptionPill
+    | TimelineFlash,
     Field(discriminator="type"),
 ]
 
