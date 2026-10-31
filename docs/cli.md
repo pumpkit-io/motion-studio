@@ -366,6 +366,8 @@ $ motion-studio render [OPTIONS] {slug}
 
 Previews go to `preview/<format>.mp4`, finals to `final/<slug>_<format>.mp4`, mastered to −14 LUFS integrated and −1.5 dBTP true peak by default (`[master]`). Render validates the EDL first when the plan stage is not done.
 
+Every final also gets a share copy, `final/<slug>_<format>_share.mp4`, for both project kinds: the final at its own resolution, under 30 MiB and with `+faststart`, so it can be sent through chat tools and opened on a phone. A final already under 30 MiB is copied as it is, so the name is always there; a larger one has its video re-encoded at the bitrate that fits (two-pass x264) and its mastered audio copied. Render prints each share copy's path and size. A change to the share copy alone redoes the share copies without rendering the finals again. A final too long to fit (more than about seven minutes, with the default 320 kb/s audio) fails with exit 1 after the final itself is written; send the final or shorten the edit.
+
 ```console
 $ motion-studio render talk --preview
 $ motion-studio render talk --final --format 9x16 --format 16x9

@@ -464,3 +464,81 @@ def test_a_landscape_take_beside_a_portrait_one_keeps_its_own_full_frame(
     }
     assembled = video_stream(demo / "build" / "assembled.mp4")
     assert (assembled["width"], assembled["height"]) == (640, 640)
+
+
+MIB = 1024 * 1024
+
+
+def top_level_boxes(path: Path) -> list[str]:
+    """The MP4's top-level box types in file order."""
+    boxes, data, at = [], path.read_bytes(), 0
+    while at + 8 <= len(data):
+        size = int.from_bytes(data[at : at + 4], "big")
+        boxes.append(data[at + 4 : at + 8].decode("latin-1"))
+        if size == 1:
+            size = int.from_bytes(data[at + 8 : at + 16], "big")
+        at += size or len(data)
+    return boxes
+
+
+def test_final_writes_a_share_copy_beside_each_final(demo: Path) -> None:
+    result = invoke("render", "demo", "--final")
+
+    assert result.exit_code == 0, result.output
+    for fmt in ("9x16", "16x9"):
+        final = demo / "final" / f"demo_{fmt}.mp4"
+        share = demo / "final" / f"demo_{fmt}_share.mp4"
+        assert share.stat().st_size < 30 * MIB
+        shared, master = video_stream(share), video_stream(final)
+        assert (shared["width"], shared["height"]) == (master["width"], master["height"])
+        boxes = top_level_boxes(share)
+        assert boxes.index("moov") < boxes.index("mdat")
+        line = next(line for line in result.stdout.splitlines() if str(share) in line)
+        assert "share copy" in line and "MiB" in line
+
+
+def test_a_final_over_the_cap_is_re_encoded_under_it_without_rendering_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    render("--final", "--format", "9x16")
+    final = demo / "final" / "demo_9x16.mp4"
+    cap = final.stat().st_size // 3
+    monkeypatch.setattr("motion_studio.render.share.CAP_BYTES", cap)
+
+    out = render("--final", "--format", "9x16")
+
+    [item] = out["outputs"]
+    share = Path(item["share"]["path"])
+    assert share == demo / "final" / "demo_9x16_share.mp4"
+    assert item["share"]["bytes"] == share.stat().st_size < cap
+    assert (video_stream(share)["width"], video_stream(share)["height"]) == (1080, 1920)
+    assert abs(int(video_stream(share)["nb_read_frames"]) - timeline(demo)["duration_frames"]) <= 1
+    boxes = top_level_boxes(share)
+    assert boxes.index("moov") < boxes.index("mdat")
+    assert out["noop"] is True
+    assert len(calls(fake_renderer)) == 1
+
+
+def test_a_preview_has_no_share_copy(demo: Path) -> None:
+    out = render("--preview", "--format", "9x16")
+
+    assert out["outputs"][0]["share"] is None
+    assert not list((demo / "preview").glob("*_share.mp4"))
+
+
+def test_a_final_too_long_for_the_cap_fails_with_a_hint_and_keeps_the_final(
+    demo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("motion_studio.render.share.CAP_BYTES", 64 * 1024)
+
+    result = invoke("render", "demo", "--final", "--format", "9x16", "--json")
+
+    assert result.exit_code == 1
+    body = json.loads(result.stdout)
+    assert "too long for a share copy" in body["error"]
+    assert body["hint"]
+    assert (demo / "final" / "demo_9x16.mp4").exists()
+    assert not (demo / "final" / "demo_9x16_share.mp4").exists()
+    state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
+    assert state["stages"]["final"]["status"] == "done"
+    assert state["stages"]["final.share.9x16"]["status"] == "failed"

@@ -35,6 +35,7 @@ raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz
                                      │
                                      ▼
                      preview/<fmt>.mp4  or  final/<slug>_<fmt>.mp4
+                                     │  (a final also gets final/<slug>_<fmt>_share.mp4, under 30 MiB)
                                      │
                    check ──► check/report.md, report.json, cuts.png
 ```
@@ -65,7 +66,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
 | `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the library picker and the bed analysis (tempo, beat and bar grid, sections and hits). |
-| `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, and locating the installed renderer. |
+| `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, the share copy beside each final, and locating the installed renderer. |
 | `check/` | Re-transcription and diff near cuts, loudness, black and frozen frames, duration, caption density, the cut stills, and the report. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
 | `templates/` | The workspace template and the five skills. |
