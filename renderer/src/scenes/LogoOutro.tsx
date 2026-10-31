@@ -1,13 +1,16 @@
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONT_WEIGHT, type LoadedFont } from "../lib/fonts";
 import type { Palette } from "../lib/palette";
-import type { TimelineLogoOutro, TimelineMascot } from "../lib/timeline";
+import type { TimelineGifMascot, TimelineLogoOutro, TimelineMascot } from "../lib/timeline";
 import { Backdrop } from "./Backdrop";
 import { Mascot } from "./Mascot";
 
 const FADE_FRAMES = 18;
 
-export type BrandArt = { wordmark: string | null; mascot: { sheet: TimelineMascot; file: string } | null };
+export type BrandArt = {
+  wordmark: string | null;
+  mascot: { sheet: TimelineMascot | TimelineGifMascot; file: string } | null;
+};
 
 /** Mascot and wordmark (or the name in type) slide together, the tagline and URL rise under them, then all fades to black. */
 export const LogoOutro: React.FC<{

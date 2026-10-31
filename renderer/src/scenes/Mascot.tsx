@@ -1,13 +1,26 @@
-import { staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { Gif } from "@remotion/gif";
+import { Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { spriteFrameAt, spriteSheetStyle } from "../lib/sprite";
-import type { TimelineMascot } from "../lib/timeline";
+import type { TimelineGifMascot, TimelineMascot } from "../lib/timeline";
 
-/** The brand mascot `height` tall, playing its sprite sheet at the sheet's own frame timings. */
-export const Mascot: React.FC<{ mascot: TimelineMascot; file: string; height: number; startFrame?: number }> = ({
+/** The brand mascot `height` tall, playing its sprite sheet or GIF at its own frame timings. */
+export const Mascot: React.FC<{
+  mascot: TimelineMascot | TimelineGifMascot;
+  file: string;
+  height: number;
+  startFrame?: number;
+}> = ({ mascot, file, height, startFrame = 0 }) =>
+  mascot.type === "gif" ? (
+    <GifMascot mascot={mascot} file={file} height={height} startFrame={startFrame} />
+  ) : (
+    <SpriteMascot mascot={mascot} file={file} height={height} startFrame={startFrame} />
+  );
+
+const SpriteMascot: React.FC<{ mascot: TimelineMascot; file: string; height: number; startFrame: number }> = ({
   mascot,
   file,
   height,
-  startFrame = 0,
+  startFrame,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -19,5 +32,28 @@ export const Mascot: React.FC<{ mascot: TimelineMascot; file: string; height: nu
         backgroundImage: `url(${staticFile(file)})`,
       }}
     />
+  );
+};
+
+const GifMascot: React.FC<{ mascot: TimelineGifMascot; file: string; height: number; startFrame: number }> = ({
+  mascot,
+  file,
+  height,
+  startFrame,
+}) => {
+  const width = (height * mascot.width) / mascot.height;
+  return (
+    <div style={{ width, height }}>
+      <Sequence from={startFrame} layout="none">
+        {/* The canvas stays at the GIF's own size and CSS scales it, so pixel art is not smoothed. */}
+        <Gif
+          src={staticFile(file)}
+          width={mascot.width}
+          height={mascot.height}
+          loopBehavior="loop"
+          style={{ width, height, display: "block", imageRendering: "pixelated" }}
+        />
+      </Sequence>
+    </div>
   );
 };

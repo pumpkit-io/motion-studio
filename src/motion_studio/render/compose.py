@@ -77,7 +77,9 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
         logo=logo,
         warnings=tuple(warnings),
         wordmark=workspace / wordmark if wordmark is not None else None,
-        mascot=workspace / mascot.sheet if mascot is not None else None,
+        mascot=None
+        if mascot is None
+        else workspace / (mascot.gif if mascot.type == "gif" else mascot.sheet),
     )
 
 

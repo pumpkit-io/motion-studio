@@ -170,7 +170,7 @@ A product video scene that shows an image of a real result, such as the publishe
 The closing scene of a product video: the brand mascot and wordmark (or the title in type), a tagline and a URL, fading to black.
 
 **Mascot**:
-A brand's animated character, given as a sprite sheet and a frame-timing JSON under `[brand] mascot`, played at its own frame timings without smoothing.
+A brand's animated character, given as a sprite sheet and a frame-timing JSON or as an animated GIF under `[brand] mascot`, played at its own frame timings without smoothing.
 _Avoid_: Title (a title is text over footage), slate, intertitle
 
 **Device frame**:

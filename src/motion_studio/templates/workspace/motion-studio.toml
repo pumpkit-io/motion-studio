@@ -52,6 +52,7 @@ lra = 11
 primary = "#111111"
 accent = "#FFD400"
 logo = "library/brand/logo.png"
-# Product videos' logo outro: a wordmark image, and a sprite-sheet mascot with its frame timings.
+# Product videos' logo outro: a wordmark image, and a sprite-sheet mascot with its frame timings
+# or an animated GIF mascot: mascot = { gif = "library/brand/mascot.gif" }.
 # wordmark = "library/brand/wordmark.svg"
 # mascot = { sheet = "library/brand/mascot.png", timings = "library/brand/mascot.json" }

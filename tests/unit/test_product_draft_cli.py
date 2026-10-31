@@ -215,8 +215,9 @@ def test_without_a_wordmark_the_draft_ends_on_the_title_in_type_and_says_so(
     assert invoke("plan", "draft", "launch").exit_code == 0
 
     assert [s["id"] for s in scenes_of(project)] == ["intro", "step1", "demo1", "outro"]
-    assert "[brand] has no wordmark, so the outro sets the title in type." in (
-        edl_of(project)["rationale"]
+    assert (
+        "[brand] has no wordmark, so the outro sets the title in type."
+        in (edl_of(project)["rationale"])
     )
     assert invoke("plan", "validate", "launch").exit_code == 0
     outro = timeline_of(project).scenes[-1]

@@ -10,6 +10,7 @@ export type {
   TimelineCaptions,
   TimelineFlash,
   TimelineFootage,
+  TimelineGifMascot,
   TimelineHeadlineWord,
   TimelineHighlight,
   TimelineImage,

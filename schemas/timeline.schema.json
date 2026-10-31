@@ -160,14 +160,29 @@
         "mascot": {
           "anyOf": [
             {
-              "$ref": "#/$defs/TimelineMascot"
+              "discriminator": {
+                "mapping": {
+                  "gif": "#/$defs/TimelineGifMascot",
+                  "sprite": "#/$defs/TimelineMascot"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/TimelineMascot"
+                },
+                {
+                  "$ref": "#/$defs/TimelineGifMascot"
+                }
+              ]
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Product videos only."
+          "description": "Product videos only.",
+          "title": "Mascot"
         },
         "primary": {
           "description": "#RRGGBB; #RGB is accepted and expanded.",
@@ -553,6 +568,38 @@
       "title": "TimelineFootage",
       "type": "object"
     },
+    "TimelineGifMascot": {
+      "additionalProperties": false,
+      "properties": {
+        "gif": {
+          "description": "Animated GIF, relative to the workspace; plays at its own delays.",
+          "title": "Gif",
+          "type": "string"
+        },
+        "height": {
+          "title": "Height",
+          "type": "integer"
+        },
+        "type": {
+          "const": "gif",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "The GIF's pixel size.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "gif",
+        "width",
+        "height"
+      ],
+      "title": "TimelineGifMascot",
+      "type": "object"
+    },
     "TimelineHeadlineWord": {
       "additionalProperties": false,
       "properties": {
@@ -887,9 +934,15 @@
         "sheet_width": {
           "title": "Sheet Width",
           "type": "integer"
+        },
+        "type": {
+          "const": "sprite",
+          "title": "Type",
+          "type": "string"
         }
       },
       "required": [
+        "type",
         "sheet",
         "sheet_width",
         "sheet_height",

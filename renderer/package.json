@@ -16,6 +16,7 @@
     "@remotion/captions": "4.0.538",
     "@remotion/cli": "4.0.538",
     "@remotion/fonts": "4.0.538",
+    "@remotion/gif": "4.0.538",
     "@remotion/layout-utils": "4.0.538",
     "react": "19.2.3",
     "react-dom": "19.2.3",

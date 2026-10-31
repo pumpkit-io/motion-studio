@@ -523,6 +523,7 @@ class TimelineSpriteFrame(_Out):
 
 
 class TimelineMascot(_Out):
+    type: Literal["sprite"]
     sheet: str = Field(description="Sprite sheet image, relative to the workspace.")
     sheet_width: int
     sheet_height: int
@@ -532,6 +533,15 @@ class TimelineMascot(_Out):
     loops: int = Field(description="Times the frames play before the last one holds; 0 is forever.")
 
 
+class TimelineGifMascot(_Out):
+    type: Literal["gif"]
+    gif: str = Field(
+        description="Animated GIF, relative to the workspace; plays at its own delays."
+    )
+    width: int = Field(description="The GIF's pixel size.")
+    height: int
+
+
 class TimelineBrand(_Out):
     primary: HexColor
     accent: HexColor
@@ -539,7 +549,9 @@ class TimelineBrand(_Out):
     wordmark: str | None = Field(
         default=None, description="Wordmark image relative to the workspace; product videos only."
     )
-    mascot: TimelineMascot | None = Field(default=None, description="Product videos only.")
+    mascot: Annotated[TimelineMascot | TimelineGifMascot, Field(discriminator="type")] | None = (
+        Field(default=None, description="Product videos only.")
+    )
 
 
 class TimelineWord(_Out):

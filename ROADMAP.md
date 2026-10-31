@@ -16,7 +16,6 @@ Ideas beyond v0.1.0, in no particular order.
 
 - Vertical product videos (9x16 and 4x5). Product EDLs render in 16x9 only, and `plan validate` rejects other formats with `product_format`.
 - A phone device frame, for mobile apps.
-- A GIF mascot for the logo outro. `[brand] mascot` takes a sprite sheet with frame timings only.
 
 ## Speech-to-text backends
 

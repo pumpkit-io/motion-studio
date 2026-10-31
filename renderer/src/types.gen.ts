@@ -56,7 +56,7 @@ export interface TimelineBrand {
   /**
    * Product videos only.
    */
-  mascot: TimelineMascot | null;
+  mascot: (TimelineMascot | TimelineGifMascot) | null;
   /**
    * #RRGGBB; #RGB is accepted and expanded.
    */
@@ -80,6 +80,7 @@ export interface TimelineMascot {
   sheet: string;
   sheet_height: number;
   sheet_width: number;
+  type: "sprite";
 }
 export interface TimelineSpriteFrame {
   /**
@@ -91,6 +92,18 @@ export interface TimelineSpriteFrame {
    */
   x: number;
   y: number;
+}
+export interface TimelineGifMascot {
+  /**
+   * Animated GIF, relative to the workspace; plays at its own delays.
+   */
+  gif: string;
+  height: number;
+  type: "gif";
+  /**
+   * The GIF's pixel size.
+   */
+  width: number;
 }
 export interface TimelineCaptions {
   enabled: boolean;

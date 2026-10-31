@@ -34,6 +34,7 @@ from motion_studio.edl.models import (
     TimelineEvent,
     TimelineFlash,
     TimelineFootage,
+    TimelineGifMascot,
     TimelineHeadlineWord,
     TimelineHighlight,
     TimelineKineticLine,
@@ -85,7 +86,7 @@ class BrandAssets:
     """The `[brand]` files that loaded: the wordmark's path and the mascot's sprite sheet."""
 
     wordmark: str | None = None
-    mascot: TimelineMascot | None = None
+    mascot: TimelineMascot | TimelineGifMascot | None = None
     # Why a configured asset did not load, by its key: "names x.svg, which does not exist".
     broken: Mapping[str, str] = field(default_factory=lambda: dict[str, str]())
 
@@ -293,7 +294,8 @@ _BRAND_HINTS = {
     'or project.toml, an image path relative to the workspace, or "title" in the EDL to set it '
     "in type",
     "mascot": f"set mascot = {{ sheet = ..., timings = ... }} under [brand] in {WORKSPACE_FILE} "
-    'or project.toml (a sprite sheet and its frame-timing JSON), or "mascot": false on the scene',
+    'or project.toml (a sprite sheet and its frame-timing JSON, or gif = ...), or "mascot": false '
+    "on the scene",
 }
 
 

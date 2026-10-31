@@ -1,4 +1,4 @@
-"""Load the `[brand]` files product scenes draw: the wordmark image and the mascot sprite sheet.
+"""Load the `[brand]` files product scenes draw: the wordmark image and the mascot (sprite or GIF).
 
 Nothing here fails: an asset that does not load is recorded with the reason, and the resolver
 reports it only when a scene needs it.
@@ -10,7 +10,7 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from motion_studio.config import Brand
-from motion_studio.edl.models import TimelineMascot, TimelineSpriteFrame
+from motion_studio.edl.models import TimelineGifMascot, TimelineMascot, TimelineSpriteFrame
 from motion_studio.edl.product import BrandAssets
 
 
@@ -38,7 +38,7 @@ class SpriteTimings(BaseModel):
 
 def load_brand_assets(workspace: Path, brand: Brand) -> BrandAssets:
     wordmark: str | None = None
-    mascot: TimelineMascot | None = None
+    mascot: TimelineMascot | TimelineGifMascot | None = None
     broken: dict[str, str] = {}
     if brand.wordmark is not None:
         reason = _missing(workspace, brand.wordmark)
@@ -48,7 +48,11 @@ def load_brand_assets(workspace: Path, brand: Brand) -> BrandAssets:
             broken["wordmark"] = reason
     if brand.mascot is not None:
         try:
-            mascot = _mascot(workspace, brand.mascot.sheet, brand.mascot.timings)
+            if brand.mascot.gif is not None:
+                mascot = _gif(workspace, brand.mascot.gif)
+            else:
+                assert brand.mascot.sheet is not None and brand.mascot.timings is not None
+                mascot = _mascot(workspace, brand.mascot.sheet, brand.mascot.timings)
         except _Broken as exc:
             broken["mascot"] = str(exc)
     return BrandAssets(wordmark=wordmark, mascot=mascot, broken=broken)
@@ -62,6 +66,20 @@ def _missing(workspace: Path, path: str) -> str | None:
     if (workspace / path).is_file():
         return None
     return f"names {path}, which does not exist"
+
+
+def _gif(workspace: Path, gif: str) -> TimelineGifMascot:
+    reason = _missing(workspace, gif)
+    if reason is not None:
+        raise _Broken(reason)
+    try:
+        with Image.open(workspace / gif) as image:
+            kind, (width, height) = image.format, image.size
+    except (OSError, UnidentifiedImageError) as exc:
+        raise _Broken(f"gif {gif} is not an image: {exc}") from exc
+    if kind != "GIF":
+        raise _Broken(f"gif {gif} is not a GIF")
+    return TimelineGifMascot(type="gif", gif=gif, width=width, height=height)
 
 
 def _mascot(workspace: Path, sheet: str, timings: str) -> TimelineMascot:
@@ -91,6 +109,7 @@ def _mascot(workspace: Path, sheet: str, timings: str) -> TimelineMascot:
             f"timings {timings}: frame {outside[0]} falls outside the {width}x{height} sheet"
         )
     return TimelineMascot(
+        type="sprite",
         sheet=sheet,
         sheet_width=width,
         sheet_height=height,

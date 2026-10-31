@@ -290,3 +290,11 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | Claude Code trust prompt | 2.1.316: the folder-trust dialog lists "No, exit" first and focuses it, with hidden indexes ("Yes, I trust this folder" second), so Down then Enter accepts | Strings in the Claude Code binary; matches the launch video session |
 | `vhs validate <tape>` | Exits 1 with `<line> │ <text>` and `Invalid command: <word>` per error | Ran on a tape with a typo |
 | tesseract (tests only) | 5.5.0 (Homebrew), reads the take's stills in `test_record_terminal.py` | `tesseract --version` |
+
+## Review fixes for spec #26 (2026-10-31)
+
+| Package | Version | Licence | Why |
+|---|---|---|---|
+| @remotion/gif | 4.0.538, the installed `remotion` version (all `@remotion/*` stay on one version) | Remotion License, as `remotion` | `<Gif src width height loopBehavior style>` plays a GIF mascot at its own frame delays, synced to `useCurrentFrame`. It draws each frame onto a canvas of `width` x `height` with `drawImage`, which smooths when it scales, so the mascot passes the GIF's own size and scales the canvas with CSS and `image-rendering: pixelated`; `tests/integration/test_product_outro_render.py` fails without it |
+
+`npm install` dropped the platform-specific optional packages from the lock again (npm/cli#4828); the `@remotion/gif` entries were added to the previous lock by hand and `npm ci` verified.

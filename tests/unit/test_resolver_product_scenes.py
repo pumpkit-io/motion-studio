@@ -21,6 +21,7 @@ C1 = screen("c1", 20.0, {"start": 1.0, "done": 9.0})
 I1 = asset("i1", "image", 0.0)
 I1.clip.width, I1.clip.height = 1644, 1245
 MASCOT = TimelineMascot(
+    type="sprite",
     sheet="library/brand/mascot.png",
     sheet_width=64,
     sheet_height=32,

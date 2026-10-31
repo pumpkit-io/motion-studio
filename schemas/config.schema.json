@@ -240,22 +240,48 @@
     },
     "Mascot": {
       "additionalProperties": false,
+      "description": "Either a sprite sheet with its frame timings, or an animated GIF.",
       "properties": {
+        "gif": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Animated GIF, relative to the workspace.",
+          "title": "Gif"
+        },
         "sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
           "description": "Sprite sheet image, relative to the workspace.",
-          "title": "Sheet",
-          "type": "string"
+          "title": "Sheet"
         },
         "timings": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
           "description": "The sheet's frame-timing JSON, relative to the workspace.",
-          "title": "Timings",
-          "type": "string"
+          "title": "Timings"
         }
       },
-      "required": [
-        "sheet",
-        "timings"
-      ],
       "title": "Mascot",
       "type": "object"
     },
