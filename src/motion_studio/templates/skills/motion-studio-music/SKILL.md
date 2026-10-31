@@ -5,7 +5,7 @@ description: How to choose or generate background music for a motion-studio edit
 
 # Music
 
-Default: local generation (`"mode": "generate"`). It runs offline and costs nothing. Its licence is the one recorded for the downloaded model weights; `motion-studio music <slug>` writes it into `build/music.json` with the prompt, seed, BPM and beats.
+Default: local generation (`"mode": "generate"`). It runs offline and costs nothing. Its licence is the one recorded for the downloaded model weights; `motion-studio music <slug>` writes it into `build/music.json` with the prompt, seed, the measured BPM, the beat and bar grid, and the section hits (intro end, build, drop, ending).
 
 ## Writing the prompt
 Describe genre, instrumentation, mood and energy, and always include "instrumental". Match the *content*, not the topic:

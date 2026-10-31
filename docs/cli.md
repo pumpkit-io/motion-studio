@@ -341,7 +341,12 @@ $ motion-studio music [OPTIONS] {slug}
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-The mode, prompt, BPM and seed come from the EDL's `music` block, falling back to `[music]` in the config. `generate` needs `motion-studio setup --music` and retries up to three seeds when the bed has vocals. `library` picks a licensed track from `library/music/tags.json` and refuses one without a licence. `none` removes the bed. `build/music.json` records the prompt, seed, model, licence, BPM and beats. Run `plan validate` again afterwards so overlays snap to the beats.
+The mode, prompt, BPM and seed come from the EDL's `music` block, falling back to `[music]` in the config. `generate` needs `motion-studio setup --music` and retries up to three seeds when the bed has vocals. `library` picks a licensed track from `library/music/tags.json` and refuses one without a licence. `none` removes the bed. `build/music.json` records the prompt, seed, model, licence and BPM, and the bed's analysis (schema: `schemas/music.schema.json`). Times are seconds from the start of the bed, which is output time zero. Run `plan validate` again afterwards so overlays snap to the beats.
+
+* `detected_bpm`: the measured tempo. librosa's estimate (`tracker_bpm`) comes from coarse bins, so motion-studio refines it within 4% against the onsets, then cross-checks it against the period of the section changes: when the changes put the bars more than 1.5% apart from the onset tempo, they win. `tempo_from` says which (`onsets` or `sections`), and the command prints the correction.
+* `beats` and `bars`: the beat grid on the corrected tempo, every beat and every downbeat up to the end of the timeline (`beats_per_bar` is 4). The downbeat is the beat most section changes fall on.
+* `sections`: the whole bed cut where its band levels change for at least a bar, in order, each with `start_s`, `end_s` and `energy_db` (its level against the loudest section, which is 0). Changes are snapped to the nearest bar line within a beat, else to the nearest beat. Trailing silence is left out.
+* `hits`: named section hits, each with `name` and `time_s`, listed only when the bed has them. `intro_end` is the end of the first section, `drop` the start of the loudest section, `build` the start of the section before the drop when an intro precedes it, and `ending` the start of the last section when it comes after the drop and is at least 3 dB quieter, else the point where the music falls silent.
 
 ## `motion-studio render`
 

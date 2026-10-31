@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from motion_studio.analysis import ClipAnalysis
 from motion_studio.config import Config
 from motion_studio.edl import Edl, Timeline
+from motion_studio.music.stage import MusicInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS = ROOT / "schemas"
@@ -25,6 +26,7 @@ CONTRACTS: dict[str, type[BaseModel]] = {
     "analysis": ClipAnalysis,
     "config": Config,
     "edl": Edl,
+    "music": MusicInfo,
     "timeline": Timeline,
 }
 
