@@ -749,3 +749,15 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
+
+## Share copy under 30 MiB with every final (ticket #39, spec #26)
+
+- `render --final` writes `final/<slug>_<format>_share.mp4` beside each final, for both kinds, and prints its path and size (`share` in `--json`). New module `render/share.py`.
+- Hitting the cap: a final already under 30 MiB is copied byte for byte. A larger one gets two-pass x264 at the bitrate that fits 94% of the cap after the audio, then the size is checked; an encode still over the cap is redone at a bitrate scaled by the overshoot, up to three times. Two-pass was chosen over stepping CRF because one pass pair usually lands, where CRF steps need an unknown number of full encodes.
+- The audio stream is copied, not re-encoded, so the share copy keeps the mastered loudness and true peak exactly; the cap therefore runs out at about seven minutes with the 320 kb/s mix. Past that (under 250 kb/s left for the video) the share copy fails with exit 1 and a hint, after the final is written and recorded.
+- Each share copy has its own `state.json` record, `final.share.<format>`, keyed on the final and the share recipe and cap. Existing finals gain a share copy on the next `render --final` without re-rendering, and `RECIPE` is unchanged.
+
+Checked:
+
+- New tests in `tests/unit/test_render_cli.py`: share copies beside both finals (size, resolution, `moov` before `mdat`, the printed line), a final over a lowered cap re-encoded under it at full resolution and frame count without calling the renderer again, no share copy for a preview, and the too-long failure keeping the final.
+- `just lint`, `just schema-check`, `just test` pass. No contract changed, so no schema regeneration; `src/motion_studio/edl` untouched.
