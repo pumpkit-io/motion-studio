@@ -832,6 +832,75 @@ wheels = [
 ]
 
 [[package]]
+name = "motion-studio"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "librosa" },
+    { name = "mediapipe" },
+    { name = "numpy" },
+    { name = "onnxruntime" },
+    { name = "opencv-python-headless" },
+    { name = "pillow" },
+    { name = "platformdirs" },
+    { name = "pydantic" },
+    { name = "rapidfuzz" },
+    { name = "rich" },
+    { name = "scenedetect" },
+    { name = "soundfile" },
+    { name = "tomli-w" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+cpu = [
+    { name = "faster-whisper" },
+]
+mac = [
+    { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "faster-whisper", marker = "extra == 'cpu'", specifier = "==1.2.1" },
+    { name = "librosa", specifier = "==1.0.0" },
+    { name = "mediapipe", specifier = "==1.1.1" },
+    { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mac'", specifier = "==0.4.3" },
+    { name = "numpy", specifier = "==2.5.4" },
+    { name = "onnxruntime", specifier = "==1.31.0" },
+    { name = "opencv-python-headless", specifier = "==5.0.0.93" },
+    { name = "pillow", specifier = "==13.0.0" },
+    { name = "platformdirs", specifier = "==4.13.5" },
+    { name = "pydantic", specifier = "==2.14.1" },
+    { name = "rapidfuzz", specifier = "==3.14.6" },
+    { name = "rich", specifier = "==15.0.0" },
+    { name = "scenedetect", specifier = "==0.7.2" },
+    { name = "soundfile", specifier = "==0.14.0" },
+    { name = "tomli-w", specifier = "==1.2.0" },
+    { name = "typer", specifier = "==0.27.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis", specifier = "==6.170.9" },
+    { name = "pre-commit", specifier = "==4.7.0" },
+    { name = "pyright", specifier = "==1.1.414" },
+    { name = "pytest", specifier = "==9.1.1" },
+    { name = "pytest-cov", specifier = "==7.1.0" },
+    { name = "ruff", specifier = "==0.17.2" },
+]
+
+[[package]]
 name = "mpmath"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1353,75 +1422,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/d4/5845698661cb23bc7935536c28f5b86b2b3606de1f54722c1cfac39f170a/rapidfuzz-3.14.6-cp313-cp313-win32.whl", hash = "sha256:4406b2517b85febcf9419f8fbcdfbd534872ea32608050f9562224933ca49a4c", size = 1886313 },
     { url = "https://files.pythonhosted.org/packages/67/f1/5b7c56737b9e5af7523ea79e90df732e9e4b2fa66fe2b333ee013ea6e541/rapidfuzz-3.14.6-cp313-cp313-win_amd64.whl", hash = "sha256:c69fb0e064d10c79908dcda76d7ca8ecdf8393a39acbb74dbad3f709f2c60e95", size = 1728638 },
     { url = "https://files.pythonhosted.org/packages/05/5e/fc1da16b7f5245a7cc61dc08f70391ddaa1c538be1cf92681e7c763b77a4/rapidfuzz-3.14.6-cp313-cp313-win_arm64.whl", hash = "sha256:a0c8bef04f6b1d9fdbb319576350af53151a64692d477db7d4844c220bc8e212", size = 1185777 },
-]
-
-[[package]]
-name = "reelcut"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "librosa" },
-    { name = "mediapipe" },
-    { name = "numpy" },
-    { name = "onnxruntime" },
-    { name = "opencv-python-headless" },
-    { name = "pillow" },
-    { name = "platformdirs" },
-    { name = "pydantic" },
-    { name = "rapidfuzz" },
-    { name = "rich" },
-    { name = "scenedetect" },
-    { name = "soundfile" },
-    { name = "tomli-w" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-cpu = [
-    { name = "faster-whisper" },
-]
-mac = [
-    { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "hypothesis" },
-    { name = "pre-commit" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "faster-whisper", marker = "extra == 'cpu'", specifier = "==1.2.1" },
-    { name = "librosa", specifier = "==1.0.0" },
-    { name = "mediapipe", specifier = "==1.1.1" },
-    { name = "mlx-whisper", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'mac'", specifier = "==0.4.3" },
-    { name = "numpy", specifier = "==2.5.4" },
-    { name = "onnxruntime", specifier = "==1.31.0" },
-    { name = "opencv-python-headless", specifier = "==5.0.0.93" },
-    { name = "pillow", specifier = "==13.0.0" },
-    { name = "platformdirs", specifier = "==4.13.5" },
-    { name = "pydantic", specifier = "==2.14.1" },
-    { name = "rapidfuzz", specifier = "==3.14.6" },
-    { name = "rich", specifier = "==15.0.0" },
-    { name = "scenedetect", specifier = "==0.7.2" },
-    { name = "soundfile", specifier = "==0.14.0" },
-    { name = "tomli-w", specifier = "==1.2.0" },
-    { name = "typer", specifier = "==0.27.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "hypothesis", specifier = "==6.170.9" },
-    { name = "pre-commit", specifier = "==4.7.0" },
-    { name = "pyright", specifier = "==1.1.414" },
-    { name = "pytest", specifier = "==9.1.1" },
-    { name = "pytest-cov", specifier = "==7.1.0" },
-    { name = "ruff", specifier = "==0.17.2" },
 ]
 
 [[package]]

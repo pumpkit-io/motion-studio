@@ -1,6 +1,6 @@
-# reelcut
+# motion-studio
 
-reelcut turns raw talking-head footage into short vertical and horizontal videos for Instagram Reels and X. A coding agent makes every editorial choice; reelcut turns footage into text the agent can read and renders the edit the agent describes.
+motion-studio edits video with a coding agent: talking-head footage into short videos for Instagram Reels and X, and screen recordings into product videos such as launch videos. The agent makes every editorial choice. motion-studio turns footage into text and stills the agent can read, and renders the edit the agent describes.
 
 ## Roles
 
@@ -15,12 +15,20 @@ _Avoid_: User (ambiguous with the agent's user), customer
 ## Places
 
 **Workspace**:
-A directory created by `reelcut init` that holds the creator's config, library and projects, and in which the host agent is opened.
+A directory created by `motion-studio init` that holds the creator's config, library and projects, and in which the host agent is opened.
 _Avoid_: Repo, folder, project root
 
 **Project**:
 One video job inside a workspace: its raw files, derived files, EDL and deliverables, identified by a slug.
 _Avoid_: Job, edit, video
+
+**Project kind**:
+What a project makes, set when the project is created: `talk` (a talking-head video, the default) or `product` (a product video).
+_Avoid_: Type, mode, template
+
+**Product video**:
+A project made from recordings of a product's screens instead of a speaker: a launch video, a feature demo or a changelog video. It shares the workspace, music, render and check with talking-head projects.
+_Avoid_: Promo, demo reel, motion graphics
 
 **Library**:
 Workspace-level reusable material: licensed music tracks and brand assets.
@@ -54,7 +62,31 @@ _Avoid_: Media, resource
 
 **Take**:
 One attempt by the speaker at delivering some lines. A clip can hold several takes.
-_Avoid_: Clip (a clip is a file; a take is a performance)
+_Avoid_: Clip (a clip is a file; a take is a performance), Screen recording
+
+**Screen recording**:
+A clip made by running a recording script against a browser or a terminal, carrying the markers the script wrote.
+_Avoid_: Take (a take is a speaker's performance), capture, screencast
+
+**Recording script**:
+The script the host agent writes to drive a product through one screen recording: what to click, type and wait for, and where to place markers.
+_Avoid_: Take script, tape (a tape is one kind of terminal recording script)
+
+**Marker**:
+A named moment in a screen recording (`brief_sent`, `v1_shown`), written by the recording script on the same clock as the frames.
+_Avoid_: Timestamp, cue, bookmark
+
+**Element**:
+A named on-screen region whose box the recording script captured at a marker, such as the post text when version 2 appears. Camera moves and highlights target elements.
+_Avoid_: Selector (a selector is how the script finds it), bounding box, region
+
+**Shot list**:
+The recordings a product video needs, each with what it shows and every side effect it causes outside the isolated instance, agreed with the creator before anything is recorded.
+_Avoid_: Storyboard (a storyboard is the edit), script
+
+**Demo kit**:
+A document in a product's own repository that says how to film that product safely: the isolated instance, demo accounts, how to sign in, and how to undo every side effect a recording causes.
+_Avoid_: Demo guide, test setup
 
 **Mezzanine**:
 The normalised copy of a clip (constant frame rate, SDR) that every later stage reads instead of the raw file.
@@ -113,24 +145,48 @@ The edit decision list (`edl.json`): the single file in which the host agent rec
 _Avoid_: Plan, script, cut list
 
 **Draft**:
-The deterministic baseline EDL that reelcut writes from the analysis, before the host agent refines it.
+The deterministic baseline EDL that motion-studio writes from the analysis, before the host agent refines it.
 _Avoid_: Auto-edit, first cut
 
 **Segment**:
 An entry in the EDL that keeps a range of words from one clip. The order of segments in the EDL is their order in the output.
 _Avoid_: Clip, section, part
 
+**Scene**:
+An entry in a product video's EDL: one title card, footage shot, proof shot or outro, with its own duration. The order of scenes is their order in the output.
+_Avoid_: Segment (a segment keeps a range of words), slide, shot
+
+**Title card**:
+A short full-frame scene with a headline, and optionally a step number and a subline, that introduces what comes next.
+_Avoid_: Title (a title is text over footage), slate, intertitle
+
+**Device frame**:
+The drawn browser, terminal or phone window that footage plays inside in a product video.
+_Avoid_: Mockup, chrome, window
+
+**Proof shot**:
+A still of a real result produced by the product, such as a published post, shown in a product video as evidence that it works.
+_Avoid_: Screenshot, social proof
+
+**Highlight**:
+A box with an optional label drawn around a region of footage to direct the viewer's eye.
+_Avoid_: Callout, annotation
+
+**Mask**:
+A rectangle drawn over part of the footage in the frame's background colour to hide something that must not be seen.
+_Avoid_: Blur, redaction, crop
+
 **Hook**:
 The opening of the video, roughly the first 2 to 3 seconds, chosen to make a viewer stay.
 _Avoid_: Intro
 
 **Event**:
-An EDL instruction layered on top of the segments: zoom, push, B-roll, image, title or emphasis, anchored to words, utterances or segments.
+An EDL instruction layered on top of segments or scenes: in a talk project a zoom, push, B-roll, image, title or emphasis; in a product video a camera move, highlight, mask or caption pill.
 _Avoid_: Effect, overlay (an overlay is one kind of event)
 
 **Anchor**:
 The word, utterance or segment ID an event is attached to. It resolves to a time in the output.
-_Avoid_: Timestamp, marker
+_Avoid_: Timestamp, Marker (a marker is a moment in a screen recording; an anchor can point at one)
 
 **Policy**:
 The trimming rules applied while resolving an EDL: padding, maximum pause, minimum run length, filler dropping, jump-cut punch.
@@ -172,6 +228,10 @@ _Avoid_: Draft render, proxy
 A full-resolution render delivered to the creator.
 _Avoid_: Export, master
 
+**Share copy**:
+A full-resolution copy of a final, re-encoded to stay under 30 MiB so it can be sent through chat tools and to phones.
+_Avoid_: Preview (a preview is half-resolution and checks an edit), small copy, compressed version
+
 **Check**:
 The automated quality pass on a render: re-transcribe and diff, cut stills, loudness, black and frozen frames, duration.
 _Avoid_: QA run, validation (validation is of the EDL, not of a render)
@@ -181,7 +241,7 @@ A cut that removes part of a word that should have been kept. A check that finds
 _Avoid_: Bad cut
 
 **Review gate**:
-An optional stop after the plan or after the preview, where the host agent waits for the creator's go-ahead.
+A stop where the host agent waits for the creator's go-ahead: optional after the plan and after the preview, and required after the shot list of a product video.
 _Avoid_: Approval step, checkpoint
 
 ## Music
@@ -189,6 +249,18 @@ _Avoid_: Approval step, checkpoint
 **Music bed**:
 The instrumental track mixed under the voice, either generated locally or picked from the library.
 _Avoid_: Soundtrack, background music, BGM
+
+**Section hit**:
+The moment a music bed changes section (intro end, build, drop, ending), on a bar line and given a time in the bed.
+_Avoid_: Drop (a drop is one kind of section hit), beat, cue
+
+**Small-speaker check**:
+Comparing the energy of a render's high frequencies with its sub-bass, so that music which disappears on laptop and phone speakers is caught before delivery.
+_Avoid_: Bass check, EQ check
+
+**Beat grid**:
+The bars and beats of the music bed laid over output time. Product video scenes are timed on it.
+_Avoid_: Tempo map, click track
 
 **Ducking**:
 Lowering the music bed automatically while the voice is speaking.

@@ -1,11 +1,11 @@
-# Using reelcut with coding agents
+# Using motion-studio with coding agents
 
-`reelcut init <dir>` creates a workspace that a host agent opened in `<dir>` can edit from. The agent learns the workflow from two kinds of file:
+`motion-studio init <dir>` creates a workspace that a host agent opened in `<dir>` can edit from. The agent learns the workflow from two kinds of file:
 
 - **`AGENTS.md`**: golden rules, the workflow pointer and a command quick reference. `CLAUDE.md` and `GEMINI.md` each contain `@AGENTS.md`, so Claude Code and Gemini CLI load the same text.
-- **Skills**: five Agent Skills folders (`SKILL.md` with `name` and `description` frontmatter): `reelcut-edit` (the orchestrator), `reelcut-plan`, `reelcut-look`, `reelcut-music` and `reelcut-review`. The canonical sources are in `src/reelcut/templates/skills/`.
+- **Skills**: five Agent Skills folders (`SKILL.md` with `name` and `description` frontmatter): `motion-studio-edit` (the orchestrator), `motion-studio-plan`, `motion-studio-look`, `motion-studio-music` and `motion-studio-review`. The canonical sources are in `src/motion_studio/templates/skills/`.
 
-`init` installs the skills for every supported agent. `reelcut agents sync [--targets claude,codex,gemini,cursor]` reinstalls them from the installed reelcut, for example after an upgrade. Sync copies (it does not symlink, so a workspace survives reelcut being reinstalled elsewhere), replaces only folders named like a reelcut skill, and leaves other skills in the same directories alone. `.agents/skills/` is always written, whatever the targets, because `AGENTS.md` links the skill files there by path for any agent that does not load skills.
+`init` installs the skills for every supported agent. `motion-studio agents sync [--targets claude,codex,gemini,cursor]` reinstalls them from the installed motion-studio, for example after an upgrade. Sync copies (it does not symlink, so a workspace survives motion-studio being reinstalled elsewhere), replaces only folders named like a motion-studio skill, and leaves other skills in the same directories alone. `.agents/skills/` is always written, whatever the targets, because `AGENTS.md` links the skill files there by path for any agent that does not load skills.
 
 ## Where each agent looks
 
@@ -18,12 +18,12 @@ Checked against each agent's official docs on 2026-10-24.
 | Gemini CLI | `.agents/skills/<name>/SKILL.md` (alias of `.gemini/skills/`) | `GEMINI.md` (here `@AGENTS.md`) | [geminicli.com/docs/cli/skills](https://geminicli.com/docs/cli/skills/): workspace skills are "Located in `.gemini/skills/` or the `.agents/skills/` alias", and the alias takes precedence. [GEMINI.md docs](https://geminicli.com/docs/cli/gemini-md/): `GEMINI.md` is the default context file and supports `@file.md` imports. |
 | Cursor | `.agents/skills/<name>/SKILL.md` (also `.cursor/skills/`) | `AGENTS.md` | [cursor.com/docs/context/skills](https://cursor.com/docs/context/skills): project skills load from `.agents/skills/` and `.cursor/skills/`; `name` (must match the folder) and `description` are required. [Rules docs](https://cursor.com/docs/context/rules): "Cursor supports AGENTS.md in the project root and subdirectories." |
 
-The `TARGETS` table in `src/reelcut/agents/__init__.py` holds these paths; change both together.
+The `TARGETS` table in `src/motion_studio/agents/__init__.py` holds these paths; change both together.
 
 ## Notes
 
 - **Codex outside a Git repository** only checks the launch directory for `.agents/skills` and `AGENTS.md`. Open Codex in the workspace root, which is where both live.
-- **Cursor and Claude Code together**: Cursor also reads `.claude/skills/` for compatibility, so with both targets installed it sees each reelcut skill twice under the same name. The copies are identical. To avoid the duplicate, sync only the agents you use, for example `reelcut agents sync --targets cursor`.
+- **Cursor and Claude Code together**: Cursor also reads `.claude/skills/` for compatibility, so with both targets installed it sees each motion-studio skill twice under the same name. The copies are identical. To avoid the duplicate, sync only the agents you use, for example `motion-studio agents sync --targets cursor`.
 - **Gemini CLI and Antigravity CLI**: the Gemini CLI docs note that Google replaced Gemini CLI with Antigravity CLI (`agy`) on 2026-06-18. Third-party migration guides say Antigravity reads workspace skills from `.agents/skills/` and `AGENTS.md`; this was not checked against official Antigravity docs.
 - **An agent without skills support** reads `AGENTS.md`, which lists each `.agents/skills/<name>/SKILL.md` by path.
 - **Claude Code plugin packaging** is on `ROADMAP.md`, not in v0.1.0.

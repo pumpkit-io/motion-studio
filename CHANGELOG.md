@@ -4,14 +4,18 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## Unreleased
 
+### Changed
+
+- Renamed from reelcut to motion-studio: the command, the `motion_studio` package, the `motion-studio-renderer` package, the `motion-studio.toml` workspace file, the `motion-studio-*` skills, the cache directory and the `MOTION_STUDIO_` environment variables.
+
 ## 0.1.0 - 2026-10-24
 
 The first release: a coding agent can edit talking-head footage into Reels and X videos on a Mac, offline.
 
 ### Added
 
-- `reelcut setup` downloads the speech-to-text, voice-activity, denoiser and face models and the Remotion renderer into a cache; `setup --music` installs ACE-Step 1.5 in its own environment and prints the weights' licence. `reelcut doctor` checks ffmpeg and its filters, node, models, the renderer, the ACE-Step environment, the HEIC decoder, free disk and RAM; `doctor --fix` runs `setup`'s downloads for whatever of those is missing and checks again.
-- Workspaces and projects: `init` (with `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `reelcut.toml`, the library skeleton and the skills), `new`, `status`, `clean` and `config show`, with config merged from defaults, workspace, project and EDL policy.
+- `motion-studio setup` downloads the speech-to-text, voice-activity, denoiser and face models and the Remotion renderer into a cache; `setup --music` installs ACE-Step 1.5 in its own environment and prints the weights' licence. `motion-studio doctor` checks ffmpeg and its filters, node, models, the renderer, the ACE-Step environment, the HEIC decoder, free disk and RAM; `doctor --fix` runs `setup`'s downloads for whatever of those is missing and checks again.
+- Workspaces and projects: `init` (with `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `motion-studio.toml`, the library skeleton and the skills), `new`, `status`, `clean` and `config show`, with config merged from defaults, workspace, project and EDL policy.
 - `ingest`: stable clip IDs and roles in `project.toml`, constant-frame-rate SDR mezzanines with rotation applied, HDR tone-mapping through VideoToolbox `scale_vt` (or `zscale`, or `colorspace` with a warning), DeepFilterNet voice cleanup with an `arnndn` fallback, and image normalisation, with HEIC and HEIF photos decoded to PNG through `sips` or `heif-convert` (skipped with a warning when neither is installed). An empty `raw/` is an error that names the folder to copy the takes into.
 - `analyze`: language detection (English, Italian), word-level transcripts with mlx-whisper or faster-whisper, hard and soft fillers from per-language data files, utterances, pauses, unaligned voice, retake clusters, shots, static stretches, faces, role classification, the packed index `packed.md` and the asset catalogue `assets.md`.
 - `words`, `look` and `look-asset` for exact word IDs and contact sheets, with a look budget.

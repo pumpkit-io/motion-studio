@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from conftest import FakeTools
 
-from reelcut.errors import DependencyError
-from reelcut.media.ffmpeg import (
+from motion_studio.errors import DependencyError
+from motion_studio.media.ffmpeg import (
     FFmpegError,
     ffmpeg_caps,
     filter_graph_args,

@@ -21,3 +21,4 @@ renderer/build/
 
 # Agent worktrees.
 .claude/worktrees/
+.sdlc/

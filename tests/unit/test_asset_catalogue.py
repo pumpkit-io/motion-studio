@@ -1,6 +1,6 @@
 """The asset catalogue (`analysis/assets.md`), driven through `pack_assets`."""
 
-from reelcut.analysis import ClipAnalysis, ClipInfo, Span, pack_assets, read_descriptions
+from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, pack_assets, read_descriptions
 
 
 def asset(clip_id: str, role: str, source: str, **info: float | int) -> ClipAnalysis:

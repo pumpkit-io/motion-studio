@@ -1,7 +1,7 @@
-"""`reelcut check` with the real speech model and renderer on the EN and IT fixtures.
+"""`motion-studio check` with the real speech model and renderer on the EN and IT fixtures.
 
-Uses the real cache; run `reelcut setup` and `just fixtures` first. Set
-REELCUT_CHECK_STILLS=<dir> to copy each run's cuts.png and report.md there.
+Uses the real cache; run `motion-studio setup` and `just fixtures` first. Set
+MOTION_STUDIO_CHECK_STILLS=<dir> to copy each run's cuts.png and report.md there.
 """
 
 import json
@@ -14,11 +14,11 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.asr import DEFAULT_MODELS, model_path, resolve_backend
-from reelcut.asr.vad import vad_model_path
-from reelcut.audio.enhance import deep_filter_binary
-from reelcut.cli import app
-from reelcut.render.renderer import find_renderer
+from motion_studio.asr import DEFAULT_MODELS, model_path, resolve_backend
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.audio.enhance import deep_filter_binary
+from motion_studio.cli import app
+from motion_studio.render.renderer import find_renderer
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.models, pytest.mark.renderer]
 
@@ -47,7 +47,7 @@ def edit_edl(project: Path, **changes: Any) -> None:
 
 
 def keep(project: Path, name: str) -> None:
-    out = os.environ.get("REELCUT_CHECK_STILLS")
+    out = os.environ.get("MOTION_STUDIO_CHECK_STILLS")
     if out:
         target = Path(out) / name
         target.mkdir(parents=True, exist_ok=True)
@@ -65,13 +65,13 @@ def planned(
         pytest.skip("fixtures not generated; run `just fixtures`")
     backend = resolve_backend("auto")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:
-        pytest.skip("speech models not in the cache; run `reelcut setup`")
+        pytest.skip("speech models not in the cache; run `motion-studio setup`")
     find_renderer()
     with pytest.MonkeyPatch.context() as monkeypatch:
         deep_filter = deep_filter_binary()
         if deep_filter:
-            monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
-        monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+            monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
+        monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
         workspace = tmp_path_factory.mktemp(language) / "reels"
         run("init", str(workspace))
         monkeypatch.chdir(workspace)

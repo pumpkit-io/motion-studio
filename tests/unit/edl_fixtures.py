@@ -2,10 +2,10 @@
 
 from typing import Any
 
-from reelcut.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
-from reelcut.analysis.models import Role
-from reelcut.edl import Edl
-from reelcut.lang import load_language
+from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
+from motion_studio.analysis.models import Role
+from motion_studio.edl import Edl
+from motion_studio.lang import load_language
 
 WORD_S = 0.3
 WORD_GAP_S = 0.1

@@ -1,9 +1,9 @@
-"""The whole pipeline on the EN and IT fixtures, driven only through the `reelcut` CLI.
+"""The whole pipeline on the EN and IT fixtures, driven only through the `motion-studio` CLI.
 
-Each step runs the installed `reelcut` executable in a subprocess, as an editing agent would,
+Each step runs the installed `motion-studio` executable in a subprocess, as an editing agent would,
 and the only file the test writes into the workspace is edl.json. Uses the real cache: run
-`reelcut setup --music` and `just fixtures` first. Per-stage wall times, stills and check
-reports land in REELCUT_E2E_OUT (default build/e2e/ in the repo).
+`motion-studio setup --music` and `just fixtures` first. Per-stage wall times, stills and check
+reports land in MOTION_STUDIO_E2E_OUT (default build/e2e/ in the repo).
 """
 
 import json
@@ -19,13 +19,13 @@ from typing import Any
 
 import pytest
 
-from reelcut.asr import DEFAULT_MODELS, model_path, resolve_backend
-from reelcut.asr.vad import vad_model_path
-from reelcut.audio.enhance import deep_filter_binary
-from reelcut.media.ffmpeg import run_ffmpeg, run_ffprobe
-from reelcut.paths import envs_dir
-from reelcut.render.renderer import find_renderer
-from reelcut.text import normalise_token
+from motion_studio.asr import DEFAULT_MODELS, model_path, resolve_backend
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.audio.enhance import deep_filter_binary
+from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.paths import envs_dir
+from motion_studio.render.renderer import find_renderer
+from motion_studio.text import normalise_token
 
 pytestmark = [
     pytest.mark.slow,
@@ -38,14 +38,14 @@ pytestmark = [
 REPO = Path(__file__).resolve().parents[2]
 MEDIA = REPO / "tests" / "fixtures" / "media"
 TRUTH = REPO / "tests" / "fixtures" / "ground_truth"
-REELCUT = Path(sys.executable).with_name("reelcut")
+MOTION_STUDIO = Path(sys.executable).with_name("motion-studio")
 FORMATS = {"9x16": (540, 960), "16x9": (960, 540)}
 TOLERANCE_S = 0.15
 LUFS_TARGET = -14.0
 
 
 def out_dir() -> Path:
-    return Path(os.environ.get("REELCUT_E2E_OUT") or REPO / "build" / "e2e")
+    return Path(os.environ.get("MOTION_STUDIO_E2E_OUT") or REPO / "build" / "e2e")
 
 
 @dataclass
@@ -59,17 +59,19 @@ class Run:
     def project(self) -> Path:
         return self.workspace / "projects" / "demo"
 
-    def reelcut(self, stage: str, *args: str, ok_codes: tuple[int, ...] = (0,)) -> Any:
+    def motion_studio(self, stage: str, *args: str, ok_codes: tuple[int, ...] = (0,)) -> Any:
         started = time.monotonic()
         proc = subprocess.run(
-            [str(REELCUT), *args, "--json"],
+            [str(MOTION_STUDIO), *args, "--json"],
             cwd=self.workspace if self.workspace.exists() else self.workspace.parent,
             capture_output=True,
             text=True,
             check=False,
         )
         self.timings.append((stage, time.monotonic() - started))
-        assert proc.returncode in ok_codes, f"reelcut {' '.join(args)}\n{proc.stdout}{proc.stderr}"
+        assert proc.returncode in ok_codes, (
+            f"motion-studio {' '.join(args)}\n{proc.stdout}{proc.stderr}"
+        )
         body = json.loads(proc.stdout)
         self.results[stage] = body
         return body
@@ -81,13 +83,13 @@ class Run:
 def require_setup() -> None:
     if not (MEDIA / "en_talking.mov").exists():
         pytest.skip("fixtures not generated; run `just fixtures`")
-    if not REELCUT.exists():
-        pytest.skip(f"no reelcut executable next to {sys.executable}")
+    if not MOTION_STUDIO.exists():
+        pytest.skip(f"no motion-studio executable next to {sys.executable}")
     backend = resolve_backend("auto")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:  # type: ignore[index]
-        pytest.skip("speech models not in the cache; run `reelcut setup`")
+        pytest.skip("speech models not in the cache; run `motion-studio setup`")
     if not (envs_dir() / "ace-step" / "install.json").is_file():
-        pytest.skip("ACE-Step not installed; run `reelcut setup --music`")
+        pytest.skip("ACE-Step not installed; run `motion-studio setup --music`")
     find_renderer()
 
 
@@ -120,21 +122,21 @@ def pipeline(
     with pytest.MonkeyPatch.context() as monkeypatch:
         deep_filter = deep_filter_binary()
         if deep_filter:
-            monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
+            monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
         run = Run(language, tmp_path_factory.mktemp(language) / "reels")
         sources = [MEDIA / f"{language}_talking.mov", MEDIA / "broll.mp4", MEDIA / "image.png"]
-        run.reelcut("init", "init", str(run.workspace))
-        run.reelcut("new", "new", "demo", "--from", *map(str, sources))
-        run.reelcut("ingest", "ingest", "demo")
-        run.reelcut("analyze", "analyze", "demo")
-        run.reelcut("look-asset", "look-asset", "demo", "b1")
-        run.reelcut("plan draft", "plan", "draft", "demo")
+        run.motion_studio("init", "init", str(run.workspace))
+        run.motion_studio("new", "new", "demo", "--from", *map(str, sources))
+        run.motion_studio("ingest", "ingest", "demo")
+        run.motion_studio("analyze", "analyze", "demo")
+        run.motion_studio("look-asset", "look-asset", "demo", "b1")
+        run.motion_studio("plan draft", "plan", "draft", "demo")
         add_edits(run)
-        run.reelcut("plan validate", "plan", "validate", "demo")
-        run.reelcut("music", "music", "demo")
-        run.reelcut("plan validate (beats)", "plan", "validate", "demo")
-        run.reelcut("render preview", "render", "demo", "--preview")
-        run.reelcut("check", "check", "demo", "--preview", ok_codes=(0, 1))
+        run.motion_studio("plan validate", "plan", "validate", "demo")
+        run.motion_studio("music", "music", "demo")
+        run.motion_studio("plan validate (beats)", "plan", "validate", "demo")
+        run.motion_studio("render preview", "render", "demo", "--preview")
+        run.motion_studio("check", "check", "demo", "--preview", ok_codes=(0, 1))
         record(run)
         yield run
 

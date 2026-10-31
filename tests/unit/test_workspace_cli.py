@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.cli import app
-from reelcut.config import Config
+from motion_studio.cli import app
+from motion_studio.config import Config
 
 runner = CliRunner()
 
@@ -44,7 +44,7 @@ def test_init_creates_the_workspace_tree(tmp_path: Path) -> None:
     ws = tmp_path / "reels"
     result = invoke("init", ws)
     assert result.exit_code == 0, result.output
-    for name in ["AGENTS.md", "CLAUDE.md", "reelcut.toml"]:
+    for name in ["AGENTS.md", "CLAUDE.md", "motion-studio.toml"]:
         assert (ws / name).is_file()
         assert str(ws / name) in result.output
     for name in ["library/music", "library/brand", "projects"]:
@@ -54,7 +54,7 @@ def test_init_creates_the_workspace_tree(tmp_path: Path) -> None:
 
 
 def test_init_template_config_is_the_built_in_default(workspace: Path) -> None:
-    data = tomllib.loads((workspace / "reelcut.toml").read_text(encoding="utf-8"))
+    data = tomllib.loads((workspace / "motion-studio.toml").read_text(encoding="utf-8"))
     assert Config.model_validate(data) == Config()
 
 
@@ -113,7 +113,7 @@ def test_new_outside_a_workspace_is_a_user_error(
     assert result.exit_code == 1
     payload = json.loads(result.output)
     assert payload["ok"] is False
-    assert "reelcut.toml" in payload["error"]
+    assert "motion-studio.toml" in payload["error"]
 
 
 def test_new_json_lists_the_written_paths(workspace: Path, take: Path) -> None:
@@ -125,7 +125,7 @@ def test_new_json_lists_the_written_paths(workspace: Path, take: Path) -> None:
 
 
 def test_config_show_json_prints_the_merged_config(demo: Path, workspace: Path) -> None:
-    (workspace / "reelcut.toml").write_text("[edit]\npad_in_ms = 60\n", encoding="utf-8")
+    (workspace / "motion-studio.toml").write_text("[edit]\npad_in_ms = 60\n", encoding="utf-8")
     (demo / "project.toml").write_text(
         '[project]\ntitle = "demo"\n[edit]\npad_out_ms = 90\n', encoding="utf-8"
     )
@@ -156,7 +156,7 @@ def test_status_lists_stages_and_a_next_command(demo: Path) -> None:
     assert result.exit_code == 0, result.output
     for stage in ["ingest", "analyze", "plan", "music", "preview", "check", "final"]:
         assert stage in result.output
-    assert "reelcut ingest demo" in result.output
+    assert "motion-studio ingest demo" in result.output
 
 
 def test_status_json(demo: Path) -> None:
@@ -165,7 +165,7 @@ def test_status_json(demo: Path) -> None:
     payload = json.loads(result.output)
     assert [s["name"] for s in payload["stages"]][:2] == ["ingest", "analyze"]
     assert {s["status"] for s in payload["stages"]} == {"pending"}
-    assert payload["next"] == "reelcut ingest demo"
+    assert payload["next"] == "motion-studio ingest demo"
 
 
 def test_status_on_an_empty_project_says_to_add_clips(workspace: Path) -> None:

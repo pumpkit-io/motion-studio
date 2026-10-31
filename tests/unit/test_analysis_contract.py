@@ -1,4 +1,4 @@
-from reelcut.analysis import ClipAnalysis
+from motion_studio.analysis import ClipAnalysis
 
 GUIDE_EXAMPLE = {
     "schema_version": 1,

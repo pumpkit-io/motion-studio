@@ -1,6 +1,6 @@
 """Face detection with the real models on the public-domain face photo.
 
-Uses the real cache and its heavy-model lock; run `reelcut setup` first.
+Uses the real cache and its heavy-model lock; run `motion-studio setup` first.
 """
 
 import shutil
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from reelcut.vision import FaceJob, detect_faces, mediapipe_model_path, yunet_model_path
+from motion_studio.vision import FaceJob, detect_faces, mediapipe_model_path, yunet_model_path
 
 pytestmark = [pytest.mark.models]
 
@@ -20,7 +20,7 @@ TOLERANCE = 0.06
 
 def require_models() -> None:
     if not mediapipe_model_path().is_file() or not yunet_model_path().is_file():
-        pytest.skip("face models not in the cache; run `reelcut setup`")
+        pytest.skip("face models not in the cache; run `motion-studio setup`")
 
 
 def photo_job() -> FaceJob:
@@ -52,7 +52,7 @@ def test_without_the_mediapipe_model_yunet_finds_the_face_and_says_why(
 ) -> None:
     require_models()
     yunet = yunet_model_path()
-    monkeypatch.setenv("REELCUT_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("MOTION_STUDIO_CACHE_DIR", str(tmp_path / "cache"))
     yunet_model_path().parent.mkdir(parents=True)
     shutil.copy(yunet, yunet_model_path())
 

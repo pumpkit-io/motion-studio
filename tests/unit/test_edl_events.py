@@ -5,8 +5,8 @@ from typing import Any
 import pytest
 from edl_fixtures import asset, clip, edl
 
-from reelcut.config import Config
-from reelcut.edl import EdlError, Resolution, resolve
+from motion_studio.config import Config
+from motion_studio.edl import EdlError, Resolution, resolve
 
 # Output: s0 = frames 0-40, s1 = 40-83, s2 = 83-125. "Second" (c1.w3) starts at 1.5 s, frame 45;
 # "here." (c1.w5) ends at 2.6 s, frame 78.

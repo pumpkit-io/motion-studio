@@ -9,11 +9,17 @@ from typer._click import Command
 from typer.core import TyperGroup
 from typer.testing import CliRunner
 
-from reelcut.cli import app
+from motion_studio.cli import app
 
 runner = CliRunner()
 
-SKILLS = ["reelcut-edit", "reelcut-look", "reelcut-music", "reelcut-plan", "reelcut-review"]
+SKILLS = [
+    "motion-studio-edit",
+    "motion-studio-look",
+    "motion-studio-music",
+    "motion-studio-plan",
+    "motion-studio-review",
+]
 
 # Verified in docs/agents.md: Claude Code reads .claude/skills; Codex, Gemini CLI and Cursor
 # all read .agents/skills.
@@ -67,7 +73,7 @@ def test_every_skill_has_frontmatter_with_its_folder_name_and_a_description(
 
 
 def test_agents_sync_restores_edited_skills_and_keeps_other_skills(workspace: Path) -> None:
-    edit = workspace / ".claude/skills/reelcut-edit/SKILL.md"
+    edit = workspace / ".claude/skills/motion-studio-edit/SKILL.md"
     pristine = edit.read_text(encoding="utf-8")
     edit.write_text("stale", encoding="utf-8")
     (edit.parent / "leftover.md").write_text("old", encoding="utf-8")
@@ -89,7 +95,7 @@ def test_agents_sync_targets_one_agent_and_always_writes_the_shared_dir(
 ) -> None:
     ws = tmp_path / "bare"
     ws.mkdir()
-    (ws / "reelcut.toml").write_text("", encoding="utf-8")
+    (ws / "motion-studio.toml").write_text("", encoding="utf-8")
     monkeypatch.chdir(ws)
 
     result = invoke("agents", "sync", "--targets", "claude", "--json")
@@ -119,7 +125,7 @@ def test_agents_sync_outside_a_workspace_is_a_user_error(
 # registered it is checked against the real CLI instead; delete its entry when you build it.
 PENDING: dict[tuple[str, ...], tuple[int, set[str]]] = {}
 
-INLINE = re.compile(r"`(reelcut [^`]+)`")
+INLINE = re.compile(r"`(motion-studio [^`]+)`")
 FLAG = re.compile(r"(?<![\w-])--[a-z][a-z-]*")
 WORD = re.compile(r"[a-z][a-z-]*")
 
@@ -129,13 +135,13 @@ def agent_docs(ws: Path) -> list[Path]:
 
 
 def mentions(doc: Path) -> list[str]:
-    """Every `reelcut ...` command in inline code or on a line of a fenced block."""
+    """Every `motion-studio ...` command in inline code or on a line of a fenced block."""
     found: list[str] = []
     fenced = False
     for line in doc.read_text(encoding="utf-8").splitlines():
         if line.startswith("```"):
             fenced = not fenced
-        elif fenced and line.startswith("reelcut "):
+        elif fenced and line.startswith("motion-studio "):
             found.append(line.strip())
         else:
             found += INLINE.findall(line)
@@ -182,11 +188,11 @@ def test_every_command_in_agents_md_and_the_skills_exists_with_its_flags(
 
 
 def test_the_command_check_catches_a_wrong_flag_and_an_unknown_command() -> None:
-    assert check_mention("reelcut status <slug>") is None
-    assert check_mention("reelcut render <slug> --preview|--final") is None
-    assert check_mention("reelcut status <slug> --verbose")
-    assert check_mention("reelcut render <slug> --draft")
-    assert check_mention("reelcut publish <slug>")
+    assert check_mention("motion-studio status <slug>") is None
+    assert check_mention("motion-studio render <slug> --preview|--final") is None
+    assert check_mention("motion-studio status <slug> --verbose")
+    assert check_mention("motion-studio render <slug> --draft")
+    assert check_mention("motion-studio publish <slug>")
 
 
 def test_agents_md_points_to_every_skill_file_by_a_path_that_exists(workspace: Path) -> None:

@@ -9,8 +9,8 @@ import pytest
 from rich.console import Console
 from typer.testing import CliRunner
 
-from reelcut.cli import app
-from reelcut.cli._output import Reporter
+from motion_studio.cli import app
+from motion_studio.cli._output import Reporter
 
 
 def terminal() -> tuple[Console, io.StringIO]:
@@ -50,7 +50,7 @@ def test_json_output_draws_no_progress_at_all() -> None:
 def test_without_a_terminal_ingest_prints_plain_step_lines(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
     runner = CliRunner()
     ws = tmp_path / "ws"
     assert runner.invoke(app, ["init", str(ws)]).exit_code == 0

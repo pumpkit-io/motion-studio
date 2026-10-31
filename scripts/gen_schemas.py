@@ -10,9 +10,9 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from reelcut.analysis import ClipAnalysis
-from reelcut.config import Config
-from reelcut.edl import Edl, Timeline
+from motion_studio.analysis import ClipAnalysis
+from motion_studio.config import Config
+from motion_studio.edl import Edl, Timeline
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMAS = ROOT / "schemas"
@@ -32,7 +32,7 @@ CONTRACTS: dict[str, type[BaseModel]] = {
 def main() -> None:
     SCHEMAS.mkdir(exist_ok=True)
     for name, model in sorted(CONTRACTS.items()):
-        # The timeline is written by reelcut and read by the renderer: its contract is the output.
+        # motion-studio writes the timeline and the renderer reads it: its contract is the output.
         schema = model.model_json_schema(
             mode="serialization" if model is Timeline else "validation"
         )

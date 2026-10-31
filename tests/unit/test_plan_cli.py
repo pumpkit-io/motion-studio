@@ -7,9 +7,9 @@ import pytest
 from edl_fixtures import asset, clip
 from typer.testing import CliRunner
 
-from reelcut.analysis import ClipAnalysis, find_retakes
-from reelcut.cli import app
-from reelcut.edl import Timeline
+from motion_studio.analysis import ClipAnalysis, find_retakes
+from motion_studio.cli import app
+from motion_studio.edl import Timeline
 
 runner = CliRunner()
 

@@ -2,9 +2,9 @@
 
 from edl_fixtures import asset, clip, edl
 
-from reelcut.config import Config
-from reelcut.edl import EdlError, Issue, resolve, summarize
-from reelcut.edl.summary import error_report
+from motion_studio.config import Config
+from motion_studio.edl import EdlError, Issue, resolve, summarize
+from motion_studio.edl.summary import error_report
 
 C1 = clip(
     "c1",
