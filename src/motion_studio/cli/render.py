@@ -50,6 +50,9 @@ def render(
         size = f"{out.format} {out.width}x{out.height}, {out.frames / out.fps:.2f} s"
         lines.append(path_line(out.path, size, written=not report.noop))
         lines.append(path_line(out.voice, "voice stem", written=not report.noop))
+        if out.share is not None and out.share_bytes is not None:
+            detail = f"share copy, {out.share_bytes / 2**20:.1f} MiB"
+            lines.append(path_line(out.share, detail, written=out.share_written))
     lines.append(f"next: `{APP_NAME} check {slug} {target.flag}`")
     emit(as_json, report.to_json(), lines)
 

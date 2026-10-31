@@ -82,6 +82,12 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 | ffmpeg `setts` bitstream filter | `setts=ts=<expr>` on a stream copy, with `-bf 0` so pts equals dts | ffmpeg 9.0.1; ffprobe shows the alternating packet durations |
 | ffmpeg `streamhash` muxer | `-map 0 -f streamhash -` | ffmpeg 9.0.1; used by the determinism test |
 
+## Share copy (ticket #39, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| libx264 two-pass | `-b:v <bps> -pass 1 -passlogfile <prefix> -an -f null -`, then `-pass 2` with the same `-passlogfile` | `ffmpeg -h encoder=libx264` on 9.0.2; the share-copy test re-encodes a 1080x1920 final to a third of its size |
+
 ## Agent skill paths (ticket #16, 2026-10-24)
 
 Checked against each agent's official docs; the table, quotes and links are in `docs/agents.md`.
