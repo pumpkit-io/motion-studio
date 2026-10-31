@@ -2,7 +2,7 @@
 
 A green 1600x900 clip with one red box (element `box`) and a markers sidecar stands in for a
 `record web` take, so the stills show whether the footage sits in its browser frame, where the
-camera points, and the title cards on the backdrop.
+camera points, the title cards on the backdrop, and the overlays.
 Uses the repo's renderer (`just setup`) or the cache's (`motion-studio setup`).
 """
 
@@ -23,6 +23,11 @@ pytestmark = [pytest.mark.slow, pytest.mark.renderer]
 
 GREEN = (46, 160, 67)
 RED = (220, 40, 40)
+# The default brand accent and the browser page's grey, a mask's default fill.
+ACCENT = (255, 212, 0)
+PAGE = (243, 242, 238)
+# The red box under a highlight's accent fill.
+TINTED = (234, 75, 29)
 BOX = {"name": "box", "x": 100, "y": 100, "w": 300, "h": 150}
 MARKERS = {"open": 0.5, "typed": 2.5, "done": 4.5}
 EDL: dict[str, Any] = {
@@ -47,6 +52,11 @@ EDL: dict[str, Any] = {
             "to": "c1.m.done",
             "beats": 8,
             "address": "example.com",
+            "events": [
+                {"type": "caption_pill", "text": "Pick who inspires you"},
+                {"type": "mask", "target": "c1.e.box", "start": "c1.m.typed"},
+                {"type": "flash", "strength": 1.0},
+            ],
         },
         {
             "id": "zoom",
@@ -55,7 +65,15 @@ EDL: dict[str, Any] = {
             "from": "c1.m.open",
             "to": "c1.m.done",
             "beats": 8,
-            "camera": [{"at": "c1.m.open", "target": "c1.e.box", "ease": "snap"}],
+            "camera": [{"at": "c1.m.open", "target": "c1.e.box"}],
+            "events": [
+                {
+                    "type": "highlight",
+                    "target": "c1.e.box",
+                    "end": {"marker": "c1.m.typed", "offset_s": -0.4},
+                    "label": "Box",
+                }
+            ],
         },
     ],
     "music": {"mode": "none"},
@@ -180,3 +198,50 @@ def test_final_stills_show_title_cards_on_the_backdrop_and_footage_in_its_frame(
         assert near(at(zoomed, x, y), RED), (x, y)
     for x, y in ((1320, 540), (960, 740)):
         assert near(at(zoomed, x, y), GREEN), (x, y)
+
+
+def hits(image: Image.Image, colour: tuple[int, int, int]) -> list[tuple[int, int]]:
+    """The pixels near `colour`, sampled every 4 pixels."""
+    return [
+        (x, y)
+        for x in range(0, image.width, 4)
+        for y in range(0, image.height, 4)
+        if near(at(image, x, y), colour, 30)
+    ]
+
+
+def test_overlays_cover_their_targets_and_frames(launch: Path, tmp_path: Path) -> None:
+    out = run("render", "launch", "--final")
+
+    video = Path(out["outputs"][0]["path"])
+    timeline = json.loads((launch / "build" / "timeline.json").read_text(encoding="utf-8"))
+    fps = timeline["fps"]
+    start = {s["id"]: s["start"] / fps for s in timeline["scenes"]}
+
+    # The flash whitens the first frame of the cut, and is gone by the scene's middle.
+    cut = still(video, start["pick"] + 0.5 / fps, tmp_path / "cut.png")
+    assert luminance(at(cut, 40, 40)) > 180
+    settled = still(video, start["pick"] + 1.5, tmp_path / "before.png")
+    assert luminance(at(settled, 40, 40)) < 80
+
+    # The box sits at (260, 212) to (560, 362) at rest; the mask hides it from marker typed.
+    assert near(at(settled, 410, 287), RED)
+    masked = still(video, start["pick"] + 3.0, tmp_path / "masked.png")
+    assert near(at(masked, 410, 287), PAGE)
+    assert near(at(masked, 960, 560), GREEN)
+
+    # The pill is dark on the footage at the bottom, centred.
+    row = [at(masked, x, 990) for x in range(800, 1120, 4)]
+    assert not any(near(p, GREEN) for p in row)
+    assert min(luminance(p) for p in row) < 60
+
+    # Mid-move and settled, the tag hangs just above the box's top-right corner.
+    for name, seconds in (("moving", 0.35), ("held", 1.4)):
+        image = still(video, start["zoom"] + seconds, tmp_path / f"{name}.png")
+        red = hits(image, RED) + hits(image, TINTED)
+        left, right = min(x for x, _ in red), max(x for x, _ in red)
+        top = min(y for _, y in red)
+        tag = [(x, y) for x, y in hits(image, ACCENT) if y < top - 12]
+        assert tag, name
+        assert top - 70 < max(y for _, y in tag), name
+        assert (left + right) / 2 < min(x for x, _ in tag) < right + 20, name

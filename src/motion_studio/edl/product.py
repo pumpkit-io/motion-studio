@@ -16,15 +16,24 @@ from motion_studio.edl.grid import BeatGrid
 from motion_studio.edl.issues import Problems
 from motion_studio.edl.models import (
     CameraMove,
+    CaptionPillEvent,
+    FlashEvent,
     FootagePoint,
     FootageScene,
+    HighlightEvent,
     MarkerPoint,
+    MaskEvent,
     ProductEdl,
     Rect,
     Scene,
     TimelineCameraKey,
+    TimelineCaptionPill,
+    TimelineEvent,
+    TimelineFlash,
     TimelineFootage,
     TimelineHeadlineWord,
+    TimelineHighlight,
+    TimelineMask,
     TimelineScene,
     TimelineTitleCard,
     TitleCardScene,
@@ -43,6 +52,12 @@ _MAX_MAGNIFICATION = 2.0
 # A move without a zoom frames its target to fill this much of the footage.
 _FILL = 0.7
 _MARKERS_SHOWN = 8
+_FLASH_FRAMES = 5
+# A flash this bright reads on light footage; dark terminal footage takes a softer one.
+_FLASH_STRENGTH = 0.35
+_FLASH_STRENGTH_ON = {"terminal": 0.12}
+# Events a scene has at most one of: both sit on the scene as a whole.
+_ONCE_PER_SCENE = ("caption_pill", "flash")
 _MARKERS_HINT = "markers are listed under each screen recording in analysis/packed.md"
 
 
@@ -67,6 +82,7 @@ class SceneContext:
 class ProductScenes:
     scenes: list[TimelineScene]
     duration_frames: int
+    events: list[TimelineEvent]
 
 
 def resolve_scenes(
@@ -82,6 +98,7 @@ def resolve_scenes(
     _check_formats(edl, problems)
     seen: set[str] = set()
     scenes: list[TimelineScene] = []
+    events: list[TimelineEvent] = []
     t = 0.0
     frame = 0
     for scene in edl.scenes:
@@ -95,11 +112,14 @@ def resolve_scenes(
         if end_s is None or (isinstance(scene, FootageScene) and span is None):
             continue
         end = max(round(end_s * fps), frame + 1)
-        resolved = _SCENES[scene.type](scene, Slot(t, frame, end), context)
+        slot = Slot(t, frame, end)
+        resolved = _SCENES[scene.type](scene, slot, context)
         if resolved is not None:
             scenes.append(resolved)
+        events.extend(_scene_events(scene, slot, span, context))
         t, frame = end_s, end
-    return ProductScenes(scenes, frame)
+    events.sort(key=lambda e: e.start)
+    return ProductScenes(scenes, frame, events)
 
 
 def _check_formats(edl: ProductEdl, problems: Problems) -> None:
@@ -257,9 +277,8 @@ def _move(
     zoom = _zoom(move.zoom, box, width, height, where, problems)
     if zoom is None:
         return None
-    frame = slot.start + round((at - src_in) / (src_out - src_in) * (slot.end - slot.start))
     return TimelineCameraKey(
-        frame=frame,
+        frame=_frame_at(at, span, slot),
         cx=round(box.x + box.w / 2, 2),
         cy=round(box.y + box.h / 2, 2),
         zoom=round(zoom, 6),
@@ -478,6 +497,121 @@ def _marker_list(analysis: ClipAnalysis) -> str:
         return "no markers"
     more = len(names) - _MARKERS_SHOWN
     return ", ".join(names[:_MARKERS_SHOWN]) + (f" and {more} more" if more > 0 else "")
+
+
+def _frame_at(t: float, span: tuple[float, float], slot: Slot) -> int:
+    """The output frame showing source second `t` of a footage scene."""
+    src_in, src_out = span
+    return slot.start + round((t - src_in) / (src_out - src_in) * (slot.end - slot.start))
+
+
+def _scene_events(
+    scene: Scene, slot: Slot, span: tuple[float, float] | None, context: SceneContext
+) -> list[TimelineEvent]:
+    """The scene's events in output frames. Errors go to `context.problems`."""
+    resolved: list[TimelineEvent] = []
+    seen: set[str] = set()
+    for index, event in enumerate(scene.events):
+        field = f"events[{index}]"
+        if isinstance(event, CaptionPillEvent | FlashEvent):
+            if event.type in seen:
+                context.problems.error(
+                    "duplicate_event",
+                    f"scene {scene.id} {field}: the scene already has a {event.type}",
+                    hint=f"keep one {', one '.join(_ONCE_PER_SCENE)} per scene, or split the scene",
+                )
+                continue
+            seen.add(event.type)
+            resolved.append(_whole_scene_event(event, scene, slot))
+        elif not isinstance(scene, FootageScene):
+            context.problems.error(
+                "event_needs_footage",
+                f"scene {scene.id} {field}: a {event.type} needs a footage scene, not {scene.type}",
+                hint="move it to the footage scene whose recording it points at",
+            )
+        elif span is not None:
+            box = _footage_event(event, field, scene, slot, span, context)
+            if box is not None:
+                resolved.append(box)
+    return resolved
+
+
+def _whole_scene_event(
+    event: CaptionPillEvent | FlashEvent, scene: Scene, slot: Slot
+) -> TimelineEvent:
+    if isinstance(event, CaptionPillEvent):
+        return TimelineCaptionPill(
+            type="caption_pill", scene=scene.id, start=slot.start, end=slot.end, text=event.text
+        )
+    frame = getattr(scene, "device_frame", None)
+    strength = event.strength or _FLASH_STRENGTH_ON.get(str(frame), _FLASH_STRENGTH)
+    return TimelineFlash(
+        type="flash",
+        scene=scene.id,
+        start=slot.start,
+        end=min(slot.end, slot.start + _FLASH_FRAMES),
+        strength=strength,
+    )
+
+
+def _footage_event(
+    event: HighlightEvent | MaskEvent,
+    field: str,
+    scene: FootageScene,
+    slot: Slot,
+    span: tuple[float, float],
+    context: SceneContext,
+) -> TimelineEvent | None:
+    """A highlight or mask in footage pixels over its frames, or None after recording why not."""
+    problems = context.problems
+    analysis = context.clips[scene.clip]
+    src_in, src_out = span
+    where = f"scene {scene.id} {field}"
+
+    def point(value: FootagePoint | None, name: str, default: float) -> float | None:
+        if value is None:
+            return default
+        return _point(value, f"{field}.{name}", scene, analysis, slot.start_s, context, problems)
+
+    start, end = point(event.start, "start", src_in), point(event.end, "end", src_out)
+    if start is None or end is None:
+        return None
+    if end <= start:
+        problems.error(
+            "reversed_event",
+            f"{where}: end ({end:.3f} s) is not after start ({start:.3f} s)",
+            hint="swap start and end, or pick a later marker for end",
+        )
+        return None
+    if start < src_in - 1e-6 or end > src_out + 1e-6:
+        problems.error(
+            "event_outside_scene",
+            f"{where}: {start:.3f}-{end:.3f} s is outside the scene's footage "
+            f"({src_in:.3f}-{src_out:.3f} s)",
+            hint="pick markers between the scene's from and to, or leave start and end out to "
+            "cover the whole scene",
+        )
+        return None
+    box = _target_box(event.target, f"{where} target", start, scene, analysis, problems)
+    if box is None:
+        return None
+    first = _frame_at(start, span, slot)
+    target = event.target
+    fields = {
+        "scene": scene.id,
+        "clip": scene.clip,
+        "start": first,
+        "end": max(first + 1, _frame_at(end, span, slot)),
+        "src_start_s": round(start, 6),
+        "src_end_s": round(end, 6),
+        "element": target if isinstance(target, str) and target != "full" else None,
+        **box.model_dump(),
+    }
+    if isinstance(event, HighlightEvent):
+        return TimelineHighlight.model_validate(
+            {**fields, "type": "highlight", "label": event.label}
+        )
+    return TimelineMask.model_validate({**fields, "type": "mask", "color": event.color})
 
 
 _SCENES: dict[str, Callable[[Scene, Slot, SceneContext], TimelineScene | None]] = {

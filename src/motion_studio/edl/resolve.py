@@ -91,7 +91,7 @@ def _resolve_product(
         formats=[_format_spec(name) for name in PRODUCT_FORMATS],
         runs=[],
         words=[],
-        events=[],
+        events=resolved.events,
         scenes=resolved.scenes,
         captions=_captions(config, edl, language),
         brand=TimelineBrand(**config.brand.model_dump()),

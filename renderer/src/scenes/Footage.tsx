@@ -2,18 +2,24 @@ import { AbsoluteFill, interpolate, OffthreadVideo, spring, staticFile, useCurre
 import { cameraAt, cssTransform, footagePlayback, frameLayout, frameTransform } from "../lib/deviceFrame";
 import type { LoadedFont } from "../lib/fonts";
 import type { Palette } from "../lib/palette";
-import type { TimelineFootage } from "../lib/timeline";
+import type { TimelineFootage, TimelineHighlight, TimelineMask } from "../lib/timeline";
 import { Backdrop } from "./Backdrop";
 import { BROWSER_BODY, BrowserBar } from "./BrowserFrame";
 import { EXIT_FRAMES } from "./Kinetic";
+import { Highlights, Masks } from "./Overlays";
 
-/** A screen recording in a browser window that tilts in, follows its camera moves, then blurs out. */
-export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font: LoadedFont; unit: number }> = ({
-  scene,
-  palette,
-  font,
-  unit,
-}) => {
+/**
+ * A screen recording in a browser window that tilts in, follows its camera moves, then blurs out.
+ * Masks and highlights sit on the footage, so they move with the camera.
+ */
+export const Footage: React.FC<{
+  scene: TimelineFootage;
+  highlights: TimelineHighlight[];
+  masks: TimelineMask[];
+  palette: Palette;
+  font: LoadedFont;
+  unit: number;
+}> = ({ scene, highlights, masks, palette, font, unit }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const duration = scene.end - scene.start;
@@ -52,6 +58,16 @@ export const Footage: React.FC<{ scene: TimelineFootage; palette: Palette; font:
               muted
               {...footagePlayback(scene, fps)}
               style={{ width: layout.content.width, height: layout.content.height, display: "block" }}
+            />
+            <Masks masks={masks} fill={BROWSER_BODY} frame={scene.start + frame} scale={layout.scale} unit={unit} />
+            <Highlights
+              highlights={highlights}
+              footageWidth={scene.width}
+              palette={palette}
+              font={font}
+              frame={scene.start + frame}
+              scale={layout.scale}
+              unit={unit}
             />
           </div>
         </div>

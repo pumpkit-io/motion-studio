@@ -114,6 +114,29 @@
       "title": "CameraMove",
       "type": "object"
     },
+    "CaptionPillEvent": {
+      "additionalProperties": false,
+      "description": "A short line in a pill at the bottom of the frame, for the whole scene.",
+      "properties": {
+        "text": {
+          "description": "What is happening, in a few words.",
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "caption_pill",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "title": "CaptionPillEvent",
+      "type": "object"
+    },
     "DropRange": {
       "additionalProperties": false,
       "description": "Source time to cut out, for audio no word points at (unaligned voice).",
@@ -331,6 +354,37 @@
       "title": "EmphasisEvent",
       "type": "object"
     },
+    "FlashEvent": {
+      "additionalProperties": false,
+      "description": "A white flash on the cut into the scene, fading out over 5 frames.",
+      "properties": {
+        "strength": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Opacity of the flash's first frame; default 0.35, or 0.12 on terminal footage, which a bright flash washes out.",
+          "title": "Strength"
+        },
+        "type": {
+          "const": "flash",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "FlashEvent",
+      "type": "object"
+    },
     "FootageScene": {
       "additionalProperties": false,
       "description": "A stretch of one screen recording, played in a device frame.\n\nIts length is `from` to `to` at `rate`, rounded to whole beats, unless a length is given;\nthen `from` to `to` is played to fill it and `rate` must be left out.",
@@ -395,6 +449,36 @@
           "description": "The frame drawn around the footage.",
           "title": "Device Frame",
           "type": "string"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
         },
         "from": {
           "anyOf": [
@@ -489,6 +573,98 @@
       "title": "FootageScene",
       "type": "object"
     },
+    "HighlightEvent": {
+      "additionalProperties": false,
+      "description": "An animated box, with an optional label, around a target of a footage scene's recording.",
+      "properties": {
+        "end": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When it fades out, on the recording's clock; default: to.",
+          "title": "End"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A few words on a tag at the box.",
+          "title": "Label"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the box draws in, on the recording's clock; default: from.",
+          "title": "Start"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "type": {
+          "const": "highlight",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "target"
+      ],
+      "title": "HighlightEvent",
+      "type": "object"
+    },
     "ImageEvent": {
       "additionalProperties": false,
       "properties": {
@@ -580,6 +756,99 @@
         "marker"
       ],
       "title": "MarkerPoint",
+      "type": "object"
+    },
+    "MaskEvent": {
+      "additionalProperties": false,
+      "description": "A box of a footage scene's recording filled with one colour, to hide what is under it.",
+      "properties": {
+        "color": {
+          "anyOf": [
+            {
+              "description": "#RRGGBB; #RGB is accepted and expanded.",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The fill; default: the device frame's background (the browser page's grey).",
+          "title": "Color"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the region shows again; default: to.",
+          "title": "End"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "description": "A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown.",
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/MarkerPoint"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "description": "A marker ID, a marker with an offset, or source seconds (only for a clip without markers)."
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "First moment hidden, on the recording's clock; default: from.",
+          "title": "Start"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/Rect"
+            }
+          ],
+          "description": "An element of the scene's recording (`<clip>.e.<name>`, such as c2.e.hook), `full` for the whole footage, or a box in footage pixels.",
+          "title": "Target"
+        },
+        "type": {
+          "const": "mask",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "target"
+      ],
+      "title": "MaskEvent",
       "type": "object"
     },
     "Policy": {
@@ -1099,6 +1368,36 @@
           "default": null,
           "description": "Length in beats of the grid.",
           "title": "Beats"
+        },
+        "events": {
+          "description": "Overlays: caption_pill and flash on any scene, highlight and mask on footage.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "caption_pill": "#/$defs/CaptionPillEvent",
+                "flash": "#/$defs/FlashEvent",
+                "highlight": "#/$defs/HighlightEvent",
+                "mask": "#/$defs/MaskEvent"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/HighlightEvent"
+              },
+              {
+                "$ref": "#/$defs/MaskEvent"
+              },
+              {
+                "$ref": "#/$defs/CaptionPillEvent"
+              },
+              {
+                "$ref": "#/$defs/FlashEvent"
+              }
+            ]
+          },
+          "title": "Events",
+          "type": "array"
         },
         "headline": {
           "minLength": 1,

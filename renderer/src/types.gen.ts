@@ -10,7 +10,17 @@ export interface Timeline {
   /**
    * Overlays and camera moves, by start frame.
    */
-  events: (TimelineZoom | TimelinePush | TimelineBroll | TimelineImage | TimelineTitle)[];
+  events: (
+    | TimelineZoom
+    | TimelinePush
+    | TimelineBroll
+    | TimelineImage
+    | TimelineTitle
+    | TimelineHighlight
+    | TimelineMask
+    | TimelineCaptionPill
+    | TimelineFlash
+  )[];
   formats: FormatSpec[];
   fps: number;
   /**
@@ -121,6 +131,104 @@ export interface TimelineTitle {
   start: number;
   text: string;
   type: "title";
+}
+/**
+ * A box drawn on the footage, so it follows the camera.
+ */
+export interface TimelineHighlight {
+  clip: string;
+  /**
+   * The element ID targeted, or null for a box.
+   */
+  element: string | null;
+  /**
+   * Output frame after the last one.
+   */
+  end: number;
+  h: number;
+  label: string | null;
+  scene: string;
+  /**
+   * Source seconds where it ends.
+   */
+  src_end_s: number;
+  /**
+   * Source seconds of the first frame, on clip's clock.
+   */
+  src_start_s: number;
+  /**
+   * First output frame.
+   */
+  start: number;
+  type: "highlight";
+  w: number;
+  /**
+   * Left edge in footage pixels.
+   */
+  x: number;
+  /**
+   * Top edge in footage pixels.
+   */
+  y: number;
+}
+/**
+ * A box of the footage filled over exactly start to end.
+ */
+export interface TimelineMask {
+  clip: string;
+  /**
+   * Null: the device frame's background.
+   */
+  color: string | null;
+  /**
+   * The element ID targeted, or null for a box.
+   */
+  element: string | null;
+  /**
+   * Output frame after the last one.
+   */
+  end: number;
+  h: number;
+  scene: string;
+  /**
+   * Source seconds where it ends.
+   */
+  src_end_s: number;
+  /**
+   * Source seconds of the first frame, on clip's clock.
+   */
+  src_start_s: number;
+  /**
+   * First output frame.
+   */
+  start: number;
+  type: "mask";
+  w: number;
+  /**
+   * Left edge in footage pixels.
+   */
+  x: number;
+  /**
+   * Top edge in footage pixels.
+   */
+  y: number;
+}
+export interface TimelineCaptionPill {
+  end: number;
+  scene: string;
+  start: number;
+  text: string;
+  type: "caption_pill";
+}
+export interface TimelineFlash {
+  end: number;
+  scene: string;
+  start: number;
+  /**
+   * Opacity at start, fading to 0 at end.
+   */
+  strength: number;
+  type: "flash";
 }
 export interface FormatSpec {
   height: number;

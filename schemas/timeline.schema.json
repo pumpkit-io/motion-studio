@@ -265,6 +265,41 @@
       "title": "TimelineCameraKey",
       "type": "object"
     },
+    "TimelineCaptionPill": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "type": {
+          "const": "caption_pill",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "scene",
+        "start",
+        "end",
+        "text"
+      ],
+      "title": "TimelineCaptionPill",
+      "type": "object"
+    },
     "TimelineCaptions": {
       "additionalProperties": false,
       "properties": {
@@ -352,6 +387,42 @@
         "keep_with_next"
       ],
       "title": "TimelineCaptions",
+      "type": "object"
+    },
+    "TimelineFlash": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "strength": {
+          "description": "Opacity at start, fading to 0 at end.",
+          "title": "Strength",
+          "type": "number"
+        },
+        "type": {
+          "const": "flash",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "scene",
+        "start",
+        "end",
+        "strength"
+      ],
+      "title": "TimelineFlash",
       "type": "object"
     },
     "TimelineFootage": {
@@ -472,6 +543,103 @@
       "title": "TimelineHeadlineWord",
       "type": "object"
     },
+    "TimelineHighlight": {
+      "additionalProperties": false,
+      "description": "A box drawn on the footage, so it follows the camera.",
+      "properties": {
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The element ID targeted, or null for a box.",
+          "title": "Element"
+        },
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "src_end_s": {
+          "description": "Source seconds where it ends.",
+          "title": "Src End S",
+          "type": "number"
+        },
+        "src_start_s": {
+          "description": "Source seconds of the first frame, on clip's clock.",
+          "title": "Src Start S",
+          "type": "number"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "highlight",
+          "title": "Type",
+          "type": "string"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge in footage pixels.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge in footage pixels.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene",
+        "clip",
+        "start",
+        "end",
+        "src_start_s",
+        "src_end_s",
+        "element",
+        "x",
+        "y",
+        "w",
+        "h",
+        "type",
+        "label"
+      ],
+      "title": "TimelineHighlight",
+      "type": "object"
+    },
     "TimelineImage": {
       "additionalProperties": false,
       "properties": {
@@ -523,6 +691,106 @@
         "motion"
       ],
       "title": "TimelineImage",
+      "type": "object"
+    },
+    "TimelineMask": {
+      "additionalProperties": false,
+      "description": "A box of the footage filled over exactly start to end.",
+      "properties": {
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "description": "#RRGGBB; #RGB is accepted and expanded.",
+              "pattern": "^#[0-9A-F]{6}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null: the device frame's background.",
+          "title": "Color"
+        },
+        "element": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The element ID targeted, or null for a box.",
+          "title": "Element"
+        },
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "h": {
+          "title": "H",
+          "type": "number"
+        },
+        "scene": {
+          "title": "Scene",
+          "type": "string"
+        },
+        "src_end_s": {
+          "description": "Source seconds where it ends.",
+          "title": "Src End S",
+          "type": "number"
+        },
+        "src_start_s": {
+          "description": "Source seconds of the first frame, on clip's clock.",
+          "title": "Src Start S",
+          "type": "number"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "mask",
+          "title": "Type",
+          "type": "string"
+        },
+        "w": {
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge in footage pixels.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge in footage pixels.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "scene",
+        "clip",
+        "start",
+        "end",
+        "src_start_s",
+        "src_end_s",
+        "element",
+        "x",
+        "y",
+        "w",
+        "h",
+        "type",
+        "color"
+      ],
+      "title": "TimelineMask",
       "type": "object"
     },
     "TimelinePush": {
@@ -745,7 +1013,11 @@
         "discriminator": {
           "mapping": {
             "broll": "#/$defs/TimelineBroll",
+            "caption_pill": "#/$defs/TimelineCaptionPill",
+            "flash": "#/$defs/TimelineFlash",
+            "highlight": "#/$defs/TimelineHighlight",
             "image": "#/$defs/TimelineImage",
+            "mask": "#/$defs/TimelineMask",
             "push": "#/$defs/TimelinePush",
             "title": "#/$defs/TimelineTitle",
             "zoom": "#/$defs/TimelineZoom"
@@ -767,6 +1039,18 @@
           },
           {
             "$ref": "#/$defs/TimelineTitle"
+          },
+          {
+            "$ref": "#/$defs/TimelineHighlight"
+          },
+          {
+            "$ref": "#/$defs/TimelineMask"
+          },
+          {
+            "$ref": "#/$defs/TimelineCaptionPill"
+          },
+          {
+            "$ref": "#/$defs/TimelineFlash"
           }
         ]
       },
