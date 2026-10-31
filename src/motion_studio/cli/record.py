@@ -18,9 +18,13 @@ app = typer.Typer(help="Record screen footage into a product project.", no_args_
 
 def _size(option: str, value: str, *, even: bool = False) -> tuple[int, int]:
     match = re.fullmatch(r"(\d+)x(\d+)", value)
-    if match is None or int(match[1]) < 320 or int(match[2]) < 240:
+    if match is None:
         raise UserError(f"{option} {value!r} is not WIDTHxHEIGHT", hint=f"e.g. {option} 1600x900")
     width, height = int(match[1]), int(match[2])
+    if width < 320 or height < 240:
+        raise UserError(
+            f"{option} {value!r} is smaller than 320x240", hint=f"e.g. {option} 1600x900"
+        )
     if even and (width % 2 or height % 2):
         raise UserError(
             f"{option} {value!r} must be even on both sides", hint=f"e.g. {option} 1600x900"

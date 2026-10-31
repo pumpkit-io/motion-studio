@@ -181,3 +181,18 @@ def test_a_script_whose_name_is_not_a_plain_stem_needs_name(
 
     assert result.exit_code == 1, result.output
     assert "--name" in json.loads(result.stdout)["hint"]
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [("big", "is not WIDTHxHEIGHT"), ("200x100", "is smaller than 320x240")],
+)
+def test_a_bad_viewport_says_whether_it_is_malformed_or_too_small(
+    workspace: Path, script: Path, value: str, message: str
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+
+    result = invoke("record", "web", "launch", script, "--viewport", value, "--json")
+
+    assert result.exit_code == 1
+    assert message in json.loads(result.stdout)["error"]
