@@ -228,7 +228,7 @@ def test_language_captions_and_music_come_from_the_edl_over_the_config() -> None
 
     assert (plain.language, plain.captions.style, plain.music_path) == (
         "en",
-        "pop",
+        "clean",
         "build/music.wav",
     )
     assert plain.captions.max_chars_per_page == 22

@@ -132,7 +132,8 @@ npm 11.6.0 drops every platform-specific optional package (`@rolldown/binding-*`
 |---|---|---|---|
 | @remotion/layout-utils | 4.0.538 | MIT | `measureText({ text, fontFamily, fontSize, fontWeight })` for the caption width cap |
 | @remotion/fonts | 4.0.538 | MIT | `loadFont({ family, url, weight, unicodeRange })`; calls `delayRender` until the font is in `document.fonts` |
-| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so the default font needs no network |
+| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so `font = "Inter"` needs no network |
+| @fontsource/tiktok-sans | 5.3.0 (published 2026-07-19) | OFL-1.1 | TikTok Sans 700 woff2 files (latin, latin-ext), the default caption font, bundled the same way. The files are `files/tiktok-sans-{latin,latin-ext}-700-normal.woff2`, and the unicode ranges in its `700.css` match Inter's |
 
 Remotion APIs checked against the installed 4.0.538 type definitions:
 

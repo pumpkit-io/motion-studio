@@ -96,8 +96,8 @@ class Edit(_Section):
 
 class Captions(_Section):
     enabled: bool = True
-    style: Literal["pop", "clean", "karaoke"] = "pop"
-    font: str = "Inter"
+    style: Literal["pop", "clean", "karaoke"] = "clean"
+    font: str = "TikTok Sans"
     max_words_per_page: int = Field(default=3, ge=1)
     uppercase: bool = False
     hide_during_broll: bool = Field(

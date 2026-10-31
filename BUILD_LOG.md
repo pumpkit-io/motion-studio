@@ -749,3 +749,50 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
+
+## Classic captions: two-word soft minimum (#23)
+
+- `pageCaptions` records whether each caption page closed at a hard break (sentence end, long silence, last word) or at a cap. A one-word page then joins the previous page across a cap; when the merged page breaks a cap it is split into two pages of at least two words, as even as possible (larger first page on a tie), never ending the first on a keep-with-next word. If no split fits, the lone word stays.
+- Deviation from the spec: greedy paging closes a page at a cap only when the next word does not fit. So a lone word can never join a neighbour across a cap without a rebalance, and never joins the next page at all, because the lone word plus the next word already failed the cap. The code has no join-the-next-page branch (removed in review round 2).
+- Merging never crosses a sentence end or a long silence, so "joins the next page after a silence or sentence end" can only show up as "stays off the previous page"; the tests assert that.
+- The start and end of the words count as hard breaks, so `Ciao. Come stai oggi?` keeps `Ciao.` alone.
+- Two existing tests changed input so they no longer end on a lone word: the word-cap test (eight words) and the timing test (five words).
+
+## Classic caption look by default (ticket #22)
+
+New workspaces caption in the `clean` caption style, set in TikTok Sans 700, white and in sentence case, with a thinner outline.
+
+- Config: `[captions]` defaults to `style = "clean"` and `font = "TikTok Sans"` in `config.py` and the workspace `motion-studio.toml` template; the brand library README names TikTok Sans as the default. `config.schema.json` regenerated with `just schema`; the timeline and EDL schemas carry no font default, so they did not change.
+- Fonts: `render/compose.py` treats `TikTok Sans` and `Inter` as bundled names, matched case-insensitively. The props gain `bundled_font` (the family to load, null when a brand font file is linked) next to `font_file`. A brand font in the library still wins; an unknown name falls back to TikTok Sans with the one-line warning, recorded in `state.json`.
+- Renderer: `lib/fonts.ts` loads TikTok Sans at 700 and Inter at 800 (latin and latin-ext woff2 from Fontsource, same unicode ranges). `LoadedFont` carries its weight, and captions and titles draw and measure with it. A brand font file loads as before and is drawn at 800. The caption stroke is 5% of the font size instead of 10%; the shadow is unchanged.
+- `@fontsource/tiktok-sans` 5.3.0 (OFL-1.1) added. npm 11.6.0's `npm install` dropped every other platform's optional packages (rolldown and lightningcss bindings, fsevents) from the lockfile, so only the new package's entries were kept in `package-lock.json`; `npm ci` installs from it.
+- The EDL reference example shows `"style": "clean"`, and its captions row says `pop` and `karaoke` are explicit overrides.
+
+Existing workspaces keep `style = "pop"` and `font = "Inter"` in their `motion-studio.toml` and render as before, apart from the thinner outline, which applies to every caption style. To adopt the new look, edit these two lines under `[captions]`:
+
+```toml
+style = "clean"
+font = "TikTok Sans"
+```
+
+Checked: `just lint` and `just test` pass. `pytest -m renderer` ran the three real-Remotion tests in `test_renderer_cli.py` (Inter fixture, now with `bundled_font`), which pass; the fixture-based ones skip without `just fixtures`. A 9x16 still with TikTok Sans over pale, bright footage rendered through the real renderer.
+
+Open: the stroke width. With `paint-order: stroke fill` only the outer half of the 5% stroke shows, so the visible edge is thin; on very pale footage the soft shadow does most of the work. Confirm on real bright footage before settling on 5%.
+
+## Classic captions: review fixes (spec #21)
+
+- `CHANGELOG.md` gains Unreleased entries for the new caption defaults and the two-word soft minimum; `THIRD_PARTY.md` lists `@fontsource/tiktok-sans` (OFL-1.1) as the default caption and title font.
+- `render/compose.py` types the bundled font as `BundledFont = Literal["TikTok Sans", "Inter"]` and derives `BUNDLED_FONTS` and `DEFAULT_FONT` from it. `lib/fonts.ts` derives `BundledFont` from its table of bundled faces. The config default in `config.py` still names TikTok Sans on its own.
+- `pageCaptions` joins lone words in one forward pass that builds a new list of pages, instead of splicing the list it iterates. Behaviour is unchanged.
+- A new test covers a lone word merging into a previous page with room, which happens when a keep-with-next word is carried twice. It fails when the merge is disabled; no earlier test did.
+
+## Classic captions: review fixes, round 2 (spec #21)
+
+- `pageCaptions` loses its join-the-next-page branch, which could not run: a lone page closed at a cap failed that cap together with the next word, every join or rebalance would page those two words together, and merging never crosses a hard break. The 25 caption tests pass unchanged.
+- Render cache: `render/pipeline.py` splits `RECIPE` into `ASSEMBLE_RECIPE` (still 2) and `RENDER_RECIPE` (now 3), so renders cached before the 5% stroke, lone-word merging and per-font weight are composed again while the assembled A-roll stays cached. New test in `test_render_cli.py`.
+- `lib/fonts.ts`: a `bundled_font` the renderer does not bundle falls back to TikTok Sans instead of throwing, and a brand font file no longer looks up the bundled table.
+- The `motion-studio-review` feedback row for "more dynamic" says it never switches the captions to `pop` or `karaoke` (user story 12).
+
+## Classic captions brought onto motion-studio (spec #21)
+
+The three tickets were built and reviewed before the rename and merged here from `main` afterwards. The merge kept both sides of the docs, pointed the caption text at `motion-studio.toml` and the `motion-studio-plan` and `motion-studio-review` skills, and named TikTok Sans as the fallback font in the README's troubleshooting list.

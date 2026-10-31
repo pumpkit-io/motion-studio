@@ -31,6 +31,14 @@ def test_defaults_match_the_guide() -> None:
     assert config.music.mode == "generate"
 
 
+def test_captions_default_to_the_clean_style_in_tiktok_sans() -> None:
+    captions = Config().captions
+    assert captions.style == "clean"
+    assert captions.font == "TikTok Sans"
+    assert captions.max_words_per_page == 3
+    assert captions.uppercase is False
+
+
 def test_each_level_overrides_the_one_below(workspace: Path) -> None:
     write(
         workspace / "motion-studio.toml",

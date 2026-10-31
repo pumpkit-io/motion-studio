@@ -64,7 +64,7 @@
           "type": "boolean"
         },
         "font": {
-          "default": "Inter",
+          "default": "TikTok Sans",
           "title": "Font",
           "type": "string"
         },
@@ -93,7 +93,7 @@
           "type": "string"
         },
         "style": {
-          "default": "pop",
+          "default": "clean",
           "enum": [
             "pop",
             "clean",

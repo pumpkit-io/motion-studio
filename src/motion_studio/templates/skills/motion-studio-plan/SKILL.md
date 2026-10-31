@@ -1,6 +1,6 @@
 ---
 name: motion-studio-plan
-description: Editorial rules and EDL authoring reference for motion-studio, covering how to pick hooks, retakes and cuts, pace a talking-head short, and place zooms, B-roll, titles and emphasis. Use when writing or revising edl.json.
+description: Editorial rules and EDL authoring reference for motion-studio, covering how to pick hooks, retakes and cuts, pace a talking-head short, and place zooms, B-roll, titles, emphasis and captions. Use when writing or revising edl.json.
 ---
 
 # Planning the edit
@@ -26,6 +26,11 @@ description: Editorial rules and EDL authoring reference for motion-studio, cove
 - B-roll and images cover what is being *described* (product, screen, result). `full` for strong visuals, `pip` when the face matters. 2–5 s each, start and end anchored to words.
 - `title`: at most 5 words, for the core claim or a number transformation ("3h → 10 min").
 - `emphasis`: at most 1–3 words per sentence: numbers, contrasts, the key noun.
+
+## Captions
+- Leave the caption style at the config default: omit `captions.style` from the EDL.
+- Set `"style": "pop"` or `"karaoke"` only when the creator asks for animated captions by name.
+- Keep `max_words_per_page` at 3 or below, so a caption page holds two or three words.
 
 ## Language
 - Keep the speaker's language. Titles go in the same language as the speech.
