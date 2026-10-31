@@ -35,8 +35,13 @@ def verdict(findings: list[Finding]) -> str:
 
 
 def markdown(
-    title: str, findings: list[Finding], metrics: list[tuple[str, str]], notes: list[str]
+    title: str,
+    findings: list[Finding],
+    metrics: list[tuple[str, str]],
+    notes: list[str],
+    sections: list[tuple[str, list[str]]] | None = None,
 ) -> str:
+    """`sections` are extra headed lists, after the findings and before the metrics."""
     lines = [verdict(findings), "", f"# Check: {title}", ""]
     for severity in SEVERITIES:
         chosen = [f for f in findings if f.severity == severity]
@@ -44,6 +49,8 @@ def markdown(
         lines.append("")
         lines += [f"- {f.line()}" for f in chosen] or ["- none"]
         lines.append("")
+    for heading, items in sections or []:
+        lines += [f"## {heading}", "", *(f"- {item}" for item in items), ""]
     lines += ["## Metrics", "", "| metric | value |", "|---|---|"]
     lines += [f"| {name} | {value} |" for name, value in metrics]
     if notes:

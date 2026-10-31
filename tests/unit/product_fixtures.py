@@ -38,13 +38,23 @@ def recording(path: Path, width: int, height: int, duration: float = 5.0) -> Pat
     return path
 
 
-def product_project(workspace: Path, scratch: Path, width: int = 320, height: int = 180) -> Path:
-    """`launch`, ingested and analysed, from a recording `width` by `height`."""
+def product_project(
+    workspace: Path,
+    scratch: Path,
+    width: int = 320,
+    height: int = 180,
+    sidecar: dict[str, Any] | None = None,
+) -> Path:
+    """`launch`, ingested and analysed, from a recording `width` by `height`.
+
+    `sidecar` replaces keys of the recording's markers sidecar, such as `markers` or `cursor`.
+    """
     clip = recording(scratch / "take.mp4", width, height)
     run_json("new", "launch", "--kind", "product", "--from", clip)
     project = workspace / "projects" / "launch"
+    markers = json.loads(clip.with_suffix(".markers.json").read_text(encoding="utf-8"))
     (project / "raw" / "take.markers.json").write_text(
-        clip.with_suffix(".markers.json").read_text(encoding="utf-8"), encoding="utf-8"
+        json.dumps({**markers, **(sidecar or {})}), encoding="utf-8"
     )
     run_json("ingest", "launch")
     run_json("analyze", "launch")
