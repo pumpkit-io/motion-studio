@@ -737,3 +737,15 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: the `OLD_COMMANDS` check, the `warnings` field of `agents sync --json`, the old variable set to the old default, a `<old>.toml.bak` probe, and a sentence-ending `<old>.toml.` in the edited-`AGENTS.md` test. The glob-character test lost a dead assignment, and the custom-cache test uses `OLD_CACHE_ENV` and `invoke`.
 - `just lint`, `just schema-check`, `just test` (397 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. `just e2e` not run: nothing on the render path changed.
+
+## The cache-adopting command no longer nests the old cache
+
+Adopting the old cache on the maintainer's Mac nested it at `~/Library/Caches/motion-studio/<old name>/`. The first `doctor` run found no new cache and printed a bare `mv`, then its own disk check (`cache_dir()`) created the new folder, so the `mv` moved the old cache inside it. The old tests ran `doctor` twice, so the second run always saw the folder and printed the clearing form.
+
+- The adopting command for the platform default now has one form whatever the new folder's state: `mkdir -p <new>/locks`, delete empty lock files there, delete empty folders under `<new>`, then `test ! -e <new> && mv <old> <new>`. When the new location gained real data before the command runs, it exits non-zero and moves nothing.
+- `cache_dir()` keeps creating the folder: any command can do that before the creator runs the fix, so the command has to cope with it.
+
+Checked:
+
+- New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
+- `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
