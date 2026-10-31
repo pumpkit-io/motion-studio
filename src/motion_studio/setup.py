@@ -22,6 +22,7 @@ from motion_studio.errors import DependencyError, UserError
 from motion_studio.migrate import old_cache, old_cache_error
 from motion_studio.music import acestep
 from motion_studio.paths import cache_dir, find_workspace, models_dir
+from motion_studio.record import install as recorder
 from motion_studio.render.renderer import cached_renderer, install_renderer, is_installed
 from motion_studio.state import ensure_free_disk
 from motion_studio.vision import MEDIAPIPE_MODEL, YUNET_MODEL, install_face_model
@@ -46,6 +47,7 @@ class SetupReport:
 def run_setup(
     *,
     music: bool = False,
+    record: bool = False,
     crisper: bool = False,
     workdir: Path | None = None,
     on_step: Callable[[str], None] | None = None,
@@ -96,9 +98,19 @@ def run_setup(
         items.append(Item("renderer", "present", str(cached_renderer())))
     else:
         items.append(Item("renderer", "installed", str(install_renderer(step))))
+    if record:
+        items.append(_install_recorder(step))
     if music:
         items.append(_install_music(step))
     return SetupReport(items)
+
+
+def _install_recorder(step: Callable[[str], None]) -> Item:
+    name = f"playwright {recorder.playwright_version()}"
+    root = recorder.recorder_dir()
+    if recorder.is_installed(root):
+        return Item(name, "present", str(root))
+    return Item(name, "installed", str(recorder.install_recorder(step)))
 
 
 def _install_music(step: Callable[[str], None]) -> Item:

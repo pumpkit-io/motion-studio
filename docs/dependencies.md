@@ -263,3 +263,13 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | `acompressor` | `threshold` (accepts `-18dB`), `ratio`, `attack`, `release` | `ffmpeg -h filter=acompressor` |
 | `highpass`, `lowshelf`, `highshelf`, `equalizer` | `f` and `g` (dB); `equalizer` takes `t=q:w=1` | `ffmpeg -h filter=<name>`; the chain ran on the music tests' synthetic beds |
 | Oversampled limiting | `aresample=192000` before `alimiter`, `aresample=48000` after; with 0.5 dB of margin the AAC final measures under the −1.5 dBTP ceiling in `ebur128=peak=true` | `test_a_peaky_loud_mix_is_mastered_to_target_and_under_the_true_peak_ceiling` |
+
+## Web recording (ticket #31, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| Playwright (npm) | 1.64.1, published 2026-10-14; pinned in `src/motion_studio/record/node/package.json` and its lock file, installed by `setup --record` into `<cache>/recorder/playwright-1.64.1/` | `npm view playwright time`; `setup --record` then `tests/integration/test_record_web.py` |
+| Chromium | `chromium_headless_shell-1248` from `playwright install --only-shell chromium` with `PLAYWRIGHT_BROWSERS_PATH=<install>/browsers`; about 210 MB with the install. Recording is headless only, so the full Chromium is not fetched | Listed the browsers directory after the install |
+| Loading Playwright | `createRequire(<install>/package.json)('playwright')` from the shipped runner, since ES module imports ignore `NODE_PATH` | `record web` on the fixture page |
+| CDP screencast | `Page.startScreencast {format: 'jpeg', quality, maxWidth, maxHeight, everyNthFrame: 1}`; each `Page.screencastFrame` must be acked with `Page.screencastFrameAck {sessionId}`. Frames come at the CSS viewport size (1600x900 with `deviceScaleFactor: 1`), only when the page changes, and `metadata.timestamp` is wall-clock seconds, the clock of Node's `Date.now()` | Fixture recording: frame size read from the JPEG, and the frame showing a click's result falls between the press and the next marker |
+| Constant frame rate | Each 1/30 s output frame hard-links the last screencast frame sent by then, and ffmpeg encodes the sequence with `-framerate 30`. The concat demuxer with per-frame `duration` lines gave 12% more frames than the take's length on ffmpeg 9.0.2, so it is not used | `ffprobe -count_frames` on both variants |
