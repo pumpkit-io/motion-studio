@@ -5,4 +5,4 @@ motion-studio is a deterministic CLI plus skills and an `AGENTS.md`. The coding 
 ## Considered Options
 
 - An MCP server wrapping the CLI. Rejected for v0.1.0: the CLI with `--json` already works in every agent, and an MCP server adds a second interface to keep stable. It stays on the roadmap as an optional wrapper.
-- Calling an LLM API from motion_studio for hook and cut selection. Rejected: it adds a paid dependency and duplicates the judgement of the agent that is already in the loop.
+- Calling an LLM API from motion-studio for hook and cut selection. Rejected: it adds a paid dependency and duplicates the judgement of the agent that is already in the loop.

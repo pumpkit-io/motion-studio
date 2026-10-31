@@ -6,7 +6,7 @@ The product name lives in one constant in code, `APP_NAME` in `src/motion_studio
 
 Everything else that names the product is listed below, built from `git grep -n -i -e motion-studio -e motion_studio` and `git ls-files`, and checked by hand on 2026-10-31. `tests/unit/test_docs.py` fails when a tracked file names the product (with either spelling) and no entry below covers it, or when an entry matches no such file. Entries are shell patterns in which `*` also matches `/`.
 
-To rename, work through the sections in order, then run `git grep -n -i <old name>` and expect only the CHANGELOG line that records the rename (section 7).
+To rename, work through the sections in order, then run `git grep -n -i <old name>` and expect only the files listed under [Where the previous name stays](#where-the-previous-name-stays).
 
 ## 1. Code that names the product
 
@@ -38,7 +38,7 @@ Change these by hand.
 
 These are part of the product's interface: rename them by hand and read the result.
 
-- `src/motion_studio/templates/skills/motion-studio-*`: the five skill folders (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`), their `name:` frontmatter, which must match the folder, and every command in their text. `motion-studio agents sync` replaces folders by these names, so existing workspaces keep the old skill folders until something removes them.
+- `src/motion_studio/templates/skills/motion-studio-*`: the five skill folders (`motion-studio-edit`, `motion-studio-plan`, `motion-studio-look`, `motion-studio-music`, `motion-studio-review`), their `name:` frontmatter, which must match the folder, and every command in their text. `motion-studio agents sync` replaces folders by these names, and in a workspace from before the rename it removes the five old-name folders after installing the new ones (see [Outside the repository](#outside-the-repository)).
 - `src/motion_studio/templates/workspace/AGENTS.md`: the title, golden rules and quick reference.
 - `src/motion_studio/templates/workspace/motion-studio.toml`: the file name must equal `<APP_NAME>.toml`, because `find_workspace` looks for that name. `tests/unit/test_config.py` compares it with `Config()`.
 - `src/motion_studio/templates/workspace/library/*`: the music and brand library READMEs.
@@ -79,7 +79,7 @@ Rename these by hand and reread them.
 
 ## 7. Historical records
 
-Rewrite these under the new name too, so that a search for the old name finds nothing stale. They describe what was built, not what it was called at the time; the CHANGELOG line that records the rename is the one place the old name stays.
+Rewrite these under the new name too, so that a search for the old name finds nothing stale. They describe what was built, not what it was called at the time. The old name stays only in the files listed under [Where the previous name stays](#where-the-previous-name-stays).
 
 - `BUILD_LOG.md`
 - `HANDOFF.md`: the v0.1.0 hand-off to the creator.
@@ -92,13 +92,14 @@ Rewrite these under the new name too, so that a search for the old name finds no
 - The GitHub repository and its clone URLs in README.md: the maintainer renames the repository, and GitHub redirects the old URLs.
 - The local clone folder, and the tool install: `uv tool uninstall <old name>`, then `uv tool install` again from the renamed checkout.
 - The package name on PyPI, if it is ever published (`motion-studio` is taken by an unrelated project).
-- Creators' machines: the old cache (`~/Library/Caches/<old name>`, 16 GB on the build machine with the ACE-Step environment) is orphaned. `doctor` and `setup` print the `mv` that adopts it, and `setup` stops rather than download everything again; `MOTION_STUDIO_CACHE_DIR` can also point at it.
-- Existing workspaces: `agents sync` renames their `<old name>.toml` to `<name>.toml` and deletes their `.claude/skills/<old name>-*` and `.agents/skills/<old name>-*` folders; every other command points at it.
+- Creators' machines: the old cache (`~/Library/Caches/<old name>`, or wherever the old cache variable points; 16 GB on the build machine with the ACE-Step environment) is orphaned. `doctor` and `setup` print the `mv` that adopts it, and `setup` stops rather than download everything again; `MOTION_STUDIO_CACHE_DIR` can also point at it.
+- Existing workspaces: `agents sync` renames their `<old name>.toml` to `<name>.toml`, brings their `AGENTS.md` up to date, installs the new skills and then deletes the five shipped skills' old-name folders from `.claude/skills/` and `.agents/skills/`. A creator's own skill whose name starts with the old name stays. Every other command points at `agents sync`.
 - The environment variables people may have set change prefix with `ENV_PREFIX`; a set variable with the old prefix prints a warning naming its replacement.
 
 ## Where the previous name stays
 
-`tests/unit/test_docs.py` fails when the previous name appears in a tracked file these entries do not cover. On the next rename, set `OLD_APP_NAME` to the name being replaced and the migration follows.
+`tests/unit/test_docs.py` fails when the previous name appears in a tracked file these entries do not cover. On the next rename, set `OLD_APP_NAME` to the name being replaced, set `OLD_AGENTS_MD_SHA256` to the SHA-256 of the workspace `AGENTS.md` template being replaced, and copy that template over the test fixture below; the migration follows.
 
 - `CHANGELOG.md`: the line that records the rename.
 - `src/motion_studio/migrate.py`: `OLD_APP_NAME`, the one constant behind the migration of old workspaces, the old cache and the old environment variables.
+- `tests/fixtures/old_workspace/AGENTS.md`: the workspace `AGENTS.md` that `init` wrote under the old name, which `agents sync` recognises by its hash and replaces.

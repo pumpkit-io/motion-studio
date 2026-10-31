@@ -2,7 +2,9 @@
 
 import json
 import shlex
+import stat
 import subprocess
+from importlib.resources import files
 from pathlib import Path
 
 import platformdirs
@@ -21,7 +23,11 @@ OLD_TOML = f"{OLD_APP_NAME}.toml"
 NEW_TOML = f"{APP_NAME}.toml"
 SKILL_DIRS = [".claude/skills", ".agents/skills"]
 OLD_SKILLS = [f"{OLD_APP_NAME}-edit", f"{OLD_APP_NAME}-plan"]
+# A skill the creator made, named like the shipped ones.
+USER_SKILL = f"{OLD_APP_NAME}-brand"
 SETTINGS = '[brand]\nprimary = "#ff3366"\n'
+OLD_AGENTS_MD = Path(__file__).parents[1] / "fixtures" / "old_workspace" / "AGENTS.md"
+NEW_AGENTS_MD = files("motion_studio") / "templates" / "workspace" / "AGENTS.md"
 
 
 def invoke(*args: str | Path):
@@ -35,9 +41,10 @@ def old_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     ws.mkdir()
     (ws / OLD_TOML).write_text(SETTINGS, encoding="utf-8")
     for skill_dir in SKILL_DIRS:
-        for name in [*OLD_SKILLS, "my-own-skill"]:
+        for name in [*OLD_SKILLS, "my-own-skill", USER_SKILL]:
             (ws / skill_dir / name).mkdir(parents=True)
             (ws / skill_dir / name / "SKILL.md").write_text("---\n", encoding="utf-8")
+    (ws / "AGENTS.md").write_bytes(OLD_AGENTS_MD.read_bytes())
     (ws / "projects").mkdir()
     monkeypatch.chdir(ws)
     return ws
@@ -55,9 +62,10 @@ def test_agents_sync_migrates_an_old_workspace_and_prints_each_change(old_worksp
     assert (old_workspace / NEW_TOML).read_text(encoding="utf-8") == SETTINGS
     for skill_dir in SKILL_DIRS:
         names = skills_in(old_workspace, skill_dir)
-        assert not [n for n in names if n.startswith(f"{OLD_APP_NAME}-")]
+        assert not set(OLD_SKILLS) & set(names)
         assert f"{APP_NAME}-edit" in names
         assert "my-own-skill" in names
+        assert USER_SKILL in names
     assert f"renamed {old_workspace / OLD_TOML} -> {old_workspace / NEW_TOML}" in result.output
     for skill_dir in SKILL_DIRS:
         for name in OLD_SKILLS:
@@ -73,7 +81,51 @@ def test_a_second_agents_sync_migrates_nothing(old_workspace: Path) -> None:
     payload = json.loads(result.output)
     assert payload["renamed"] == []
     assert payload["removed"] == []
+    assert payload["agents_md"] is None
     assert (old_workspace / NEW_TOML).read_text(encoding="utf-8") == SETTINGS
+
+
+def test_agents_sync_rewrites_an_unedited_old_agents_md_from_the_template(
+    old_workspace: Path,
+) -> None:
+    result = invoke("agents", "sync")
+
+    assert result.exit_code == 0, result.output
+    agents_md = old_workspace / "AGENTS.md"
+    assert agents_md.read_text(encoding="utf-8") == NEW_AGENTS_MD.read_text(encoding="utf-8")
+    assert f"rewrote {agents_md} from the template" in result.output
+
+
+def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: Path) -> None:
+    agents_md = old_workspace / "AGENTS.md"
+    house_style = f"\n## House style\nUse the skill `{USER_SKILL}` for colours.\n"
+    agents_md.write_text(OLD_AGENTS_MD.read_text(encoding="utf-8") + house_style, "utf-8")
+
+    result = invoke("agents", "sync")
+
+    assert result.exit_code == 0, result.output
+    text = agents_md.read_text(encoding="utf-8")
+    assert text.endswith(house_style)
+    assert f"`{APP_NAME}-edit`" in text
+    assert f"{APP_NAME} agents sync" in text
+    assert f"`{OLD_APP_NAME} " not in text
+    assert f"{OLD_APP_NAME}-edit" not in text
+    [line] = [x for x in result.output.splitlines() if str(agents_md) in x]
+    assert f"renamed {OLD_APP_NAME} to {APP_NAME} in {agents_md}" in line
+
+
+def test_a_failed_skill_install_leaves_the_old_skills_in_place(old_workspace: Path) -> None:
+    claude_skills = old_workspace / ".claude/skills"
+    claude_skills.chmod(stat.S_IRUSR | stat.S_IXUSR)
+    try:
+        result = invoke("agents", "sync")
+    finally:
+        claude_skills.chmod(stat.S_IRWXU)
+
+    assert result.exit_code != 0
+    for skill_dir in SKILL_DIRS:
+        names = skills_in(old_workspace, skill_dir)
+        assert f"{OLD_APP_NAME}-edit" in names or f"{APP_NAME}-edit" in names
 
 
 def test_agents_sync_refuses_when_both_workspace_files_exist(old_workspace: Path) -> None:
@@ -153,6 +205,57 @@ def test_the_printed_command_adopts_the_old_cache(
 
     assert (new / "models" / "silero_vad.onnx").is_file()
     assert not old.exists()
+
+
+def test_doctor_finds_the_old_cache_the_old_variable_points_at(
+    fake_tools: FakeTools,
+    default_caches: tuple[Path, Path],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    custom = tmp_path / "big disk" / "cache"
+    (custom / "models").mkdir(parents=True)
+    (custom / "models" / "silero_vad.onnx").write_bytes(b"x")
+    monkeypatch.setenv(f"{OLD_APP_NAME.upper()}_CACHE_DIR", str(custom))
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+
+    result = invoke("doctor")
+
+    [line] = [x for x in result.output.splitlines() if "old cache" in x]
+    assert shlex.quote(str(custom)) in line
+
+
+def test_the_printed_command_adopts_the_old_cache_past_the_new_caches_locks(
+    fake_tools: FakeTools, default_caches: tuple[Path, Path]
+) -> None:
+    old, new = default_caches
+    (new / "locks").mkdir(parents=True)
+    (new / "locks" / "heavy-model.lock").touch()
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    payload = json.loads(invoke("doctor", "--json").output)
+    [check] = [c for c in payload["checks"] if c["name"] == "old cache"]
+
+    subprocess.run(["/bin/sh", "-c", check["fix"]], check=True, env={"PATH": "/usr/bin:/bin"})
+
+    assert (new / "models" / "silero_vad.onnx").is_file()
+    assert not old.exists()
+
+
+def test_a_set_cache_variable_skips_the_old_cache_check(
+    fake_tools: FakeTools,
+    default_caches: tuple[Path, Path],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MOTION_STUDIO_CACHE_DIR", str(tmp_path / "chosen"))
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+
+    result = invoke("doctor")
+
+    assert "old cache" not in result.output
 
 
 def test_doctor_says_nothing_once_the_new_cache_holds_files(

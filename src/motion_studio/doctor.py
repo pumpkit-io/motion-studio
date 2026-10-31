@@ -115,7 +115,7 @@ def run_doctor(workdir: Path) -> Report:
     found = old_cache()
     if found:
         detail = f"{found.path} is the cache from before the rename to {APP_NAME}"
-        checks.append(Check("old cache", "warn", False, detail, found.adopt))
+        checks.append(Check("old cache", "warn", False, detail, found.adopt_command))
     checks += _node_checks()
     checks.append(_asr_check())
     checks += _speech_model_checks()

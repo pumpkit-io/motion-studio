@@ -692,3 +692,19 @@ Built:
 Checked:
 
 - `tests/unit/test_migration.py` drives each case through `CliRunner`, including running the printed command through `/bin/sh` on a cache path with a space and checking the models arrive in the new cache. `just lint`, `just test`, `just schema-check` and `just edl-coverage` pass.
+
+## Review fixes for the rename (spec #25)
+
+Built:
+
+- `agents sync` brings the workspace `AGENTS.md` up to date. A file whose SHA-256 matches the one `init` wrote in v0.1.0 (`OLD_AGENTS_MD_SHA256`) is replaced with the current template and prints `rewrote <path> from the template`. An edited file keeps its text: the shipped skill names, the old `.toml` name, the old variable prefix and the bare old command name are renamed, and the line is `renamed <old> to motion-studio in <path> (N places)`. JSON gains `agents_md` (`null` when untouched). `tests/fixtures/old_workspace/AGENTS.md` is the v0.1.0 file, byte for byte.
+- Sync removes only the five shipped skills' old-name folders, derived from `skill_names()`, so a creator's own `<old name>-brand` stays. The old folders go after the new skills are installed, so a failed install leaves them in place.
+- `old_cache()` probes the path in the old `_CACHE_DIR` variable when it is set and `MOTION_STUDIO_CACHE_DIR` is not, and ignores empty files under the new cache's `locks/` when deciding the new cache is empty. The adopting command deletes those empty lock files along with the empty folders before `mv`.
+- `OldCache.adopt` is now `adopt_command`; `old_env_warnings` reads `os.environ` only; `Migration` has no default factories.
+- Rule 13 in `AGENTS.md` allows `OLD_APP_NAME`; `docs/renaming.md` no longer says the CHANGELOG line is the only place the old name stays, and lists the fixture and the hash to update on the next rename. ADR 0001 says motion-studio, not the package name; the other `motion_studio` mentions in prose docs are import paths.
+
+Checked:
+
+- New `CliRunner` tests in `tests/unit/test_migration.py` for each case, including a set `MOTION_STUDIO_CACHE_DIR` skipping the old-cache check.
+- `tests/unit/test_docs.py` checks the old-name entries in `docs/renaming.md` for staleness against files that name the old name, and the other entries against files that name the new one.
+- `just lint`, `just test` (385 Python, 42 vitest), `just schema-check` and `just edl-coverage` (99.88%) pass. `just e2e`: 16 passed in 773 s, with `MOTION_STUDIO_CACHE_DIR` pointing at the existing cache under the old name and the fixture media copied from the main checkout.

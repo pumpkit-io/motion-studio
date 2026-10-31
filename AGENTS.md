@@ -34,7 +34,7 @@ Mark any test that cannot run on a Linux CI box: `slow` (long integration or e2e
 10. Build ffmpeg argument lists, never shell strings. Paths with spaces and accents must work.
 11. Never degrade silently: a fallback prints a one-line warning and is recorded in `state.json`.
 12. Exit codes: 0 OK, 1 fixable EDL or user error, 2 missing dependency, 3 internal error.
-13. Keep the name `motion-studio` in as few places as possible: `APP_NAME` in `src/motion_studio/__init__.py` is the only one in code. A new file that names the product needs an entry in `docs/renaming.md`.
+13. Keep the name `motion-studio` in as few places as possible: `APP_NAME` in `src/motion_studio/__init__.py` is the only one in code, and `OLD_APP_NAME` in `src/motion_studio/migrate.py` the only place in code for the previous name. A new file that names either needs an entry in `docs/renaming.md`.
 14. A new command or option needs its section in `docs/cli.md`; an EDL field or resolver issue code needs its entry in `src/motion_studio/reference/edl.md`. Tests fail until they are there.
 
 Check third-party APIs and CLI flags against the installed version before using them, and record verified versions in `docs/dependencies.md`. Log what you built and any deviation from the build guide in `BUILD_LOG.md`. `docs/architecture.md` maps the modules and contracts.
