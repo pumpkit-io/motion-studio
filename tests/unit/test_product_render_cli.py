@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from product_fixtures import product_project, run_json, write_edl
+from product_fixtures import EDL, product_project, run_json, write_edl
 from typer.testing import CliRunner
 
 from motion_studio.cli import app
@@ -20,6 +20,8 @@ from motion_studio.media.ffmpeg import run_ffprobe
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
 runner = CliRunner()
+
+BRAND_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "brand"
 
 # Writes a grey video as long as the timeline, silent unless asked for an audio track.
 FAKE_REMOTION = """
@@ -161,3 +163,26 @@ def test_render_without_a_valid_edl_exits_1(launch: Path, fake_renderer: Path) -
 
     assert result.exit_code == 1
     assert "scene x has no length" in result.output
+
+
+def test_the_props_carry_the_wordmark_and_mascot_sheet_of_a_logo_outro(
+    launch: Path, fake_renderer: Path
+) -> None:
+    workspace = launch.parents[1]
+    brand = workspace / "library" / "brand"
+    for name in ("wordmark.svg", "mascot.png", "mascot.json"):
+        shutil.copy(BRAND_FIXTURES / name, brand / name)
+    (launch / "project.toml").open("a", encoding="utf-8").write(
+        '\n[brand]\nwordmark = "library/brand/wordmark.svg"\n'
+        'mascot = { sheet = "library/brand/mascot.png", timings = "library/brand/mascot.json" }\n'
+    )
+    outro = {"id": "outro", "type": "logo_outro", "bars": 1, "tagline": "Bye."}
+    write_edl(launch, {**EDL, "scenes": [*EDL["scenes"], outro]})
+
+    run_json("render", "launch")
+
+    [call] = calls(fake_renderer)
+    assert call["props"]["wordmark_file"] == "brand/wordmark.svg"
+    assert call["props"]["mascot_file"] == "brand/mascot.png"
+    assert {"brand/wordmark.svg", "brand/mascot.png"} <= set(call["public"])
+    assert call["props"]["timeline"]["brand"]["mascot"]["frame_width"] == 544

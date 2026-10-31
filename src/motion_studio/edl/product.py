@@ -7,8 +7,8 @@ its problems.
 
 import re
 import string
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 
 from motion_studio.analysis import ClipAnalysis
 from motion_studio.config import Config
@@ -18,17 +18,26 @@ from motion_studio.edl.models import (
     CameraMove,
     FootagePoint,
     FootageScene,
+    KineticTextScene,
+    LogoOutroScene,
     MarkerPoint,
     ProductEdl,
+    ProofScene,
     Rect,
     Scene,
     TimelineCameraKey,
     TimelineFootage,
     TimelineHeadlineWord,
+    TimelineKineticLine,
+    TimelineKineticText,
+    TimelineLogoOutro,
+    TimelineMascot,
+    TimelineProof,
     TimelineScene,
     TimelineTitleCard,
     TitleCardScene,
 )
+from motion_studio.paths import WORKSPACE_FILE
 
 PRODUCT_FORMATS = ("16x9",)
 # Clip roles a footage scene can play.
@@ -36,7 +45,8 @@ FOOTAGE_ROLES = ("screen", "broll")
 _MARKER = re.compile(r"^(?P<clip>[a-z]+\d+)\.m\.(?P<name>[A-Za-z0-9_][A-Za-z0-9_-]*)$")
 _ELEMENT = re.compile(r"^(?P<clip>[a-z]+\d+)\.e\.(?P<name>[A-Za-z0-9_][A-Za-z0-9_-]*)$")
 _ELEMENTS_SHOWN = 8
-# The browser frame's room on the 1920x1080 canvas, as in renderer/src/lib/deviceFrame.ts.
+# The device frame's room on the 1920x1080 canvas, the same for browser and terminal frames,
+# as in renderer/src/lib/deviceFrame.ts.
 _ROOM = (1600, 900)
 # Past this many output pixels per recorded pixel, recorded text goes soft.
 _MAX_MAGNIFICATION = 2.0
@@ -56,11 +66,22 @@ class Slot:
 
 
 @dataclass(frozen=True)
+class BrandAssets:
+    """The `[brand]` files that loaded: the wordmark's path and the mascot's sprite sheet."""
+
+    wordmark: str | None = None
+    mascot: TimelineMascot | None = None
+    # Why a configured asset did not load, by its key: "names x.svg, which does not exist".
+    broken: Mapping[str, str] = field(default_factory=lambda: dict[str, str]())
+
+
+@dataclass(frozen=True)
 class SceneContext:
     clips: dict[str, ClipAnalysis]
     grid: BeatGrid
     fps: int
     problems: Problems
+    brand: BrandAssets
 
 
 @dataclass(frozen=True)
@@ -75,10 +96,11 @@ def resolve_scenes(
     config: Config,
     grid: BeatGrid,
     problems: Problems,
+    brand: BrandAssets,
 ) -> ProductScenes:
     """Every scene on the grid. Errors go to `problems`; the caller raises them."""
     fps = config.defaults.fps
-    context = SceneContext({c.clip.id: c for c in clips}, grid, fps, problems)
+    context = SceneContext({c.clip.id: c for c in clips}, grid, fps, problems, brand)
     _check_formats(edl, problems)
     seen: set[str] = set()
     scenes: list[TimelineScene] = []
@@ -153,15 +175,8 @@ def _scene_end(
 
 def _title_card(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | None:
     assert isinstance(scene, TitleCardScene)
-    words = scene.headline.split()
-    accents = {_bare(a) for a in scene.accent}
-    missing = sorted(accents - {_bare(w) for w in words})
-    if missing:
-        context.problems.error(
-            "unknown_accent",
-            f"scene {scene.id}: accent {', '.join(missing)} is not a word of the headline",
-            hint="list words exactly as the headline spells them",
-        )
+    lines = _accented(scene, [scene.headline], "the headline", context)
+    if lines is None:
         return None
     return TimelineTitleCard(
         type="title_card",
@@ -169,9 +184,112 @@ def _title_card(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScen
         start=slot.start,
         end=slot.end,
         step=scene.step,
-        headline=[TimelineHeadlineWord(text=w, accent=_bare(w) in accents) for w in words],
+        headline=lines[0],
         subline=scene.subline,
     )
+
+
+def _kinetic_text(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | None:
+    assert isinstance(scene, KineticTextScene)
+    lines = _accented(scene, scene.lines, "any line", context)
+    if lines is None:
+        return None
+    frames = slot.end - slot.start
+    cuts = [slot.start + frames * i // len(lines) for i in range(len(lines) + 1)]
+    return TimelineKineticText(
+        type="kinetic_text",
+        id=scene.id,
+        start=slot.start,
+        end=slot.end,
+        lines=[
+            TimelineKineticLine(start=a, end=b, words=words)
+            for a, b, words in zip(cuts, cuts[1:], lines, strict=False)
+        ],
+    )
+
+
+def _proof(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | None:
+    assert isinstance(scene, ProofScene)
+    image = context.clips.get(scene.image)
+    if image is None or image.clip.role != "image":
+        images = [c for c, a in context.clips.items() if a.clip.role == "image"]
+        context.problems.error(
+            "unknown_image",
+            f"scene {scene.id}: {scene.image} is not an image",
+            hint=f"images: {', '.join(images) or 'none; add one to raw/ and run ingest'}",
+        )
+        return None
+    lines = _accented(scene, [scene.headline or ""], "the headline", context)
+    if lines is None:
+        return None
+    return TimelineProof(
+        type="proof",
+        id=scene.id,
+        start=slot.start,
+        end=slot.end,
+        src=image.clip.mezzanine or image.clip.source,
+        width=image.clip.width,
+        height=image.clip.height,
+        headline=lines[0],
+        subline=scene.subline,
+        badge=scene.badge,
+    )
+
+
+def _logo_outro(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | None:
+    assert isinstance(scene, LogoOutroScene)
+    brand = context.brand
+    needed = {"wordmark": brand.wordmark is not None}
+    if scene.mascot:
+        needed["mascot"] = brand.mascot is not None
+    for key in (k for k, loaded in needed.items() if not loaded):
+        context.problems.error(
+            "missing_brand_asset",
+            f"scene {scene.id}: [brand] {key} {brand.broken.get(key, 'is not set')}",
+            hint=_BRAND_HINTS[key],
+        )
+    lines = _accented(scene, [scene.tagline or ""], "the tagline", context)
+    if lines is None or not all(needed.values()):
+        return None
+    return TimelineLogoOutro(
+        type="logo_outro",
+        id=scene.id,
+        start=slot.start,
+        end=slot.end,
+        tagline=lines[0],
+        url=scene.url,
+        mascot=scene.mascot,
+    )
+
+
+_BRAND_HINTS = {
+    "wordmark": f'set wordmark = "library/brand/wordmark.svg" under [brand] in {WORKSPACE_FILE} '
+    "or project.toml, an image path relative to the workspace",
+    "mascot": f"set mascot = {{ sheet = ..., timings = ... }} under [brand] in {WORKSPACE_FILE} "
+    'or project.toml (a sprite sheet and its frame-timing JSON), or "mascot": false on the scene',
+}
+
+
+def _accented(
+    scene: KineticTextScene | LogoOutroScene | ProofScene | TitleCardScene,
+    texts: Sequence[str],
+    where: str,
+    context: SceneContext,
+) -> list[list[TimelineHeadlineWord]] | None:
+    """Each text split into words, marked where the scene's `accent` names them."""
+    split = [text.split() for text in texts]
+    accents = {_bare(a) for a in scene.accent}
+    missing = sorted(accents - {_bare(w) for words in split for w in words})
+    if missing:
+        context.problems.error(
+            "unknown_accent",
+            f"scene {scene.id}: accent {', '.join(missing)} is not a word of {where}",
+            hint=f"list words exactly as {where} spells them",
+        )
+        return None
+    return [
+        [TimelineHeadlineWord(text=w, accent=_bare(w) in accents) for w in words] for words in split
+    ]
 
 
 def _bare(word: str) -> str:
@@ -483,4 +601,7 @@ def _marker_list(analysis: ClipAnalysis) -> str:
 _SCENES: dict[str, Callable[[Scene, Slot, SceneContext], TimelineScene | None]] = {
     "title_card": _title_card,
     "footage": _footage,
+    "kinetic_text": _kinetic_text,
+    "proof": _proof,
+    "logo_outro": _logo_outro,
 }

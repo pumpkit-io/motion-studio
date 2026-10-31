@@ -27,6 +27,9 @@ export type ProductProps = {
   font_file: string | null;
   /** Brand logo image relative to the public dir; null draws no logo. */
   logo_file: string | null;
+  /** Brand wordmark and mascot sprite sheet relative to the public dir; null when not configured. */
+  wordmark_file: string | null;
+  mascot_file: string | null;
 }
 
 export function formatOf(props: Pick<ReelProps, "timeline" | "format">): FormatSpec {

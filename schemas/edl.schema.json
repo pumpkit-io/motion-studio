@@ -345,7 +345,7 @@
             }
           ],
           "default": null,
-          "description": "Text in the browser frame's address bar, such as example.com.",
+          "description": "Text in the browser's address bar, such as example.com, or the terminal's title bar.",
           "title": "Address"
         },
         "bars": {
@@ -390,9 +390,12 @@
           "type": "string"
         },
         "device_frame": {
-          "const": "browser",
           "default": "browser",
           "description": "The frame drawn around the footage.",
+          "enum": [
+            "browser",
+            "terminal"
+          ],
           "title": "Device Frame",
           "type": "string"
         },
@@ -538,6 +541,216 @@
         "end"
       ],
       "title": "ImageEvent",
+      "type": "object"
+    },
+    "KineticTextScene": {
+      "additionalProperties": false,
+      "description": "Lines that spring in word by word, one after another, sharing the scene's length.",
+      "properties": {
+        "accent": {
+          "description": "Words of any line drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "lines": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "type": {
+          "const": "kinetic_text",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "lines"
+      ],
+      "title": "KineticTextScene",
+      "type": "object"
+    },
+    "LogoOutroScene": {
+      "additionalProperties": false,
+      "description": "The brand's mascot and wordmark, a tagline and a URL, fading to black at the end.",
+      "properties": {
+        "accent": {
+          "description": "Words of the tagline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "mascot": {
+          "default": true,
+          "description": "Draw the [brand] mascot beside the wordmark; false leaves it out.",
+          "title": "Mascot",
+          "type": "boolean"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "tagline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A line under the wordmark.",
+          "title": "Tagline"
+        },
+        "type": {
+          "const": "logo_outro",
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown in a pill under the tagline.",
+          "title": "Url"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "title": "LogoOutroScene",
       "type": "object"
     },
     "MarkerPoint": {
@@ -764,6 +977,9 @@
             "discriminator": {
               "mapping": {
                 "footage": "#/$defs/FootageScene",
+                "kinetic_text": "#/$defs/KineticTextScene",
+                "logo_outro": "#/$defs/LogoOutroScene",
+                "proof": "#/$defs/ProofScene",
                 "title_card": "#/$defs/TitleCardScene"
               },
               "propertyName": "type"
@@ -774,6 +990,15 @@
               },
               {
                 "$ref": "#/$defs/FootageScene"
+              },
+              {
+                "$ref": "#/$defs/KineticTextScene"
+              },
+              {
+                "$ref": "#/$defs/ProofScene"
+              },
+              {
+                "$ref": "#/$defs/LogoOutroScene"
               }
             ]
           },
@@ -798,6 +1023,135 @@
         "scenes"
       ],
       "title": "ProductEdl",
+      "type": "object"
+    },
+    "ProofScene": {
+      "additionalProperties": false,
+      "description": "An image, such as the published post, that swings in in 3D beside an optional headline.",
+      "properties": {
+        "accent": {
+          "description": "Words of the headline drawn in the brand accent colour.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Accent",
+          "type": "array"
+        },
+        "badge": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A stamp that pops onto the image's corner, such as \"Posted\".",
+          "title": "Badge"
+        },
+        "bars": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in bars of the grid.",
+          "title": "Bars"
+        },
+        "beats": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in beats of the grid.",
+          "title": "Beats"
+        },
+        "headline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Drawn left of the image.",
+          "title": "Headline"
+        },
+        "id": {
+          "description": "Unique name: intro, step1, demo.",
+          "title": "Id",
+          "type": "string"
+        },
+        "image": {
+          "description": "Image clip ID: i1.",
+          "title": "Image",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Length in seconds.",
+          "title": "Seconds"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A smaller line under the headline.",
+          "title": "Subline"
+        },
+        "type": {
+          "const": "proof",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "image"
+      ],
+      "title": "ProofScene",
       "type": "object"
     },
     "PushEvent": {
