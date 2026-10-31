@@ -762,6 +762,21 @@ Checked:
 - New tests in `tests/unit/test_render_cli.py`: share copies beside both finals (size, resolution, `moov` before `mdat`, the printed line), a final over a lowered cap re-encoded under it at full resolution and frame count without calling the renderer again, no share copy for a preview, and the too-long failure keeping the final.
 - `just lint`, `just schema-check`, `just test` pass. No contract changed, so no schema regeneration; `src/motion_studio/edl` untouched.
 
+## Tempo, bar grid and section hits in music.json (ticket #37, spec #26)
+
+The Pumpkit bed read as 117.5 bpm and was about 119.8. librosa's `beat_track` tempo comes from coarse tempogram bins, and its beats follow that period, so a line fit through them repeats the error. A synthetic bed at 119.8 bpm reproduces it exactly.
+
+- `music/beats.py` replaces `detect_beats` with `analyze_bed`: librosa's estimate, refined by a comb search over the onset envelope within 4% of it in 0.02 bpm steps (which also gives the beat phase), then cross-checked against the section changes. Section changes are peaks in the change of four band levels (below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz, above 5 kHz) between the bar before and the bar after. When at least 8 bars separate the first and last change, all lie within a quarter bar of a fitted bar grid, and that grid's tempo differs from the onset tempo by more than 1.5%, the section tempo wins and the phase is searched again at it.
+- The 1.5% threshold sits above the changes' own jitter (up to about 0.3 s, so about 1% over 32 s) and below the 2% Pumpkit error. On the synthetic beds the comb alone lands within 0.05 bpm, so the cross-check is the guard for beds whose onsets mislead.
+- `music.json` gains `tracker_bpm`, `tempo_from`, `beats_per_bar`, `bars`, `sections` and `hits`; `detected_bpm` is now the corrected tempo and `beats` lie on its grid. Sections and hits cover the whole bed, beats and bars stop at the end of the timeline as before. The hit rules are in `docs/cli.md`.
+- A `music.json` written before this change, with a fresh bed, is analysed again on the next `music` run instead of regenerated.
+- `music.json` now has a published schema, `schemas/music.schema.json` (the ticket asks for it to be regenerated; it had none). Peak picking is a few lines of numpy rather than a new direct dependency on scipy.
+
+Checked:
+
+- New tests in `tests/unit/test_music_cli.py`, through `motion-studio music` in library mode on synthetic beds, without ACE-Step: a 119.8 bpm bed of hats, kick and lead (librosa says 117.5) gives the tempo within 0.5 bpm, a bar grid and all four hits within a beat; clicks at 117.5 bpm over pads that change every 16.03 s give 119.8 within 0.5 bpm from the sections. A third test strips the new fields from a fresh `music.json` and checks the next run analyses the bed again without a new generation.
+- `just lint`, `just schema-check` and `just test` (402 Python, 42 vitest) pass. `just edl-coverage` not run: `src/motion_studio/edl` is unchanged. `tests/integration/test_music_generate.py` (`music`) could not run: this machine's ACE-Step environment is incomplete (`No module named 'acestep.handler'`, exit 2).
+
 ## Product project kind with screen recordings (ticket #30, spec #26)
 
 Built:
@@ -778,3 +793,4 @@ Checked:
 
 - `tests/unit/test_product_kind_cli.py` drives `new`, `status`, `words`, `ingest` and `analyze` through `CliRunner` on a generated 4.5 s recording with a hand-written sidecar.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass. Local-only: `tests/integration/test_ingest_fixtures.py` and `test_analyze_fixtures.py` pass for mlx-whisper; their faster-whisper cases need the `cpu` extra, which the Mac install lacks. No renderer, music or record tests are touched.
+

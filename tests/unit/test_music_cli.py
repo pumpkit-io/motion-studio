@@ -320,3 +320,142 @@ def test_library_mode_without_tags_json_explains_what_to_add(demo: Path) -> None
 
     assert result.exit_code == 1
     assert "tags.json" in json.loads(result.stdout)["error"]
+
+
+SECTIONED_BPM = 119.8
+FIRST_BEAT_S = 0.3
+# Bars and layers per section: intro, build, drop, ending, then two seconds of silence.
+SECTIONS: list[tuple[int, set[str]]] = [
+    (8, {"hat"}),
+    (8, {"hat", "kick"}),
+    (8, {"hat", "kick", "lead"}),
+    (4, {"hat"}),
+]
+
+
+def sectioned_bed(path: Path, bpm: float = SECTIONED_BPM) -> None:
+    """Hats, then a kick, then a lead, then hats alone; librosa alone reports 117.5 bpm for it."""
+    sr = 44100
+    beat = 60 / bpm
+    bars = sum(n for n, _ in SECTIONS)
+    y = np.zeros(int((FIRST_BEAT_S + bars * 4 * beat + 2.0) * sr))
+    n = np.arange(int(0.08 * sr))
+    hat = 0.08 * np.random.default_rng(1).uniform(-1, 1, len(n)) * np.exp(-n / 300)
+    kick = 0.6 * np.sin(2 * np.pi * 55 * n / sr) * np.exp(-n / 2500)
+    m = np.arange(int(0.9 * beat * sr))
+    lead = 0.15 * np.sin(2 * np.pi * 660 * m / sr) * np.exp(-m / (0.2 * sr))
+
+    def add(t: float, sound: np.ndarray) -> None:
+        i = round(t * sr)
+        y[i : i + len(sound)] += sound
+
+    t = FIRST_BEAT_S
+    for count, layers in SECTIONS:
+        for b in range(count * 4):
+            at = t + b * beat
+            if "hat" in layers:
+                add(at, hat)
+                add(at + beat / 2, 0.6 * hat)
+            if "kick" in layers:
+                add(at, kick)
+            if "lead" in layers:
+                add(at, lead)
+        t += count * 4 * beat
+    sf.write(path, y.astype(np.float32), sr)
+
+
+def test_music_json_reports_the_true_tempo_bar_grid_and_section_hits(demo: Path) -> None:
+    music = demo.parents[1] / "library" / "music"
+    music.mkdir(parents=True, exist_ok=True)
+    sectioned_bed(music / "launch.wav")
+    track = {"file": "launch.wav", "title": "Launch", "bpm": 120, "licence": "CC0"}
+    (music / "tags.json").write_text(json.dumps([track]), encoding="utf-8")
+    set_music(demo, mode="library", track="launch.wav")
+
+    result = invoke("music", "demo", "--json")
+
+    assert result.exit_code == 0, result.output
+    info = json.loads((demo / "build" / "music.json").read_text(encoding="utf-8"))
+    beat = 60 / SECTIONED_BPM
+    assert info["detected_bpm"] == pytest.approx(SECTIONED_BPM, abs=0.5)
+    assert info["beats_per_bar"] == 4
+    assert float(np.median(np.diff(info["beats"]))) == pytest.approx(beat, abs=0.01)
+    assert float(np.median(np.diff(info["bars"]))) == pytest.approx(4 * beat, abs=0.02)
+    assert info["bars"][0] == pytest.approx(FIRST_BEAT_S, abs=beat / 2)
+    hits = {h["name"]: h["time_s"] for h in info["hits"]}
+    bar_s = 4 * beat
+    expected = {
+        "intro_end": FIRST_BEAT_S + 8 * bar_s,
+        "build": FIRST_BEAT_S + 8 * bar_s,
+        "drop": FIRST_BEAT_S + 16 * bar_s,
+        "ending": FIRST_BEAT_S + 24 * bar_s,
+    }
+    assert set(hits) == set(expected)
+    for name, at in expected.items():
+        assert hits[name] == pytest.approx(at, abs=beat), name
+    starts = [s["start_s"] for s in info["sections"]]
+    assert starts[0] == 0
+    assert len(starts) == 4
+    loudest = max(info["sections"], key=lambda s: s["energy_db"])
+    assert loudest["start_s"] == hits["drop"]
+    assert [h["name"] for h in json.loads(result.stdout)["hits"]] == list(expected)
+
+
+def drifting_bed(path: Path, click_bpm: float, section_s: float) -> None:
+    """Clicks at `click_bpm` over sustained pads that change every `section_s`, four times."""
+    sr = 44100
+    t = np.arange(int((FIRST_BEAT_S + 4 * section_s + 2) * sr)) / sr
+    y = np.zeros_like(t)
+    for k, (low, high) in enumerate([(0.02, 0.0), (0.05, 0.02), (0.12, 0.08), (0.02, 0.0)]):
+        m = (t >= FIRST_BEAT_S + k * section_s) & (t < FIRST_BEAT_S + (k + 1) * section_s)
+        y[m] += (
+            low * np.sin(2 * np.pi * 80 * t[m])
+            + high * np.sin(2 * np.pi * 2000 * t[m])
+            + 0.03 * np.sin(2 * np.pi * 440 * t[m])
+        )
+    n = np.arange(2000)
+    click = 0.3 * np.sin(2 * np.pi * 800 * n / sr) * np.exp(-n / 250)
+    for beat in np.arange(FIRST_BEAT_S, FIRST_BEAT_S + 4 * section_s, 60 / click_bpm):
+        y[int(beat * sr) : int(beat * sr) + 2000] += click
+    sf.write(path, y.astype(np.float32), sr)
+
+
+def test_the_section_period_corrects_a_tempo_the_onsets_get_wrong(demo: Path) -> None:
+    # The Pumpkit bed: sections every 16.03 s are 8 bars at 119.8 bpm, though it read as 117.5.
+    music = demo.parents[1] / "library" / "music"
+    music.mkdir(parents=True, exist_ok=True)
+    drifting_bed(music / "drift.wav", click_bpm=117.5, section_s=16.03)
+    track = {"file": "drift.wav", "title": "Drift", "licence": "CC0"}
+    (music / "tags.json").write_text(json.dumps([track]), encoding="utf-8")
+    set_music(demo, mode="library", track="drift.wav")
+
+    result = invoke("music", "demo")
+
+    assert result.exit_code == 0, result.output
+    info = json.loads((demo / "build" / "music.json").read_text(encoding="utf-8"))
+    assert info["tracker_bpm"] == pytest.approx(117.5, abs=0.1)
+    assert info["detected_bpm"] == pytest.approx(119.8, abs=0.5)
+    assert info["tempo_from"] == "sections"
+    hits = {h["name"]: h["time_s"] for h in info["hits"]}
+    assert hits["drop"] == pytest.approx(FIRST_BEAT_S + 2 * 16.03, abs=60 / 119.8)
+    assert "corrected from 117.5" in result.output
+
+
+def test_a_bed_analysed_before_the_bar_grid_is_analysed_again_without_regenerating(
+    demo: Path, worker: Path
+) -> None:
+    set_music(demo, mode="generate", prompt="lo-fi piano, instrumental", bpm=120, seed=2)
+    assert invoke("music", "demo").exit_code == 0
+    path = demo / "build" / "music.json"
+    old = json.loads(path.read_text(encoding="utf-8"))
+    for key in ("tracker_bpm", "tempo_from", "bars", "sections", "hits"):
+        del old[key]
+    path.write_text(json.dumps(old), encoding="utf-8")
+
+    result = invoke("music", "demo", "--json")
+
+    assert result.exit_code == 0, result.output
+    assert len(jobs(worker)) == 1
+    info = json.loads(path.read_text(encoding="utf-8"))
+    assert info["tempo_from"] == "onsets"
+    assert info["bars"]

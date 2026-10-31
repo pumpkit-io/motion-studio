@@ -233,7 +233,7 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | Python API | `AceStepHandler().initialize_service(project_root, config_path="acestep-v15-turbo", device="auto")` returns `(status, ok)`; `generate_music(dit_handler, llm_handler, GenerationParams, GenerationConfig, save_dir)`; `llm_handler=None` with `thinking=False` runs the DiT alone (`use_lm` is False) | `docs/en/INFERENCE.md`; `acestep/inference.py`, `init_service_orchestrator.py` |
 | Duration, BPM, seed | `GenerationParams(duration=<s>, bpm=<int>, seed=<int>)` with `GenerationConfig(batch_size=1, use_random_seed=False, seeds=[seed], audio_format="wav")`; output 48 kHz stereo WAV, normalised to −1 dBFS peak | INFERENCE.md; the generated file |
 | Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so motion-studio sends it and runs the VAD check | `grep` of `acestep/` |
-| librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)` | `inspect.signature` on the installed package |
+| librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)`; `onset.onset_strength(*, y, sr, hop_length=)`; `stft(y, n_fft=, hop_length=)` and `fft_frequencies(*, sr, n_fft)` for the band levels (ticket #37) | `inspect.signature` on the installed package |
 
 ## Documentation and release (ticket #18, 2026-10-24)
 
