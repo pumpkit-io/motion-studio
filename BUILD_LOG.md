@@ -853,3 +853,20 @@ Checked:
 - `tests/unit/test_resolver_product.py` (resolver seam, counted by `just edl-coverage`), `test_product_plan_cli.py` (`plan validate`, `docs edl`) and `test_product_render_cli.py` (render with a stand-in Remotion on a synthetic recording plus sidecar) in CI; vitest specs for the frame geometry and palette.
 - `tests/integration/test_product_render.py` (markers `slow`, `renderer`) renders a preview and a final with the real renderer and checks stills at each scene's midpoint: title cards on the dark backdrop with bright text and no footage, footage centred in its frame under a light browser bar.
 
+
+## `look --at`: stills of the render (ticket #41, spec #26)
+
+Built:
+
+- `look <slug> --at <scene | marker | time>` (repeatable) in `look/at.py`. It reads the latest fresh render (the preview or the final, whichever finished last, first format) and `build/timeline.json`, and writes one PNG per value to `contact/at_<value>.png`, at the render's size up to 1600 px wide. A scene ID gives the scene's middle frame; a marker (`c2.m.v1_shown`) gives the frame of the first footage scene whose source range holds it, at that scene's rate; seconds (`12.5`, `12.5s`) give the frame on screen then. Output time also works on talk renders.
+- Each call counts once against the look budget, past which it warns and still writes. `count_look` and `budget_warnings` in `look/__init__.py` are now shared by both forms.
+- Exit 1 with the `render` hint when nothing is rendered or the render is older than the timeline; exit 1 with a hint for an unknown scene, marker or clip, a time outside the render, a marker no scene shows (naming the scenes that play its clip), and a range given together with `--at`.
+
+Deviations:
+
+- `clip`, `t0` and `t1` became optional arguments so `--at` can stand alone; `look` without either form exits 1. `--frames` and `--out` apply to the range form only.
+- Frames are decoded by seeking a quarter frame early, since ffmpeg's input seek returns the first frame at or after the seek time.
+
+Checked:
+
+- `tests/unit/test_look_at_cli.py` (CI): a stand-in Remotion paints each frame a colour that encodes its number, so each still is checked against the frame it should be for a scene, a marker, and a time; the budget counts once per call; the final is used after the preview; no render, a stale render and every bad value exit 1 with a hint.

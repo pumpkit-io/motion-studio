@@ -337,25 +337,37 @@ $ motion-studio words talk c1.w40 c1.w60
 
 ## `motion-studio look`
 
-Draw frames, waveform, word labels and face boxes for T0 to T1 of CLIP into one PNG.
+Draw T0 to T1 of CLIP (frames, waveform, words, faces), or stills of the render with --at.
 
 ```console
-$ motion-studio look [OPTIONS] {slug} {clip} {t0} {t1}
+$ motion-studio look [OPTIONS] {slug} [clip] [t0] [t1]
 ```
 
 * `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
-* `clip`: Clip ID, e.g. c1.  [required]
-* `t0`: Start, in source seconds.  [required]
-* `t1`: End, in source seconds.  [required]
+* `clip`: Clip ID, e.g. c1.
+* `t0`: Start, in source seconds.
+* `t1`: End, in source seconds.
+* `--at <str>`: A scene ID, marker or output time of the latest render; repeat for more stills.
 * `--frames <int>`: Frames across the range.  [default: 8]
 * `--out <path>`: Write the PNG here instead of contact/.
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each sheet counts against the look budget (`[edit] look_budget`, default 8). Past it, `look` still writes the sheet and prints a warning.
+Pass either a source range (`clip`, `t0` and `t1`) or `--at`, not both. `--frames` and `--out` apply to the range.
+
+`--at` writes one still of the latest render per value, to `contact/at_<value>.png`, at the render's resolution up to 1600 px wide. The latest render is whichever of the preview and the final was rendered last; its first format is used. Each value is one of:
+
+* a scene ID (product projects), such as `step1`: the scene's middle frame;
+* a marker of a screen recording, such as `c2.m.v1_shown`: the frame where a footage scene shows that moment of the recording, at the scene's rate (the first such scene when several play it);
+* output seconds, such as `12.5` or `12.5s`: the frame on screen then.
+
+The stills print with their frame number, output time and scene. With no render, or one older than `build/timeline.json`, `--at` exits 1 and points to `render`; a marker no footage scene shows exits 1 and names the scenes that play its recording.
+
+Each `look` call counts once against the look budget (`[edit] look_budget`, default 8), whatever the number of `--at` values. Past it, `look` still writes the sheet or the stills and prints a warning.
 
 ```console
 $ motion-studio look talk c1 12.0 18.5 --frames 6
+$ motion-studio look launch --at step1 --at c2.m.v1_shown --at 21.5
 ```
 
 ## `motion-studio look-asset`
