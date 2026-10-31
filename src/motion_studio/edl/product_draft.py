@@ -30,10 +30,6 @@ SEED = 1
 _TITLE_S = 2.0
 _PROOF_S = 4.0
 _OUTRO_S = 4.0
-_PROMPT = (
-    "fast future house, punchy claps, bright lead synth, rising build, big drop, energetic, "
-    "instrumental"
-)
 _DIGITS = re.compile(r"\d+")
 
 
@@ -98,7 +94,7 @@ def draft_product(
         kind="product",
         title=title,
         scenes=scenes,
-        music=EdlMusic(mode="generate", prompt=_PROMPT, bpm=round(grid.bpm), seed=SEED),
+        music=EdlMusic(mode="generate", preset="launch", seed=SEED),
         rationale=_rationale(grid, recordings, scenes, leftout),
     )
 
@@ -165,7 +161,9 @@ def _rationale(
         "from its first marker to its last at 1x, rounded to whole beats; a proof scene per "
         "image; and a logo outro. Cards are whole bars.",
         "Change first: the headlines, which are placeholders from the title and the file "
-        "names; then trim each footage scene and add camera moves.",
+        "names; then trim each footage scene and add camera moves. The `launch` music preset "
+        "generates at 124 bpm: after `music`, draft again with --force to lay the cards on the "
+        "bed's grid, or validate to lay the scenes on it.",
     ]
     unmarked = [r.clip.id for r in recordings if not r.markers]
     if unmarked:

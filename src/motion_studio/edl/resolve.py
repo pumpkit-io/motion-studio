@@ -25,6 +25,7 @@ from motion_studio.edl.models import (
     TimelineCaptions,
     TimelineWord,
 )
+from motion_studio.edl.music import check_music
 from motion_studio.edl.product import PRODUCT_FORMATS, BrandAssets, resolve_scenes
 from motion_studio.edl.refs import RefIndex, WordSpan
 from motion_studio.edl.runs import SourceRun, cut_segment
@@ -85,6 +86,7 @@ def _resolve_product(
     problems = Problems()
     language = _language(edl, clips, config, problems)
     resolved = resolve_scenes(clips, edl, config, grid, problems, brand)
+    check_music(edl, config, problems)
     problems.raise_errors()
     fps = config.defaults.fps
     _check_length(resolved.duration_frames / fps, edl, config, problems)
@@ -154,6 +156,7 @@ def _resolve_talk(
     keep = index.word_list(edl.keep_words, "keep_words", problems)
     index.check_ranges(edl.drop_ranges, problems)
     language = _language(edl, clips, config, problems)
+    check_music(edl, config, problems)
     problems.raise_errors()
     for clip_id, i in sorted(dropped & keep):
         problems.warn(

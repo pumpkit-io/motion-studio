@@ -109,7 +109,7 @@ def test_without_music_the_draft_sits_on_a_steady_120_bpm_grid(launch: Path) -> 
     out = json.loads(invoke("plan", "draft", "launch", "--json").stdout)
 
     assert out["grid"] == {"bpm": 120.0, "beats_per_bar": 4, "from_music": False}
-    assert out["music"]["bpm"] == 120
+    assert out["music"] == {"mode": "generate", "preset": "launch", "seed": 1}
     rationale = edl_of(launch)["rationale"]
     assert "steady grid (no music yet) at 120 bpm" in rationale
     assert rationale == out["rationale"]
@@ -135,7 +135,6 @@ def test_with_a_bed_the_draft_sits_on_its_grid(launch: Path) -> None:
     out = json.loads(invoke("plan", "draft", "launch", "--json").stdout)
 
     assert out["grid"] == {"bpm": 150.0, "beats_per_bar": 3, "from_music": True}
-    assert out["music"]["bpm"] == 150
     assert "the bed's grid at 150 bpm, 3 beats a bar" in out["rationale"]
     lengths = {s["id"]: s.get("bars") for s in scenes_of(launch)}
     assert lengths == {

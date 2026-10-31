@@ -11,7 +11,7 @@ import pytest
 import soundfile as sf
 from typer.testing import CliRunner
 
-from motion_studio.analysis import Span, TranscribedWord, analyse_transcript
+from motion_studio.analysis import ClipAnalysis, Span, TranscribedWord, analyse_transcript
 from motion_studio.analysis.models import ClipInfo
 from motion_studio.cli import app
 from motion_studio.lang import load_language
@@ -75,3 +75,33 @@ def test_music_generates_a_60_second_instrumental(
     assert len(info["beats"]) > 30
     validate = invoke("plan", "validate", "demo")
     assert validate.exit_code == 0, validate.output
+
+
+def test_three_candidates_load_the_model_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if acestep.installed() is None:
+        pytest.skip("run `motion-studio setup --music` first")
+    ws = tmp_path / "videos"
+    assert invoke("init", ws).exit_code == 0
+    monkeypatch.chdir(ws)
+    assert invoke("new", "launch", "--kind", "product").exit_code == 0
+    project = ws / "projects" / "launch"
+    info = ClipInfo(id="c1", role="screen", source="raw/c1.mp4", duration_s=5.0)
+    (project / "analysis" / "c1.json").write_text(ClipAnalysis(clip=info).model_dump_json())
+    scenes = [
+        {"id": "intro", "type": "title_card", "bars": 4, "headline": "Meet it."},
+        {"id": "logo", "type": "title_card", "bars": 4, "headline": "Launch."},
+    ]
+    edl = {"kind": "product", "scenes": scenes, "music": {"preset": "launch", "seed": 1}}
+    (project / "edl.json").write_text(json.dumps(edl))
+
+    result = invoke("music", "launch", "--candidates", "3", "--json")
+
+    assert result.exit_code == 0, result.output
+    out = json.loads(result.stdout)
+    assert out["model_loads"] == 1
+    assert [c["seed"] for c in out["candidates"]] == [1, 2, 3]
+    loads = [c["elapsed_s"] for c in out["candidates"]]
+    print(f"candidates: {loads} s each, the first with the model load")
+    assert all(c["detected_bpm"] for c in out["candidates"] if c["accepted"])

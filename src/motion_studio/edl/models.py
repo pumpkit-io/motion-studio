@@ -137,15 +137,32 @@ class EdlCaptions(_Model):
     )
 
 
+MusicPreset = Literal["tech", "story", "energetic", "explainer", "launch"]
+MusicHitName = Literal["intro_end", "build", "drop", "ending"]
+
+
+class MusicAlign(_Model):
+    """Land one of the bed's section hits on the start of a scene (product EDLs)."""
+
+    hit: MusicHitName
+    at: str = Field(description="The scene ID the hit lands on.")
+
+
 class EdlMusic(_Model):
     """The music bed. Unset keys fall back to the config's [music]."""
 
     mode: Literal["generate", "library", "none"] | None = None
+    preset: MusicPreset | None = Field(
+        default=None, description="A named prompt and tempo; prompt and bpm override it."
+    )
     prompt: str | None = Field(default=None, description="Mood prompt for generation.")
     bpm: int | None = Field(default=None, gt=0)
     seed: int | None = None
     gain_db: float | None = None
     track: str | None = Field(default=None, description="Library track, for mode library.")
+    align: MusicAlign | None = Field(
+        default=None, description="A section hit to land on a scene start, for generated beds."
+    )
 
 
 class TalkEdl(_Model):

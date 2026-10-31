@@ -47,7 +47,7 @@ def _product_lines(report: ProductDraftReport, slug: str) -> list[str]:
         f"wrote {report.edl_path}",
         f"  {len(report.edl.scenes)} scenes: " + " · ".join(s.id for s in report.edl.scenes),
         f"  grid {grid.bpm:.4g} bpm, {source}",
-        f'  music: generate at {music.bpm} bpm, "{music.prompt}"',
+        f"  music: generate, preset {music.preset}",
         "  rationale in edl.json says what to change first",
         f"next: write the headlines, then `{APP_NAME} plan validate {slug}`",
     ]
