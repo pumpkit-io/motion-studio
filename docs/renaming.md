@@ -92,13 +92,13 @@ Rewrite these under the new name too, so that a search for the old name finds no
 - The GitHub repository and its clone URLs in README.md: the maintainer renames the repository, and GitHub redirects the old URLs.
 - The local clone folder, and the tool install: `uv tool uninstall <old name>`, then `uv tool install` again from the renamed checkout.
 - The package name on PyPI, if it is ever published (`motion-studio` is taken by an unrelated project).
-- Creators' machines: the old cache (`~/Library/Caches/<old name>`, or wherever the old cache variable points; 16 GB on the build machine with the ACE-Step environment) is orphaned. `doctor` and `setup` print the `mv` that adopts it, and `setup` stops rather than download everything again; `MOTION_STUDIO_CACHE_DIR` can also point at it.
+- Creators' machines: the old cache (`~/Library/Caches/<old name>`, or wherever the old cache variable points; 16 GB on the build machine with the ACE-Step environment) is orphaned. `doctor` and `setup` print the command that adopts it (an `mv` into the new default location, or for a location the old variable chose, an `export` of `MOTION_STUDIO_CACHE_DIR` pointing at it), and `setup` stops rather than download everything again.
 - Existing workspaces: `agents sync` renames their `<old name>.toml` to `<name>.toml`, brings their `AGENTS.md` up to date, installs the new skills and then deletes the five shipped skills' old-name folders from `.claude/skills/` and `.agents/skills/`. A creator's own skill whose name starts with the old name stays. Every other command points at `agents sync`.
 - The environment variables people may have set change prefix with `ENV_PREFIX`; a set variable with the old prefix prints a warning naming its replacement.
 
 ## Where the previous name stays
 
-`tests/unit/test_docs.py` fails when the previous name appears in a tracked file these entries do not cover. On the next rename, set `OLD_APP_NAME` to the name being replaced, set `OLD_AGENTS_MD_SHA256` to the SHA-256 of the workspace `AGENTS.md` template being replaced, and copy that template over the test fixture below; the migration follows.
+`tests/unit/test_docs.py` fails when the previous name appears in a tracked file these entries do not cover. On the next rename, in `src/<package>/migrate.py`, set `OLD_APP_NAME` to the name being replaced, set `OLD_COMMANDS` to the top-level commands the CLI has under that name (`<old name> --help` lists them), set `OLD_AGENTS_MD_SHA256` to the SHA-256 of the workspace `AGENTS.md` template being replaced, and copy that template over the test fixture below; the migration follows. `tests/unit/test_migration.py` fails when a command the fixture names is missing from `OLD_COMMANDS` or when `OLD_COMMANDS` names a command the CLI does not have.
 
 - `CHANGELOG.md`: the line that records the rename.
 - `src/motion_studio/migrate.py`: `OLD_APP_NAME`, the one constant behind the migration of old workspaces, the old cache and the old environment variables.

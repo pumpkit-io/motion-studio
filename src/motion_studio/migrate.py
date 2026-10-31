@@ -108,12 +108,12 @@ def _migrate_agents_md(path: Path) -> AgentsMdChange | None:
     old = re.escape(OLD_APP_NAME)
     shipped = "|".join(re.escape(n.removeprefix(f"{APP_NAME}-")) for n in skill_names())
     commands = "|".join(re.escape(c) for c in OLD_COMMANDS)
-    # Not after `/` or `.`, so paths and URLs that end in the old name keep it.
+    # Not after `/` or `.`, so a path or URL segment named after the old name keeps it.
     alone = r"(?<![-\w/.])"
     text, places = data.decode("utf-8"), 0
     for pattern, replacement in (
         (rf"(?<![-\w]){old}-({shipped})(?![-\w])", rf"{APP_NAME}-\1"),
-        (rf"(?<![-\w]){re.escape(OLD_WORKSPACE_FILE)}", WORKSPACE_FILE),
+        (rf"(?<![-\w]){re.escape(OLD_WORKSPACE_FILE)}(?![-\w]|\.\w)", WORKSPACE_FILE),
         (rf"\b{re.escape(OLD_ENV_PREFIX)}_", f"{ENV_PREFIX}_"),
         (rf"{alone}{old}(?=[ \t]+(?:(?:{commands})(?![-\w])|-))", APP_NAME),
         (rf"`{old}`", f"`{APP_NAME}`"),
@@ -145,11 +145,15 @@ def remove_old_skills(workspace: Path) -> list[Path]:
 def old_env_warnings() -> list[str]:
     """One line per set variable with the old prefix, naming the variable that replaced it."""
     prefix = f"{OLD_ENV_PREFIX}_"
-    return [
-        f"{name} is no longer read; set {_new_env(name, os.environ[name])} instead"
-        for name in sorted(os.environ)
-        if name.startswith(prefix)
-    ]
+    return [_old_env_warning(name) for name in sorted(os.environ) if name.startswith(prefix)]
+
+
+def _old_env_warning(name: str) -> str:
+    value = os.environ[name]
+    # Pointing the new variable at the old default would contradict the `mv` that adopts it.
+    if name == OLD_CACHE_ENV and Path(value) == platformdirs.user_cache_path(OLD_APP_NAME):
+        return f"{name} is no longer read; unset it, then adopt the cache `{APP_NAME} doctor` names"
+    return f"{name} is no longer read; set {_new_env(name, value)} instead"
 
 
 def _new_env(old_name: str, value: str) -> str:

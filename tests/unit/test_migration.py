@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shlex
 import stat
 import subprocess
@@ -10,13 +11,15 @@ from pathlib import Path
 
 import platformdirs
 import pytest
+import typer
 from conftest import FakeTools
 from test_doctor_cli import FILTERS, fake_ffmpeg, fake_node
+from typer.core import TyperGroup
 from typer.testing import CliRunner
 
 from motion_studio import APP_NAME
 from motion_studio.cli import app
-from motion_studio.migrate import OLD_APP_NAME
+from motion_studio.migrate import OLD_APP_NAME, OLD_CACHE_ENV, OLD_COMMANDS
 
 runner = CliRunner()
 
@@ -100,13 +103,15 @@ def test_agents_sync_rewrites_an_unedited_old_agents_md_from_the_template(
 def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: Path) -> None:
     agents_md = old_workspace / "AGENTS.md"
     house_style = f"\n## House style\nUse the skill `{USER_SKILL}` for colours.\n"
-    agents_md.write_text(OLD_AGENTS_MD.read_text(encoding="utf-8") + house_style, "utf-8")
+    settings = f"Settings live in {OLD_TOML}.\n"
+    old_text = OLD_AGENTS_MD.read_text(encoding="utf-8") + settings + house_style
+    agents_md.write_text(old_text, "utf-8")
 
     result = invoke("agents", "sync")
 
     assert result.exit_code == 0, result.output
     text = agents_md.read_text(encoding="utf-8")
-    assert text.endswith(house_style)
+    assert text.endswith(f"Settings live in {NEW_TOML}.\n{house_style}")
     assert f"`{APP_NAME}-edit`" in text
     assert f"{APP_NAME} agents sync" in text
     assert f"`{OLD_APP_NAME} " not in text
@@ -115,7 +120,6 @@ def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: 
     assert f"renamed {OLD_APP_NAME} to {APP_NAME} in {agents_md}" in line
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only directory")
 @pytest.mark.parametrize(
     "line",
     [
@@ -124,6 +128,7 @@ def test_agents_sync_renames_the_old_name_in_an_edited_agents_md(old_workspace: 
         f"Models live in ~/Library/Caches/{OLD_APP_NAME}/models.",
         f"Source: https://github.com/pumpkit-io/{OLD_APP_NAME}",
         f"Presets are in {OLD_APP_NAME}.json.",
+        f"Back up to {OLD_APP_NAME}.toml.bak first.",
     ],
 )
 def test_an_edited_agents_md_keeps_the_users_own_names_paths_and_urls(
@@ -152,6 +157,30 @@ def test_a_non_utf8_agents_md_is_left_alone_with_a_warning(old_workspace: Path) 
     assert (old_workspace / NEW_TOML).exists()
 
 
+def test_the_json_output_carries_the_migration_warnings(old_workspace: Path) -> None:
+    agents_md = old_workspace / "AGENTS.md"
+    agents_md.write_bytes(f"Use `{OLD_APP_NAME} doctor` per caff\u00e8.\n".encode("latin-1"))
+
+    result = invoke("agents", "sync", "--json")
+
+    assert result.exit_code == 0, result.output
+    [warning] = json.loads(result.stdout)["warnings"]
+    assert str(agents_md) in warning
+
+
+def test_the_old_commands_cover_the_old_agents_md_and_exist_in_the_cli() -> None:
+    # The fixture is the frozen v0.1.0 template, so every command it names must be renamed;
+    # a name the CLI does not have is a typo or a stale list.
+    pattern = rf"(?<![-\w/.]){OLD_APP_NAME} ([a-z][a-z-]*)"
+    in_fixture = set(re.findall(pattern, OLD_AGENTS_MD.read_text(encoding="utf-8")))
+    root = typer.main.get_command(app)
+    assert isinstance(root, TyperGroup)
+
+    assert in_fixture <= set(OLD_COMMANDS)
+    assert set(OLD_COMMANDS) <= set(root.commands)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes through a read-only directory")
 def test_a_failed_skill_install_leaves_the_old_skills_in_place(old_workspace: Path) -> None:
     claude_skills = old_workspace / ".claude/skills"
     claude_skills.chmod(stat.S_IRUSR | stat.S_IXUSR)
@@ -325,7 +354,6 @@ def test_setup_stops_before_downloading_and_prints_the_adopting_command(
 def test_the_printed_command_adopts_the_old_cache_when_the_home_path_holds_glob_characters(
     fake_tools: FakeTools, default_caches: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    old, _ = default_caches
     home = Path(os.environ["HOME"]).with_name("home [x]")
     Path(os.environ["HOME"]).rename(home)
     monkeypatch.setenv("HOME", str(home))
@@ -351,11 +379,11 @@ def test_a_custom_old_cache_is_adopted_by_pointing_the_new_variable_at_it(
 ) -> None:
     custom = tmp_path / "big disk" / "cache"
     (custom / "models").mkdir(parents=True)
-    monkeypatch.setenv(f"{OLD_APP_NAME.upper()}_CACHE_DIR", str(custom))
+    monkeypatch.setenv(OLD_CACHE_ENV, str(custom))
     fake_ffmpeg(fake_tools, FILTERS)
     fake_node(fake_tools)
 
-    result = runner.invoke(app, ["doctor", "--json"])
+    result = invoke("doctor", "--json")
 
     [check] = [c for c in json.loads(result.stdout)["checks"] if c["name"] == "old cache"]
     assignment = f"MOTION_STUDIO_CACHE_DIR={shlex.quote(str(custom))}"
@@ -363,3 +391,20 @@ def test_a_custom_old_cache_is_adopted_by_pointing_the_new_variable_at_it(
     assert assignment in check["fix"]
     [warning] = [x for x in result.stderr.splitlines() if "CACHE_DIR" in x]
     assert assignment in warning
+
+
+def test_the_old_variable_set_to_the_old_default_is_unset_not_copied(
+    fake_tools: FakeTools, default_caches: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old, _ = default_caches
+    monkeypatch.setenv(OLD_CACHE_ENV, str(old))
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+
+    result = invoke("doctor", "--json")
+
+    [check] = [c for c in json.loads(result.stdout)["checks"] if c["name"] == "old cache"]
+    assert "mv " in check["fix"]
+    [warning] = [x for x in result.stderr.splitlines() if OLD_CACHE_ENV in x]
+    assert "unset" in warning
+    assert "MOTION_STUDIO_CACHE_DIR=" not in warning

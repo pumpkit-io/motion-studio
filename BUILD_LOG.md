@@ -723,3 +723,17 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: five probes that an edited `AGENTS.md` keeps (two user skill names, a cache path, a URL, `<old>.json`), a Latin-1 `AGENTS.md`, the adopting command run by `/bin/sh` under a home path containing `[`, and a custom old cache whose fix and env warning share the assignment. `test_a_failed_skill_install_leaves_the_old_skills_in_place` now asserts both old folders survive in both skill directories and is skipped as root.
 - `just lint`, `just schema-check`, `just test` (393 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. `just e2e` not run: nothing on the render path changed.
+
+## Review fixes for the rename, round 3 (spec #25)
+
+- `docs/renaming.md`'s next-rename procedure now covers `OLD_COMMANDS` (set it to the top-level commands the CLI has under the name being replaced), and the "Outside the repository" cache line names both adopting commands, `mv` or `export`.
+- A new test ties `OLD_COMMANDS` to two fixed points: every command the v0.1.0 `AGENTS.md` fixture names must be in it, and every name in it must be a current top-level command. Equality with the CLI was rejected because a command added after the rename never existed under the old name; reading the v0.1.0 `docs/cli.md` from the tag was rejected because CI checks out without tags. The subset check fails if a v0.1.0 command is ever removed, which is the moment to decide whether its old-name mentions still need renaming.
+- The `skipif` for root now sits on `test_a_failed_skill_install_leaves_the_old_skills_in_place`, where round 2 meant it; it had landed on the edited-`AGENTS.md` probes.
+- `REELCUT_CACHE_DIR` set to the old default location no longer gets two contradictory fixes: `doctor`/`setup` print the `mv`, and the env warning says to unset the variable instead of copying its value into `MOTION_STUDIO_CACHE_DIR` (doing both would have re-downloaded the cache).
+- The `.toml` rewrite in an edited `AGENTS.md` takes a right guard, so `<old>.toml.bak` keeps its name while a sentence-ending `<old>.toml.` is still renamed.
+- `docs/cli.md` says the previous name in prose stays unless a command or option follows it, and that the adopting `export` belongs in the shell profile.
+
+Checked:
+
+- New tests in `tests/unit/test_migration.py`: the `OLD_COMMANDS` check, the `warnings` field of `agents sync --json`, the old variable set to the old default, a `<old>.toml.bak` probe, and a sentence-ending `<old>.toml.` in the edited-`AGENTS.md` test. The glob-character test lost a dead assignment, and the custom-cache test uses `OLD_CACHE_ENV` and `invoke`.
+- `just lint`, `just schema-check`, `just test` (397 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. `just e2e` not run: nothing on the render path changed.
