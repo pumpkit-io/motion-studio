@@ -8,12 +8,14 @@ from typing import get_args
 from pydantic import BaseModel
 
 from motion_studio.edl.models import (
+    CameraMove,
     EdlCaptions,
     EdlMusic,
     Event,
     MarkerPoint,
     Policy,
     ProductEdl,
+    Rect,
     Scene,
     TalkEdl,
 )
@@ -37,6 +39,8 @@ def test_every_edl_field_is_documented() -> None:
         EdlCaptions,
         EdlMusic,
         MarkerPoint,
+        CameraMove,
+        Rect,
         *event_models,
         *scene_models,
     )

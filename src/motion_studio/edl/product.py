@@ -15,11 +15,14 @@ from motion_studio.config import Config
 from motion_studio.edl.grid import BeatGrid
 from motion_studio.edl.issues import Problems
 from motion_studio.edl.models import (
+    CameraMove,
     FootagePoint,
     FootageScene,
     MarkerPoint,
     ProductEdl,
+    Rect,
     Scene,
+    TimelineCameraKey,
     TimelineFootage,
     TimelineHeadlineWord,
     TimelineScene,
@@ -31,6 +34,14 @@ PRODUCT_FORMATS = ("16x9",)
 # Clip roles a footage scene can play.
 FOOTAGE_ROLES = ("screen", "broll")
 _MARKER = re.compile(r"^(?P<clip>[a-z]+\d+)\.m\.(?P<name>[A-Za-z0-9_][A-Za-z0-9_-]*)$")
+_ELEMENT = re.compile(r"^(?P<clip>[a-z]+\d+)\.e\.(?P<name>[A-Za-z0-9_][A-Za-z0-9_-]*)$")
+_ELEMENTS_SHOWN = 8
+# The browser frame's room on the 1920x1080 canvas, as in renderer/src/lib/deviceFrame.ts.
+_ROOM = (1600, 900)
+# Past this many output pixels per recorded pixel, recorded text goes soft.
+_MAX_MAGNIFICATION = 2.0
+# A move without a zoom frames its target to fill this much of the footage.
+_FILL = 0.7
 _MARKERS_SHOWN = 8
 _MARKERS_HINT = "markers are listed under each screen recording in analysis/packed.md"
 
@@ -177,6 +188,9 @@ def _footage(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene |
     assert info.mezzanine is not None and info.width is not None and info.height is not None
     src_in, src_out = span
     seconds = (slot.end - slot.start) / context.fps
+    camera = _camera(scene, slot, span, analysis, context)
+    if camera is None:
+        return None
     return TimelineFootage(
         type="footage",
         id=scene.id,
@@ -191,7 +205,172 @@ def _footage(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene |
         rate=round((src_out - src_in) / seconds, 6),
         device_frame=scene.device_frame,
         address=scene.address,
+        camera=camera,
     )
+
+
+def _camera(
+    scene: FootageScene,
+    slot: Slot,
+    span: tuple[float, float],
+    analysis: ClipAnalysis,
+    context: SceneContext,
+) -> list[TimelineCameraKey] | None:
+    """The scene's moves as keyframes in frame order, or None after recording why not."""
+    keys = [
+        _move(i, move, scene, slot, span, analysis, context) for i, move in enumerate(scene.camera)
+    ]
+    resolved = [k for k in keys if k is not None]
+    if len(resolved) < len(keys):
+        return None
+    return sorted(resolved, key=lambda k: k.frame)
+
+
+def _move(
+    index: int,
+    move: CameraMove,
+    scene: FootageScene,
+    slot: Slot,
+    span: tuple[float, float],
+    analysis: ClipAnalysis,
+    context: SceneContext,
+) -> TimelineCameraKey | None:
+    field = f"camera[{index}]"
+    where = f"scene {scene.id} {field}"
+    problems = context.problems
+    at = _point(move.at, f"{field}.at", scene, analysis, slot.start_s, context, problems)
+    if at is None:
+        return None
+    src_in, src_out = span
+    if not src_in - 1e-6 <= at < src_out:
+        problems.error(
+            "move_outside_scene",
+            f"{where}: at ({at:.3f} s) is outside the scene's footage "
+            f"({src_in:.3f}-{src_out:.3f} s)",
+            hint="pick a marker between the scene's from and to, or nudge it with offset_s",
+        )
+        return None
+    box = _target_box(move.target, f"{where} target", at, scene, analysis, problems)
+    if box is None:
+        return None
+    width, height = analysis.clip.width or 0, analysis.clip.height or 0
+    zoom = _zoom(move.zoom, box, width, height, where, problems)
+    if zoom is None:
+        return None
+    frame = slot.start + round((at - src_in) / (src_out - src_in) * (slot.end - slot.start))
+    return TimelineCameraKey(
+        frame=frame,
+        cx=round(box.x + box.w / 2, 2),
+        cy=round(box.y + box.h / 2, 2),
+        zoom=round(zoom, 6),
+        ease=move.ease,
+    )
+
+
+def _target_box(
+    target: str | Rect,
+    where: str,
+    at: float,
+    scene: FootageScene,
+    analysis: ClipAnalysis,
+    problems: Problems,
+) -> Rect | None:
+    """The target as a box in footage pixels, or None after recording why not.
+
+    An element is boxed where it was captured at the marker nearest `at`.
+    """
+    width, height = analysis.clip.width or 0, analysis.clip.height or 0
+    if target == "full":
+        return Rect(x=0, y=0, w=width, h=height)
+    if isinstance(target, str):
+        box = _element_box(target, where, at, scene, analysis, problems)
+        if box is None:
+            return None
+    else:
+        box = target
+    slack = 0.5
+    if (
+        box.x < -slack
+        or box.y < -slack
+        or box.x + box.w > width + slack
+        or box.y + box.h > height + slack
+    ):
+        problems.error(
+            "target_outside",
+            f"{where}: {round(box.x)},{round(box.y)} {round(box.w)}x{round(box.h)} is not "
+            f"inside the {width}x{height} footage",
+            hint="target an element captured while it was on screen, or a box inside the footage",
+        )
+        return None
+    return box
+
+
+def _element_box(
+    ref: str,
+    where: str,
+    at: float,
+    scene: FootageScene,
+    analysis: ClipAnalysis,
+    problems: Problems,
+) -> Rect | None:
+    match = _ELEMENT.match(ref)
+    if match is None:
+        problems.error(
+            "bad_target",
+            f"{where}: '{ref}' is not an element ID such as {scene.clip}.e.hook, or full",
+            hint="elements are listed after each marker in analysis/packed.md; a box is "
+            '{ "x": 0, "y": 0, "w": 800, "h": 450 } in footage pixels',
+        )
+        return None
+    if match["clip"] != scene.clip:
+        problems.error(
+            "cross_clip",
+            f"{where}: {ref} is an element of {match['clip']}, but the scene plays {scene.clip}",
+            hint="target one of the scene's own elements",
+        )
+        return None
+    captured = [(m.t, e) for m in analysis.markers for e in m.elements if e.name == match["name"]]
+    if not captured:
+        problems.error(
+            "unknown_element",
+            f"{where}: {ref} was not captured at any marker",
+            hint=f"{scene.clip} has {_element_list(analysis)}",
+        )
+        return None
+    _, element = min(captured, key=lambda c: (abs(c[0] - at), c[0]))
+    return Rect(x=element.x, y=element.y, w=element.w, h=element.h)
+
+
+def _zoom(
+    zoom: float | None, box: Rect, width: int, height: int, where: str, problems: Problems
+) -> float | None:
+    """The given zoom, or one that fills 70% of the footage with the box, within the limit."""
+    limit = _max_zoom(width, height)
+    if zoom is None:
+        return min(limit, max(1.0, _FILL * min(width / box.w, height / box.h)))
+    if zoom > limit + 1e-9:
+        problems.error(
+            "zoom_too_far",
+            f"{where}: zoom {zoom:g} is past {limit:.2f}x on {width}x{height} footage",
+            hint=f"zoom at most {limit:.2f}, past which recorded text goes soft, or leave zoom "
+            "out to frame the target",
+        )
+        return None
+    return zoom
+
+
+def _max_zoom(width: int, height: int) -> float:
+    """2x on footage shown 1:1 in the device frame (1600x900); more on larger, less on smaller."""
+    rest = min(_ROOM[0] / width, _ROOM[1] / height)
+    return max(1.0, _MAX_MAGNIFICATION / rest)
+
+
+def _element_list(analysis: ClipAnalysis) -> str:
+    names = sorted({f"{analysis.clip.id}.e.{e.name}" for m in analysis.markers for e in m.elements})
+    if not names:
+        return "no elements"
+    more = len(names) - _ELEMENTS_SHOWN
+    return ", ".join(names[:_ELEMENTS_SHOWN]) + (f" and {more} more" if more > 0 else "")
 
 
 def _footage_span(

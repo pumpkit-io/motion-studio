@@ -222,6 +222,49 @@
       "title": "TimelineBroll",
       "type": "object"
     },
+    "TimelineCameraKey": {
+      "additionalProperties": false,
+      "description": "Where a camera move starts and what it frames, in the footage's pixels.",
+      "properties": {
+        "cx": {
+          "description": "Footage x the camera centres on.",
+          "title": "Cx",
+          "type": "number"
+        },
+        "cy": {
+          "description": "Footage y the camera centres on.",
+          "title": "Cy",
+          "type": "number"
+        },
+        "ease": {
+          "enum": [
+            "smooth",
+            "snap"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "frame": {
+          "description": "Output frame where the move starts.",
+          "title": "Frame",
+          "type": "integer"
+        },
+        "zoom": {
+          "description": "1 is the whole frame, at rest.",
+          "title": "Zoom",
+          "type": "number"
+        }
+      },
+      "required": [
+        "frame",
+        "cx",
+        "cy",
+        "zoom",
+        "ease"
+      ],
+      "title": "TimelineCameraKey",
+      "type": "object"
+    },
     "TimelineCaptions": {
       "additionalProperties": false,
       "properties": {
@@ -325,6 +368,14 @@
           ],
           "title": "Address"
         },
+        "camera": {
+          "description": "In frame order.",
+          "items": {
+            "$ref": "#/$defs/TimelineCameraKey"
+          },
+          "title": "Camera",
+          "type": "array"
+        },
         "clip": {
           "title": "Clip",
           "type": "string"
@@ -395,7 +446,8 @@
         "src_out_s",
         "rate",
         "device_frame",
-        "address"
+        "address",
+        "camera"
       ],
       "title": "TimelineFootage",
       "type": "object"

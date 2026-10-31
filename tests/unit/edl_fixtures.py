@@ -3,7 +3,7 @@
 from typing import Any
 
 from motion_studio.analysis import ClipAnalysis, ClipInfo, Span, TranscribedWord, analyse_transcript
-from motion_studio.analysis.models import Marker, Role
+from motion_studio.analysis.models import Element, Marker, Role
 from motion_studio.edl.models import ProductEdl, TalkEdl
 from motion_studio.lang import load_language
 
@@ -53,8 +53,14 @@ def asset(clip_id: str, role: Role, duration: float) -> ClipAnalysis:
     return ClipAnalysis(clip=info)
 
 
-def screen(clip_id: str, duration: float, markers: dict[str, float] | None = None) -> ClipAnalysis:
-    """A 1600x900 screen recording with these named markers (seconds on its clock)."""
+def screen(
+    clip_id: str,
+    duration: float,
+    markers: dict[str, float] | None = None,
+    elements: dict[str, list[Element]] | None = None,
+    size: tuple[int, int] = (1600, 900),
+) -> ClipAnalysis:
+    """A screen recording with these named markers (seconds on its clock) and their elements."""
     info = ClipInfo(
         id=clip_id,
         role="screen",
@@ -62,10 +68,11 @@ def screen(clip_id: str, duration: float, markers: dict[str, float] | None = Non
         mezzanine=f"media/{clip_id}.mp4",
         duration_s=duration,
         fps=30,
-        width=1600,
-        height=900,
+        width=size[0],
+        height=size[1],
     )
-    marks = [Marker(name=n, t=t) for n, t in (markers or {}).items()]
+    boxes = elements or {}
+    marks = [Marker(name=n, t=t, elements=boxes.get(n, [])) for n, t in (markers or {}).items()]
     return ClipAnalysis(
         clip=info,
         markers_source=f"raw/{clip_id}.markers.json" if markers else None,

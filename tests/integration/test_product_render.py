@@ -1,7 +1,8 @@
 """`motion-studio render` of a product EDL with the real Remotion renderer.
 
-A solid-green 1600x900 clip with a markers sidecar stands in for a `record web` take, so the
-stills show whether the footage sits in its browser frame and the title cards on the backdrop.
+A green 1600x900 clip with one red box (element `box`) and a markers sidecar stands in for a
+`record web` take, so the stills show whether the footage sits in its browser frame, where the
+camera points, and the title cards on the backdrop.
 Uses the repo's renderer (`just setup`) or the cache's (`motion-studio setup`).
 """
 
@@ -21,6 +22,8 @@ from motion_studio.render.renderer import find_renderer
 pytestmark = [pytest.mark.slow, pytest.mark.renderer]
 
 GREEN = (46, 160, 67)
+RED = (220, 40, 40)
+BOX = {"name": "box", "x": 100, "y": 100, "w": 300, "h": 150}
 MARKERS = {"open": 0.5, "typed": 2.5, "done": 4.5}
 EDL: dict[str, Any] = {
     "kind": "product",
@@ -45,6 +48,15 @@ EDL: dict[str, Any] = {
             "beats": 8,
             "address": "example.com",
         },
+        {
+            "id": "zoom",
+            "type": "footage",
+            "clip": "c1",
+            "from": "c1.m.open",
+            "to": "c1.m.done",
+            "beats": 8,
+            "camera": [{"at": "c1.m.open", "target": "c1.e.box", "ease": "snap"}],
+        },
     ],
     "music": {"mode": "none"},
     "rationale": "Intro, a numbered step, then its footage.",
@@ -60,11 +72,12 @@ def run(*args: str | Path) -> Any:
 
 
 def recording(path: Path) -> Path:
-    colour = "0x{:02X}{:02X}{:02X}".format(*GREEN)
+    green, red = ("0x{:02X}{:02X}{:02X}".format(*c) for c in (GREEN, RED))
+    box = f"drawbox=x={BOX['x']}:y={BOX['y']}:w={BOX['w']}:h={BOX['h']}:color={red}:t=fill"
     run_ffmpeg(
         [
-            "-f", "lavfi", "-i", f"color=c={colour}:size=1600x900:rate=30:duration=5",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", path,
+            "-f", "lavfi", "-i", f"color=c={green}:size=1600x900:rate=30:duration=5",
+            "-vf", box, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", path,
         ]
     )  # fmt: skip
     return path
@@ -85,7 +98,10 @@ def launch(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
             "schema_version": 1,
             "width": 1600,
             "height": 900,
-            "markers": [{"name": n, "t": t} for n, t in MARKERS.items()],
+            "markers": [
+                {"name": n, "t": t, "elements": [BOX] if n == "open" else []}
+                for n, t in MARKERS.items()
+            ],
         }
         (project / "raw" / "take.markers.json").write_text(json.dumps(sidecar), encoding="utf-8")
         run("ingest", "launch")
@@ -127,7 +143,7 @@ def test_preview_is_a_half_size_16x9_video_lasting_the_timeline(launch: Path) ->
     [item] = out["outputs"]
     frames, width, height = frames_and_size(Path(item["path"]))
     assert (width, height) == (960, 540)
-    assert abs(frames - 240) <= 1
+    assert abs(frames - 360) <= 1
 
 
 def test_final_stills_show_title_cards_on_the_backdrop_and_footage_in_its_frame(
@@ -156,3 +172,11 @@ def test_final_stills_show_title_cards_on_the_backdrop_and_footage_in_its_frame(
     assert luminance(at(footage, 960, 90)) > 200
     assert not near(at(footage, 80, 560), GREEN)
     assert Path(item["share"]["path"]).is_file()
+
+    zoomed = still(video, mid["zoom"], tmp_path / "zoom.png")
+    # The 300x150 box would fill 70% only past 2x, so the camera holds it at 2x on the centre:
+    # 600x300 output pixels around (960, 540), with green footage beyond.
+    for x, y in ((960, 540), (700, 540), (1220, 540), (960, 410), (960, 670)):
+        assert near(at(zoomed, x, y), RED), (x, y)
+    for x, y in ((1320, 540), (960, 740)):
+        assert near(at(zoomed, x, y), GREEN), (x, y)

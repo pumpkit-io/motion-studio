@@ -149,6 +149,7 @@ A product video is scenes back to back, in output order: title cards and footage
 |---|---|---|
 | `c2` | Screen recording c2 | `analysis/packed.md` |
 | `c2.m.v1_shown` | Marker `v1_shown` of c2, written by the recording script's `mark()` | under each screen recording in `analysis/packed.md` |
+| `c2.e.hook` | Element `hook` of c2: an on-screen box the recording script captured at a marker | after its marker in `analysis/packed.md`, with its box |
 | `intro` | A scene you named | your own `scenes[].id` |
 
 ### Example
@@ -162,7 +163,11 @@ A product video is scenes back to back, in output order: title cards and footage
     { "id": "intro", "type": "title_card", "bars": 2, "headline": "Got an idea?", "accent": ["idea"] },
     { "id": "step1", "type": "title_card", "beats": 2, "step": "01", "headline": "Pick who inspires you.", "accent": ["inspires"] },
     { "id": "pick", "type": "footage", "clip": "c1", "from": "c1.m.open", "to": { "marker": "c1.m.picked", "offset_s": 0.4 }, "rate": 1.8, "address": "pumpkit.io" },
-    { "id": "brief", "type": "footage", "clip": "c2", "from": "c2.m.typing", "to": "c2.m.sent", "bars": 2 }
+    { "id": "brief", "type": "footage", "clip": "c2", "from": "c2.m.typing", "to": "c2.m.sent", "bars": 2,
+      "camera": [
+        { "at": "c2.m.typing", "target": "c2.e.brief" },
+        { "at": "c2.m.sent", "target": "full", "ease": "snap" }
+      ] }
   ],
   "music": { "mode": "generate", "prompt": "bright electronic launch, instrumental", "bpm": 120, "seed": 7 },
   "rationale": "Hook question, then one numbered step per recording."
@@ -184,7 +189,7 @@ Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `b
 | Type | Fields | Meaning |
 |---|---|---|
 | `title_card` | `headline`, `accent` (`[]`), `step`, `subline` | A full-frame card that introduces a step: the `step` number (such as `"01"`) above, the `headline` springing in word by word with the `accent` words in the brand accent colour, and the `subline` smaller underneath. |
-| `footage` | `clip`, `from`, `to`, `rate`, `device_frame` (`browser`), `address` | A stretch of a screen recording in a browser frame; `address` is the text in its address bar. |
+| `footage` | `clip`, `from`, `to`, `rate`, `device_frame` (`browser`), `address`, `camera` (`[]`) | A stretch of a screen recording in a browser frame; `address` is the text in its address bar, and `camera` its camera moves (below). |
 
 A footage scene's `from` and `to` are each one of:
 
@@ -194,8 +199,21 @@ A footage scene's `from` and `to` are each one of:
 
 Its length comes one of two ways. With `rate` (default 1) and no length, it plays from `from` to `to` at that speed and lasts that long, rounded to whole beats (at least one); the speed is adjusted slightly so the footage fills the scene. With a length, `from` to `to` is played at whatever speed fills it, and `rate` must be left out. Typing reads well at a `rate` of 2.6 to 3.2.
 
+### Camera moves
+
+A footage scene's `camera` lists moves that direct attention. Until the first move the camera shows the whole frame. Each move has:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `at` | | When the move starts: a marker ID or a marker with an offset, as in `from` and `to` (source seconds on a recording without markers). It must fall between the scene's `from` and `to`. |
+| `target` | | What to frame: an element ID (`"c2.e.hook"`), `"full"` for the whole footage, or a box `{ "x": 120, "y": 80, "w": 640, "h": 200 }` in the footage pixels `analysis/packed.md` lists (`x` and `y` the top-left corner, `w` and `h` the size). An element is boxed where it was captured at the marker nearest `at`. |
+| `zoom` | fills 70% | 1 shows the whole frame. Left out, the target is framed to fill about 70% of the footage's width or height, never below 1 or past the limit. |
+| `ease` | `smooth` | `smooth` eases to the target over about 0.7 s (cut short by the next move); `snap` cuts to it. |
+
+The camera holds each move until the next one. The zoom limit is 2 on footage the frame shows 1:1 (1600x900, the `record web` default): past it, recorded text goes soft. Larger recordings can zoom further (4 at 3200x1800), smaller ones less (none at 800x450).
+
 ### Product errors and warnings
 
-Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `unknown_language`.
+Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker or element of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `move_outside_scene` (a camera move's `at` outside the scene's footage), `bad_target` (a target that is no element ID, `full` or box), `unknown_element` (an element no marker captured), `target_outside` (a target box not inside the footage), `zoom_too_far` (a zoom past the limit), `unknown_language`.
 
 Warnings: `seconds_addressed` (a footage scene in source seconds), `too_long`.
