@@ -14,8 +14,8 @@ from motion_studio.check.measure import Measurement, Stretch, measure
 from motion_studio.check.report import Finding, Severity, markdown, verdict
 from motion_studio.check.stills import Cut, cuts_sheet
 from motion_studio.config import Config, Edit, load_config
-from motion_studio.edl import Edl, Timeline
-from motion_studio.edl.models import TimelineBroll, TimelineImage
+from motion_studio.edl import Timeline
+from motion_studio.edl.models import TalkEdl, TimelineBroll, TimelineImage
 from motion_studio.errors import MotionStudioError, UserError
 from motion_studio.media.ffmpeg import run_ffmpeg
 from motion_studio.paths import ProjectPaths, project_paths
@@ -107,6 +107,11 @@ def check_project(
             if str(output_path(project, target, f.name).relative_to(project.root)) in outputs
         ]
         edl = load_edl(project)
+        if not isinstance(edl, TalkEdl):
+            raise UserError(
+                "`check` does not measure product videos yet",
+                hint=f"review the render with `{APP_NAME} look`",
+            )
         config = load_config(workspace, slug, edl_policy=edl.policy.model_dump(exclude_none=True))
         config.ensure_supported()
         try:
@@ -131,7 +136,7 @@ def check_project(
 def _check(
     project: ProjectPaths,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     config: Config,
     formats: list[str],
     target: RenderTarget,
@@ -258,7 +263,7 @@ def _source_words(analyses: Sequence[ClipAnalysis]) -> dict[str, tuple[list[Word
 def _word_finding(
     miss: Miss,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     policy: Edit,
     words: dict[str, tuple[list[Word], int]],
     cuts_ms: list[int],
@@ -283,7 +288,7 @@ def _word_finding(
 def _clip_fix(
     miss: Miss,
     timeline: Timeline,
-    edl: Edl,
+    edl: TalkEdl,
     policy: Edit,
     words: dict[str, tuple[list[Word], int]],
 ) -> str:
@@ -324,7 +329,7 @@ def _media_findings(
     fmt: str,
     m: Measurement,
     config: Config,
-    edl: Edl,
+    edl: TalkEdl,
     target: RenderTarget,
     slug: str,
     images: list[tuple[float, float]],
@@ -391,7 +396,7 @@ def _media_findings(
     return found
 
 
-def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+def _loudness_fix(config: Config, edl: TalkEdl, target: RenderTarget, slug: str) -> str:
     """Mastering is automatic, so the EDL lever is the music bed's level."""
     rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
     bug = "if it persists, report it as a motion-studio bug"
@@ -401,7 +406,7 @@ def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> 
     return f"lower music.gain_db in edl.json (now {gain:g}) and {rerender}; {bug}"
 
 
-def _small_speaker_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+def _small_speaker_fix(config: Config, edl: TalkEdl, target: RenderTarget, slug: str) -> str:
     rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
     mode = edl.music.mode or config.music.mode
     if mode == "library":

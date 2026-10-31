@@ -13,12 +13,20 @@ export interface Timeline {
   events: (TimelineZoom | TimelinePush | TimelineBroll | TimelineImage | TimelineTitle)[];
   formats: FormatSpec[];
   fps: number;
+  /**
+   * talk: runs of A-roll. product: scenes, and no runs.
+   */
+  kind: "talk" | "product";
   language: string | null;
   /**
    * Music bed relative to the project; null for none.
    */
   music_path: string | null;
   runs: Run[];
+  /**
+   * Product videos: scenes back to back in output order.
+   */
+  scenes: (TimelineTitleCard | TimelineFootage)[];
   schema_version: 1;
   title: string;
   /**
@@ -167,6 +175,61 @@ export interface Crop {
    * Face centre y, 0-1 of the mezzanine frame.
    */
   cy: number;
+}
+export interface TimelineTitleCard {
+  /**
+   * Output frame after the last one.
+   */
+  end: number;
+  headline: TimelineHeadlineWord[];
+  id: string;
+  /**
+   * First output frame.
+   */
+  start: number;
+  step: string | null;
+  subline: string | null;
+  type: "title_card";
+}
+export interface TimelineHeadlineWord {
+  /**
+   * Drawn in the brand accent colour.
+   */
+  accent: boolean;
+  text: string;
+}
+export interface TimelineFootage {
+  address: string | null;
+  clip: string;
+  device_frame: "browser";
+  end: number;
+  /**
+   * Pixel height of the footage.
+   */
+  height: number;
+  id: string;
+  /**
+   * Playback speed that fits src_in_s to src_out_s in the scene.
+   */
+  rate: number;
+  /**
+   * The recording's mezzanine, relative to the project.
+   */
+  src: string;
+  /**
+   * Source seconds of the scene's first frame.
+   */
+  src_in_s: number;
+  /**
+   * Source seconds where the scene ends.
+   */
+  src_out_s: number;
+  start: number;
+  type: "footage";
+  /**
+   * Pixel width of the footage.
+   */
+  width: number;
 }
 export interface TimelineWord {
   emphasis: boolean;

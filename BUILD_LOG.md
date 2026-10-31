@@ -829,6 +829,30 @@ Checked:
 - `tests/unit/test_record_cli.py` (CI): missing Playwright exits 2 naming `setup --record` and leaves `raw/` empty; a talk project and a missing script exit 1.
 - `tests/integration/test_record_web.py` (`record`) on `tests/fixtures/record/page.html`, in a workspace path with spaces and accents: a 30/1 constant-frame-rate clip whose frame count matches the take's length; element boxes equal to the page's absolute layout; markers on the frames' clock (the click's result is absent 150 ms before the press and present at the next marker); the cursor track in the sidecar and the arrow visible in the frame where the track ends; `park` leaving the cursor off the region; the text block above 30 dB PSNR against a Playwright screenshot after a 2x Lanczos zoom; a throwing script exiting 1 with its error and no clip; and the take ingesting and analysing with its markers and element IDs in `packed.md`.
 
+## Product EDL with title cards and browser footage (ticket #32, spec #26)
+
+Built:
+
+- The EDL model is a union on `kind` (ADR 0004): `TalkEdl` (the old `Edl`, `kind` defaulting to `talk`, so existing EDLs parse unchanged) and `ProductEdl` (`kind: "product"`, `scenes[]`, and the shared `title`, `language`, `formats`, `max_duration_s`, `captions`, `music`, `rationale`). `Edl` is the annotated union and `parse_edl` validates through `EDL_ADAPTER`; schema errors drop the union's tag from the field path. `schemas/edl.schema.json` is now a `oneOf`.
+- Scenes: `title_card` (`step`, `headline`, `accent` words, `subline`) and `footage` (`clip`, `from`, `to`, `rate`, `device_frame: browser`, `address`). Lengths are `beats`, `bars` or `seconds`. `from`/`to` are a marker ID, `{marker, offset_s | offset_beats}`, or source seconds on a recording without markers (ADR 0005).
+- `edl/grid.py`: `BeatGrid`, the bed's beats from `music.json` (with its `beats_per_bar`) or a steady 120 bpm, extended past the last beat at its spacing. `edl/product.py` lays scenes back to back at whole frames; a whole number of beats ends on the nearest beat. Footage without a length plays `from`..`to` at `rate`, rounded to whole beats, with the rate adjusted to fill; with a length, the rate is whatever fills it, and giving both is an error.
+- The timeline gains `kind` and `scenes` (`TimelineTitleCard`, `TimelineFootage` with `src`, footage size, `src_in_s`, `src_out_s`, effective `rate`). Talk timelines carry `kind: "talk"` and `scenes: []`.
+- Issue codes: `product_format`, `duplicate_scene`, `scene_length`, `length_and_rate`, `unknown_accent`, `unknown_clip`, `bad_marker`, `unknown_marker`, `seconds_on_marked_clip`, `outside_clip`, warning `seconds_addressed`; `cross_clip`, `reversed_range`, `unknown_language` and `too_long` are reused. All are in `reference/edl.md`'s new "Product EDLs" section.
+- `plan validate` prints a product summary (scenes, duration, grid, scene types). `render` on a product timeline skips assemble, links the footage mezzanines into the public directory and renders the new `Product` composition with `--enforce-audio-track`, so mix and the share copy run unchanged.
+- Renderer: `Product.tsx`, `scenes/` (`Backdrop`, `Kinetic`, `TitleCard`, `BrowserFrame`, `Footage`) and pure `lib/deviceFrame.ts` and `lib/palette.ts`, after `launch-video/project/src/Launch.tsx`: the drifting glow-and-grid backdrop, word-by-word spring headlines with accent words, the accent bar, and 1600x900 footage at 1:1 under a 44 px browser bar with a tilted spring entrance and a blurred exit. Colours come from `[brand] primary` and `accent` (text is black or white by contrast); the caption font, or bundled Inter 800 and 500.
+
+Deviations:
+
+- Talk tests changed only where they named the model: `edl_fixtures.py` and `test_resolver_properties.py` build `TalkEdl`, `test_edl_models.py` narrows `parse_edl`'s union before reading `segments`, and `test_edl_reference.py` also checks the product models.
+- `check` exits 1 on a product EDL with a pointer to `look`, until ticket #42 adds the product check.
+- Source seconds on a recording that has markers are an error (`seconds_on_marked_clip`), as ADR 0005 accepts seconds only for recordings without markers.
+- `plan draft` on a product project still fails (no A-roll speech); ticket #36 builds the product draft.
+
+Checked:
+
+- `tests/unit/test_resolver_product.py` (resolver seam, counted by `just edl-coverage`), `test_product_plan_cli.py` (`plan validate`, `docs edl`) and `test_product_render_cli.py` (render with a stand-in Remotion on a synthetic recording plus sidecar) in CI; vitest specs for the frame geometry and palette.
+- `tests/integration/test_product_render.py` (markers `slow`, `renderer`) renders a preview and a final with the real renderer and checks stills at each scene's midpoint: title cards on the dark backdrop with bright text and no footage, footage centred in its frame under a light browser bar.
+
 ## Terminal recording with `record terminal` (ticket #43, spec #26)
 
 Built:

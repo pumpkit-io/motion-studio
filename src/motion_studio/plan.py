@@ -26,14 +26,16 @@ from motion_studio.edl import (
     EdlError,
     Issue,
     Resolution,
-    Summary,
     draft,
     parse_edl,
     resolve,
     summarize,
 )
+from motion_studio.edl.grid import DEFAULT_BEATS_PER_BAR
 from motion_studio.edl.issues import Problems
+from motion_studio.edl.models import TalkEdl
 from motion_studio.edl.refs import RefIndex
+from motion_studio.edl.summary import ProductSummary, Summary
 from motion_studio.errors import UserError
 from motion_studio.kind import ProjectKind, require_kind
 from motion_studio.paths import ProjectPaths, project_paths
@@ -41,7 +43,8 @@ from motion_studio.state import mark_done, mark_failed, project_lock
 
 STAGE = "plan"
 TIMELINE = "timeline.json"
-# Written by the music stage; its `beats` are output seconds that B-roll and image starts snap to.
+# Written by the music stage; its `beats` are output seconds that B-roll and image starts snap
+# to, and that product scenes are laid on.
 MUSIC_JSON = "music.json"
 
 _CLIP_FILE = re.compile(r"(?P<kind>[cbi])(?P<n>[1-9][0-9]*)\.json")
@@ -50,7 +53,7 @@ _CLIP_FILE = re.compile(r"(?P<kind>[cbi])(?P<n>[1-9][0-9]*)\.json")
 @dataclass
 class DraftReport:
     edl_path: Path
-    edl: Edl
+    edl: TalkEdl
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -63,7 +66,7 @@ class DraftReport:
 
 @dataclass
 class ValidateReport:
-    summary: Summary
+    summary: Summary | ProductSummary
     timeline_path: Path
 
 
@@ -108,7 +111,8 @@ def resolve_project(workspace: Path, slug: str) -> tuple[Edl, Resolution]:
     project = project_paths(workspace, slug).require()
     edl = load_edl(project)
     config = load_config(workspace, slug)
-    return edl, resolve(load_analyses(project), edl, config, _beats(project))
+    beats, beats_per_bar = _beat_grid(project)
+    return edl, resolve(load_analyses(project), edl, config, beats, beats_per_bar=beats_per_bar)
 
 
 def draft_project(workspace: Path, slug: str, *, force: bool = False) -> DraftReport:
@@ -206,9 +210,15 @@ def _retakes(project: ProjectPaths, analyses: list[ClipAnalysis]) -> Retakes:
     return find_retakes(analyses)
 
 
-def _beats(project: ProjectPaths) -> list[float] | None:
+def _beat_grid(project: ProjectPaths) -> tuple[list[float] | None, int]:
+    """The bed's beat times and beats per bar, from music.json when the bed exists."""
     path = project.build / MUSIC_JSON
     if not path.exists():
-        return None
-    beats = json.loads(path.read_text(encoding="utf-8")).get("beats")
-    return [float(b) for b in beats] if isinstance(beats, list) else None
+        return None, DEFAULT_BEATS_PER_BAR
+    data = json.loads(path.read_text(encoding="utf-8"))
+    beats = data.get("beats")
+    per_bar = data.get("beats_per_bar")
+    return (
+        [float(b) for b in beats] if isinstance(beats, list) else None,
+        per_bar if isinstance(per_bar, int) and per_bar > 0 else DEFAULT_BEATS_PER_BAR,
+    )

@@ -462,6 +462,18 @@ $ motion-studio plan validate [OPTIONS] {slug}
 
 Prints the duration, words kept, fillers removed, the hook text, event counts and each warning with a fix. An error (exit 1) names the problem and a fix in EDL terms, for example `anchor to c1.w57` when an event points at a dropped word.
 
+On a product project the EDL holds `scenes` (`"kind": "product"`, see `docs/edl.md`), and the summary prints the scene count, the duration, the beat grid the scenes sit on (120 bpm until `music` has written a bed, then the bed's beats) and the count of each scene type:
+
+```console
+$ motion-studio plan validate launch
+✓ edl.json valid · product · 3 scenes · 16x9
+Duration 7.0s (limit 60s) · grid 120 bpm, steady (no music yet)
+Scenes: 2 title_card · 1 footage
+→ projects/launch/build/timeline.json
+```
+
+`--json` adds `grid` (`bpm`, `beats_per_bar`, `from_music`) and `scene_types`. Run it again after `music` so the scenes move onto the bed's beats.
+
 ## `motion-studio docs edl`
 
 Print the EDL reference: segments, references, drops, events and music.
@@ -513,6 +525,8 @@ $ motion-studio render [OPTIONS] {slug}
 * `--help`: Show this message and exit.
 
 Previews go to `preview/<format>.mp4`, finals to `final/<slug>_<format>.mp4`, mastered to −14 LUFS integrated and −1.5 dBTP true peak by default (`[master]`): mastering measures the integrated loudness, applies one fixed gain to the target and then a 4x-oversampled true-peak limiter, so a mix with loud peaks reaches the target loudness without clipping. Render validates the EDL first when the plan stage is not done.
+
+A product project renders in 16x9 only, with no A-roll to cut: Remotion's `Product` composition draws each scene on the brand's backdrop (`[brand] primary` and `accent`, the caption font), title cards with their step number, headline and subline, and footage in a browser frame. The render has no voice, so the mix carries the music bed alone, and `cuts_s` lists the scene starts.
 
 Every final also gets a share copy, `final/<slug>_<format>_share.mp4`, for both project kinds: the final at its own resolution, under 30 MiB and with `+faststart`, so it can be sent through chat tools and opened on a phone. A final already under 30 MiB is copied as it is, so the name is always there; a larger one has its video re-encoded at the bitrate that fits (two-pass x264) and its mastered audio copied. Render prints each share copy's path and size. A change to the share copy alone redoes the share copies without rendering the finals again. A final too long to fit (more than about seven minutes, with the default 320 kb/s audio) fails with exit 1 after the final itself is written; send the final or shorten the edit.
 

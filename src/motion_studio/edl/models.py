@@ -3,9 +3,9 @@
 The field descriptions become the JSON Schema the host agent reads, so they explain semantics.
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, TypeAdapter, ValidationError
 
 from motion_studio.config import Format, HexColor
 from motion_studio.edl.issues import EdlError, Issue
@@ -148,10 +148,13 @@ class EdlMusic(_Model):
     track: str | None = Field(default=None, description="Library track, for mode library.")
 
 
-class Edl(_Model):
-    """The edit: which words to keep, in which order, and what to layer on top."""
+class TalkEdl(_Model):
+    """A talk edit: which words to keep, in which order, and what to layer on top."""
 
     schema_version: Literal[1] = 1
+    kind: Literal["talk"] = Field(
+        default="talk", description="The project kind; an EDL without one is a talk EDL."
+    )
     title: str = ""
     language: str | None = Field(default=None, description="Caption language; default: project's.")
     formats: list[Format] | None = Field(default=None, description="Default: config formats.")
@@ -172,19 +175,134 @@ class Edl(_Model):
     rationale: str = ""
 
 
+# Product EDLs (ADR 0005): scenes in output order, footage addressed by marker.
+
+MarkerRef = Annotated[
+    str,
+    Field(description="A marker of a screen recording: `<clip>.m.<name>`, such as c2.m.v1_shown."),
+]
+
+
+class MarkerPoint(_Model):
+    """A marker nudged by an offset, in seconds or in beats of the music's grid."""
+
+    marker: MarkerRef
+    offset_s: float | None = Field(
+        default=None, description="Seconds after the marker; negative is before."
+    )
+    offset_beats: float | None = Field(
+        default=None, description="Beats after the marker on the music's grid; negative is before."
+    )
+
+
+FootagePoint = Annotated[
+    MarkerRef | MarkerPoint | float,
+    Field(
+        description="A marker ID, a marker with an offset, or source seconds (only for a clip "
+        "without markers)."
+    ),
+]
+
+
+class _Scene(_Model):
+    id: str = Field(description="Unique name: intro, step1, demo.")
+    beats: float | None = Field(default=None, gt=0, description="Length in beats of the grid.")
+    bars: float | None = Field(default=None, gt=0, description="Length in bars of the grid.")
+    seconds: float | None = Field(default=None, gt=0, description="Length in seconds.")
+    note: str | None = None
+
+
+class TitleCardScene(_Scene):
+    """A full-frame card that introduces a step of the story."""
+
+    type: Literal["title_card"]
+    step: str | None = Field(default=None, description='Step number shown above, such as "01".')
+    headline: str = Field(min_length=1)
+    accent: list[str] = Field(
+        default_factory=lambda: list[str](),
+        description="Words of the headline drawn in the brand accent colour.",
+    )
+    subline: str | None = Field(default=None, description="A smaller line under the headline.")
+
+
+class FootageScene(_Scene):
+    """A stretch of one screen recording, played in a device frame.
+
+    Its length is `from` to `to` at `rate`, rounded to whole beats, unless a length is given;
+    then `from` to `to` is played to fill it and `rate` must be left out.
+    """
+
+    type: Literal["footage"]
+    clip: str = Field(description="Screen recording ID: c1.")
+    from_: FootagePoint = Field(alias="from", description="Where the footage starts.")
+    to: FootagePoint = Field(description="Where the footage ends.")
+    rate: float | None = Field(
+        default=None, gt=0, description="Playback speed; default 1. Typing reads well at 2.6-3.2."
+    )
+    device_frame: Literal["browser"] = Field(
+        default="browser", description="The frame drawn around the footage."
+    )
+    address: str | None = Field(
+        default=None, description="Text in the browser frame's address bar, such as example.com."
+    )
+
+
+Scene = Annotated[TitleCardScene | FootageScene, Field(discriminator="type")]
+
+
+class ProductEdl(_Model):
+    """A product video: scenes in output order, with the talk EDL's top-level fields (ADR 0004)."""
+
+    schema_version: Literal[1] = 1
+    kind: Literal["product"]
+    title: str = ""
+    language: str | None = Field(default=None, description="Caption language; default: project's.")
+    formats: list[Format] | None = Field(
+        default=None, description="Product videos render in 16x9 only, the default."
+    )
+    max_duration_s: float | None = Field(default=None, gt=0)
+    scenes: list[Scene] = Field(min_length=1, description="In output order.")
+    captions: EdlCaptions = Field(default_factory=EdlCaptions)
+    music: EdlMusic = Field(default_factory=EdlMusic)
+    rationale: str = ""
+
+
+def _edl_kind(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(cast(dict[str, Any], value).get("kind", "talk"))
+    return str(getattr(value, "kind", "talk"))
+
+
+Edl = Annotated[
+    Annotated[TalkEdl, Tag("talk")] | Annotated[ProductEdl, Tag("product")],
+    Discriminator(
+        _edl_kind,
+        custom_error_type="invalid_kind",
+        custom_error_message="kind must be talk or product",
+    ),
+]
+EDL_ADAPTER: TypeAdapter[Edl] = TypeAdapter(Edl)
+
+
 def parse_edl(data: object) -> Edl:
     """Validate decoded edl.json. Schema errors become an EdlError naming each field."""
     try:
-        return Edl.model_validate(data)
+        return EDL_ADAPTER.validate_python(data)
     except ValidationError as exc:
         raise EdlError(
             Issue(
                 code="invalid_edl",
-                message=f"{'.'.join(str(part) for part in err['loc']) or 'edl'}: {err['msg']}",
+                message=f"{_field_path(err['loc']) or 'edl'}: {err['msg']}",
                 hint="`motion-studio docs edl` prints the EDL reference",
             )
             for err in exc.errors()
         ) from exc
+
+
+def _field_path(loc: tuple[int | str, ...]) -> str:
+    # The union puts the kind's tag first, which is no field of edl.json.
+    parts = loc[1:] if loc and loc[0] in ("talk", "product") else loc
+    return ".".join(str(part) for part in parts)
 
 
 # Timeline: what the renderer reads. Frames are output frames at `fps`; end frames are exclusive.
@@ -294,6 +412,40 @@ TimelineEvent = Annotated[
 ]
 
 
+class TimelineHeadlineWord(_Out):
+    text: str
+    accent: bool = Field(description="Drawn in the brand accent colour.")
+
+
+class TimelineTitleCard(_Out):
+    type: Literal["title_card"]
+    id: str
+    start: int = Field(description="First output frame.")
+    end: int = Field(description="Output frame after the last one.")
+    step: str | None
+    headline: list[TimelineHeadlineWord]
+    subline: str | None
+
+
+class TimelineFootage(_Out):
+    type: Literal["footage"]
+    id: str
+    start: int
+    end: int
+    clip: str
+    src: str = Field(description="The recording's mezzanine, relative to the project.")
+    width: int = Field(description="Pixel width of the footage.")
+    height: int = Field(description="Pixel height of the footage.")
+    src_in_s: float = Field(description="Source seconds of the scene's first frame.")
+    src_out_s: float = Field(description="Source seconds where the scene ends.")
+    rate: float = Field(description="Playback speed that fits src_in_s to src_out_s in the scene.")
+    device_frame: Literal["browser"]
+    address: str | None
+
+
+TimelineScene = Annotated[TimelineTitleCard | TimelineFootage, Field(discriminator="type")]
+
+
 class TimelineCaptions(_Out):
     enabled: bool
     style: Literal["pop", "clean", "karaoke"]
@@ -318,6 +470,9 @@ class Timeline(_Out):
     """The resolved edit: `build/timeline.json`, the renderer's props."""
 
     schema_version: Literal[1] = 1
+    kind: Literal["talk", "product"] = Field(
+        default="talk", description="talk: runs of A-roll. product: scenes, and no runs."
+    )
     title: str
     language: str | None
     fps: int
@@ -326,6 +481,10 @@ class Timeline(_Out):
     runs: list[Run]
     words: list[TimelineWord] = Field(description="Kept words in output order.")
     events: list[TimelineEvent] = Field(description="Overlays and camera moves, by start frame.")
+    scenes: list[TimelineScene] = Field(
+        default_factory=lambda: list[TimelineScene](),
+        description="Product videos: scenes back to back in output order.",
+    )
     captions: TimelineCaptions
     brand: TimelineBrand
     music_path: str | None = Field(description="Music bed relative to the project; null for none.")
