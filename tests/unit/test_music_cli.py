@@ -158,6 +158,7 @@ def test_music_none_clears_the_bed_and_the_timeline_has_no_music(demo: Path, wor
 
     result = invoke("music", "demo", "--json")
 
+    assert "music: none (voice only)" in invoke("music", "demo").output
     assert result.exit_code == 0, result.output
     out = json.loads(result.stdout)
     assert out["mode"] == "none"

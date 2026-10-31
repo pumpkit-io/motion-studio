@@ -323,3 +323,13 @@ def test_music_generates_for_an_edl_ending_on_a_branded_logo_outro(
     timeline = validated(launch)
     hits = {h["name"]: h["time_s"] for h in music_json(launch)["hits"]}
     assert hits["drop"] == pytest.approx(scene_start_s(timeline, "logo_outro"), abs=1 / FPS)
+
+
+def test_music_none_on_a_product_project_says_the_video_is_silent(launch: Path) -> None:
+    write_edl(launch, [title("intro", 4)], mode="none")
+
+    result = invoke("music", "launch")
+
+    assert result.exit_code == 0, result.output
+    assert "voice" not in result.output
+    assert "music: none (silent" in result.output

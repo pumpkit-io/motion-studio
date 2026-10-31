@@ -23,15 +23,18 @@ def music(
     as_json: JsonOption = False,
 ) -> None:
     """Generate (ACE-Step) or pick (library) the music bed: build/music.wav and music.json."""
+    from motion_studio.kind import ProjectKind, project_kind
     from motion_studio.music.stage import next_hint, run_music
+    from motion_studio.paths import project_paths
 
     with Reporter(as_json) as reporter:
 
         def waiting(holder: str) -> None:
             reporter.step(f"waiting for another heavy model to finish ({holder})")
 
+        workspace = find_workspace()
         report = run_music(
-            find_workspace(),
+            workspace,
             slug,
             candidates=candidates,
             on_step=reporter.step,
@@ -40,7 +43,12 @@ def music(
     info = report.info
     lines = [f"warning: {w}" for w in report.warnings]
     if info.mode == "none":
-        lines.append("music: none (voice only)")
+        product = project_kind(project_paths(workspace, slug)) is ProjectKind.PRODUCT
+        lines.append(
+            "music: none (silent, so check --final blocks on loudness)"
+            if product
+            else "music: none (voice only)"
+        )
     elif info.mode == "generate":
         tries = len(info.attempts)
         lines.append(
