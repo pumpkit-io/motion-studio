@@ -185,16 +185,15 @@ def old_cache() -> OldCache | None:
         return None
     if override and old != default:
         return OldCache(old, f"export {_new_env(OLD_CACHE_ENV, override)}")
-    move = f"mv {shlex.quote(str(old))} {shlex.quote(str(new))}"
-    if not new.exists():
-        return OldCache(old, move)
-    # Commands create the new cache's empty folders and lock files; mv would nest the old
-    # cache inside them.
-    clear = f"find {shlex.quote(str(new))} -depth -type d -empty -delete"
-    locks = new / "locks"
-    if locks.is_dir():
-        clear = f"find {shlex.quote(str(locks))} -type f -empty -delete && {clear}"
-    return OldCache(old, f"{clear} && {move}")
+    # Any command, doctor included, can lay down the new cache's empty folders and lock files
+    # before this runs, and mv into an existing folder nests the old cache inside it.
+    target, locks = shlex.quote(str(new)), shlex.quote(str(new / "locks"))
+    return OldCache(
+        old,
+        f"mkdir -p {locks} && find {locks} -type f -empty -delete"
+        f" && find {target} -depth -type d -empty -delete"
+        f" && test ! -e {target} && mv {shlex.quote(str(old))} {target}",
+    )
 
 
 def _holds_data(path: Path, locks: Path) -> bool:

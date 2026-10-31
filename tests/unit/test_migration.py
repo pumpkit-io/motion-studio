@@ -273,6 +273,41 @@ def test_the_printed_command_adopts_the_old_cache(
     assert not old.exists()
 
 
+def test_the_command_from_the_first_doctor_run_adopts_the_old_cache_without_nesting_it(
+    fake_tools: FakeTools, default_caches: tuple[Path, Path]
+) -> None:
+    old, new = default_caches
+    assert not new.exists()
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    payload = json.loads(invoke("doctor", "--json").output)
+    [check] = [c for c in payload["checks"] if c["name"] == "old cache"]
+
+    subprocess.run(["/bin/sh", "-c", check["fix"]], check=True, env={"PATH": "/usr/bin:/bin"})
+
+    assert (new / "models" / "silero_vad.onnx").is_file()
+    assert not (new / OLD_APP_NAME).exists()
+    assert not old.exists()
+
+
+def test_the_printed_command_refuses_to_nest_the_old_cache_in_a_new_one_that_holds_data(
+    fake_tools: FakeTools, default_caches: tuple[Path, Path]
+) -> None:
+    old, new = default_caches
+    fake_ffmpeg(fake_tools, FILTERS)
+    fake_node(fake_tools)
+    payload = json.loads(invoke("doctor", "--json").output)
+    [check] = [c for c in payload["checks"] if c["name"] == "old cache"]
+    (new / "models").mkdir(parents=True)
+    (new / "models" / "downloaded-since.onnx").write_bytes(b"y")
+
+    done = subprocess.run(["/bin/sh", "-c", check["fix"]], env={"PATH": "/usr/bin:/bin"})
+
+    assert done.returncode != 0
+    assert (old / "models" / "silero_vad.onnx").is_file()
+    assert not (new / OLD_APP_NAME).exists()
+
+
 def test_doctor_finds_the_old_cache_the_old_variable_points_at(
     fake_tools: FakeTools,
     default_caches: tuple[Path, Path],
