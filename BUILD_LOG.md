@@ -934,3 +934,25 @@ Checked:
 
 - `tests/unit/test_resolver_product_scenes.py` (resolver seam), `test_product_brand_cli.py` (`plan validate` with the Pumpkit mascot and wordmark from `tests/fixtures/brand/`: the sheet's size and timings in the timeline; unset, missing and malformed assets named by key; assets no scene needs left unchecked) and `test_product_render_cli.py` (wordmark and sheet in the props and public dir) in CI; vitest specs for sprite frame timing (per-frame durations, looping, holding the last frame) and the sheet's CSS.
 - `tests/integration/test_product_scenes_render.py` (`slow`, `renderer`) renders all four with the real renderer and checks stills at scene midpoints: kinetic text on the backdrop, terminal footage under the dark bar, the proof image right of its headline with the badge, and a 4x4 red-and-blue sprite drawn 300 px tall with over 90% pure pixels (26% when smoothing is switched on) on the frame its timings put there.
+
+## Music for product videos: length, alignment, presets and candidates (ticket #40, spec #26)
+
+Built:
+
+- On a product project the generated length is the scene total on the requested tempo (120 bpm when unset) plus 3 s, so the bed's own grid moving the scenes does not invalidate the generated beds.
+- `music.preset` (`tech`, `story`, `energetic`, `explainer`, `launch`) supplies the prompt and, for `launch` (fast future house, 124 bpm), the tempo; `prompt` and `bpm` override it. The four talk moods are the music skill's existing prompts.
+- `motion_studio.music.acestep.Session`: one worker process for several generations, under the heavy-model lock for its life, started only when something needs generating. The worker reads one job per stdin line and writes one result per line, loading ACE-Step at the first job. Before each generation the free memory (`vm_stat` free, inactive, speculative and purgeable pages on macOS, `MemAvailable` on Linux) is checked against 2 GB (`MOTION_STUDIO_MIN_FREE_MEMORY_GB`).
+- `build/music-candidates/`: every generated bed, shaped and analysed, by seed, under a key of prompt, BPM, length, model and shaping. `--candidates N` (1 to 4) makes `seed` to `seed + N - 1`; the vocals retry now reuses beds already made. `music.json` lists `candidates` (seed, tempo, hits, accepted) and `--json` reports `model_loads`. Low memory stops with exit 1 naming the candidate, and the ones made stay.
+- `music.align {hit, at}` (`motion_studio.music.align`): the scene's start is settled on a grid of the bed's beat length with a beat at zero (scene starts snap to beats, and the fitted bed's grid is phased on the hit, so a few rounds reach a whole frame the grid reproduces). The bed is then cut into pieces of itself: the head trimmed; whole bars repeated at the first section change before the hit when it comes too early; after it, whole bars repeated or cut just before the last section so the natural ending lands within a bar of the end, else the bed stops on a bar and its last beat echoes out over 4 beats. Joins are on bar lines with a 30 ms equal-power crossfade, done in numpy. `music.json` gets the fitted grid, sections and hits, and an `align` record with the edits and the ending.
+- New issue codes `align_scene`, `align_mode`, `align_kind` from `edl/music.py`, called from both resolvers.
+
+Deviations:
+
+- `align` works on generated beds only (`align_mode`); library tracks stay as licensed.
+- Edits are whole bars at phrase boundaries (section changes), repeated in spans of up to four bars, rather than strictly whole four-bar phrases, so the ending lands within a bar of the end instead of a phrase.
+- An aligned bed lists the EDL as an input, so any EDL change makes the music stage stale; refitting reuses the candidate and takes seconds.
+
+Checked:
+
+- `tests/unit/test_product_music_cli.py` (CI) with a stand-in worker writing a synthetic sectioned bed at 120 bpm: the bed sized from the scenes; the launch preset's prompt and tempo; the drop's 660 Hz lead landing within a frame of the scene start in `music.wav`, the bed exactly the scenes' length, a 4-bar cut on a bar line before the natural ending; 2 bars repeated before the hit when it comes too early, the beats still 0.5 s apart; the echo tail decaying beat by beat to silence; a missing hit; `align_scene` and `align_mode`; three candidates from one worker pid, listed with tempo and hits; the EDL seed picking a made candidate without a model load; low memory before candidate 3 keeping two, and the next run making only the third.
+- `tests/integration/test_music_generate.py::test_three_candidates_load_the_model_once` (`music`) was not run: ACE-Step fails to import on the build machine (`No module named 'acestep.handler'`), so the real worker's line protocol, the model loading once and real hit detection on generated beds are unverified.

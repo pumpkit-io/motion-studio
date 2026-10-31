@@ -24,6 +24,179 @@
       "title": "Attempt",
       "type": "object"
     },
+    "MusicAlignment": {
+      "additionalProperties": false,
+      "description": "How the bed was fitted: which hit landed where, the phrase edits and the ending.",
+      "properties": {
+        "at": {
+          "description": "The scene the hit lands on.",
+          "title": "At",
+          "type": "string"
+        },
+        "at_s": {
+          "description": "The scene's start, in output seconds.",
+          "title": "At S",
+          "type": "number"
+        },
+        "edits": {
+          "items": {
+            "$ref": "#/$defs/MusicEdit"
+          },
+          "title": "Edits",
+          "type": "array"
+        },
+        "ending": {
+          "description": "natural, or echo when the bed stops on a bar.",
+          "enum": [
+            "natural",
+            "echo"
+          ],
+          "title": "Ending",
+          "type": "string"
+        },
+        "hit": {
+          "enum": [
+            "intro_end",
+            "build",
+            "drop",
+            "ending"
+          ],
+          "title": "Hit",
+          "type": "string"
+        },
+        "hit_in_bed_s": {
+          "description": "The hit in the generated bed, before fitting.",
+          "title": "Hit In Bed S",
+          "type": "number"
+        },
+        "starts_at_s": {
+          "description": "Where in the generated bed the fitted bed starts.",
+          "title": "Starts At S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "hit",
+        "at",
+        "at_s",
+        "hit_in_bed_s",
+        "starts_at_s",
+        "ending"
+      ],
+      "title": "MusicAlignment",
+      "type": "object"
+    },
+    "MusicCandidate": {
+      "additionalProperties": false,
+      "description": "One generated bed, kept so the EDL's `seed` can pick it without generating again.",
+      "properties": {
+        "accepted": {
+          "description": "False when the bed had vocals.",
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "detected_bpm": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Detected Bpm"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "elapsed_s": {
+          "description": "Generation wall time, with the model load if any.",
+          "title": "Elapsed S",
+          "type": "number"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/MusicHit"
+          },
+          "title": "Hits",
+          "type": "array"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The shaped bed relative to the project; null if vocals.",
+          "title": "Path"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "speech_ratio": {
+          "title": "Speech Ratio",
+          "type": "number"
+        },
+        "tempo_from": {
+          "anyOf": [
+            {
+              "enum": [
+                "onsets",
+                "sections"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tempo From"
+        }
+      },
+      "required": [
+        "seed",
+        "path",
+        "speech_ratio",
+        "accepted",
+        "duration_s",
+        "elapsed_s"
+      ],
+      "title": "MusicCandidate",
+      "type": "object"
+    },
+    "MusicEdit": {
+      "additionalProperties": false,
+      "properties": {
+        "at_s": {
+          "description": "Output seconds, on a bar line.",
+          "title": "At S",
+          "type": "number"
+        },
+        "bars": {
+          "description": "Bars repeated (positive) or cut (negative).",
+          "title": "Bars",
+          "type": "integer"
+        },
+        "crossfade_ms": {
+          "title": "Crossfade Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "at_s",
+        "bars",
+        "crossfade_ms"
+      ],
+      "title": "MusicEdit",
+      "type": "object"
+    },
     "MusicHit": {
       "additionalProperties": false,
       "properties": {
@@ -79,6 +252,17 @@
   "additionalProperties": false,
   "description": "`build/music.json`: what the bed is, how to reproduce it and how to credit it.",
   "properties": {
+    "align": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MusicAlignment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "attempts": {
       "items": {
         "$ref": "#/$defs/Attempt"
@@ -131,6 +315,14 @@
       "default": null,
       "description": "Requested BPM, or the track's.",
       "title": "Bpm"
+    },
+    "candidates": {
+      "description": "Every bed generated for this prompt, bpm and length; `seed` picks one.",
+      "items": {
+        "$ref": "#/$defs/MusicCandidate"
+      },
+      "title": "Candidates",
+      "type": "array"
     },
     "credits": {
       "anyOf": [
@@ -247,6 +439,25 @@
       ],
       "description": "The bed relative to the project; null for none.",
       "title": "Path"
+    },
+    "preset": {
+      "anyOf": [
+        {
+          "enum": [
+            "tech",
+            "story",
+            "energetic",
+            "explainer",
+            "launch"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Preset"
     },
     "prompt": {
       "anyOf": [

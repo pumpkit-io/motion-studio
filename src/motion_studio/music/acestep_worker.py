@@ -2,10 +2,11 @@
 
 It imports only the standard library and ACE-Step, so it must not import motion_studio.
 
-    python acestep_worker.py generate   < job JSON on stdin, result JSON on stdout
+    python acestep_worker.py generate   < one job JSON per stdin line, one result per stdout line
     python acestep_worker.py download <repo> <revision> <dir>   (used by `setup --music`)
 
-Exit 2 means a missing dependency or weights; anything else non-zero is a bug.
+The model loads at the first job and stays loaded until stdin closes. Exit 2 means a missing
+dependency or weights; anything else non-zero is a bug.
 """
 
 import json
@@ -49,25 +50,42 @@ def download(repo: str, revision: str, dest: Path) -> dict[str, object]:
     return {"repo": repo, "revision": revision, "path": str(dest), **weights_licence(dest)}
 
 
-def generate(job: dict[str, Any]) -> dict[str, object]:
-    os.environ.update(OFFLINE_ENV)
-    from acestep.handler import AceStepHandler  # pyright: ignore[reportMissingImports]
+class Model:
+    """ACE-Step, loaded once at the first job."""
+
+    def __init__(self) -> None:
+        self.handler: Any = None
+
+    def load(self, job: dict[str, Any]) -> float:
+        """Load the model if it is not loaded yet; returns the seconds that took."""
+        if self.handler is not None:
+            return 0.0
+        os.environ.update(OFFLINE_ENV)
+        from acestep.handler import AceStepHandler  # pyright: ignore[reportMissingImports]
+
+        started = time.monotonic()
+        handler = AceStepHandler()
+        status, ok = handler.initialize_service(
+            project_root=str(job["project_root"]),
+            config_path=str(job["dit"]),
+            device="auto",
+            offload_to_cpu=False,
+        )
+        if not ok:
+            raise RuntimeError(f"ACE-Step failed to load: {status}")
+        self.handler = handler
+        return time.monotonic() - started
+
+
+def generate(model: Model, job: dict[str, Any]) -> dict[str, object]:
+    load_s = model.load(job)
     from acestep.inference import (  # pyright: ignore[reportMissingImports]
         GenerationConfig,
         GenerationParams,
         generate_music,
     )
 
-    started = time.monotonic()
-    handler = AceStepHandler()
-    status, ok = handler.initialize_service(
-        project_root=str(job["project_root"]),
-        config_path=str(job["dit"]),
-        device="auto",
-        offload_to_cpu=False,
-    )
-    if not ok:
-        raise RuntimeError(f"ACE-Step failed to load: {status}")
+    handler = model.handler
     loaded = time.monotonic()
     seed = int(job["seed"])
     params = GenerationParams(
@@ -98,7 +116,7 @@ def generate(job: dict[str, Any]) -> dict[str, object]:
         "seed": seed,
         "sample_rate": int(audio.get("sample_rate", 48000)),
         "device": str(getattr(handler, "device", "unknown")),
-        "load_s": round(loaded - started, 1),
+        "load_s": round(load_s, 1),
         "generate_s": round(time.monotonic() - loaded, 1),
         "pid": os.getpid(),
         "peak_rss_mb": _peak_rss_mb(),
@@ -118,7 +136,12 @@ def main(argv: list[str]) -> int:
         if argv[:1] == ["download"] and len(argv) == 4:
             result = download(argv[1], argv[2], Path(argv[3]))
         elif argv == ["generate"]:
-            result = generate(json.loads(sys.stdin.read()))
+            model = Model()
+            for line in sys.stdin:
+                if line.strip():
+                    out.write(json.dumps(generate(model, json.loads(line))) + "\n")
+                    out.flush()
+            return 0
         else:
             print(__doc__, file=sys.stderr)
             return 1

@@ -123,13 +123,17 @@ Two full-frame overlays (`broll` or `image` with `mode: full`) cannot overlap: t
 | Key | Meaning |
 |---|---|
 | `mode` | `generate` (local, from `prompt`, `bpm` and `seed`), `library` (a licensed track from `library/music/tags.json`) or `none`. |
+| `preset` | A named prompt: `tech`, `story`, `energetic`, `explainer`, or `launch` (fast future house at 124 bpm, with a build and a drop) for product videos. `prompt` and `bpm` override it. |
 | `prompt` | Genre, instrumentation, mood and energy. Always include "instrumental". |
 | `bpm` | From the pace in the validate summary: under 2.3 words/s 85–95, 2.3–3 words/s 96–110, over 3 words/s 112–124. |
 | `seed` | Change it for a variation of the same mood. |
 | `gain_db` | −20 (calm) to −16 (energetic). Ducking under the voice and loudness are automatic. |
 | `track` | The library track, for `mode: library`. |
+| `align` | Product EDLs, generated beds: `{ "hit": "drop", "at": "logo" }` lands a section hit (`intro_end`, `build`, `drop` or `ending`, as listed in `build/music.json`) on the start of scene `at`, and fits the bed to the scenes' length by whole bars with a 30 ms crossfade, ending on the bed's natural ending or an echo tail. |
 
 Unset keys fall back to the config's `[music]`.
+
+`motion-studio music <slug> --candidates 3` generates seeds `seed`, `seed + 1` and `seed + 2` in one model load and lists each one's tempo and hits under `candidates` in `build/music.json`. Set `seed` to the one you want and run `music` again: a seed already made is reused, not generated again.
 
 ## Errors and warnings
 
@@ -223,5 +227,7 @@ The camera holds each move until the next one. The zoom limit is 2 on footage th
 ### Product errors and warnings
 
 Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline, tagline or any line), `unknown_image` (a proof scene's `image` is not an image clip), `missing_brand_asset` (a logo outro's `[brand] wordmark` or `mascot` is not set, names a file that does not exist, or has timings that do not parse; the message names the config key), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker or element of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `move_outside_scene` (a camera move's `at` outside the scene's footage), `bad_target` (a target that is no element ID, `full` or box), `unknown_element` (an element no marker captured), `target_outside` (a target box not inside the footage), `zoom_too_far` (a zoom past the limit), `unknown_language`.
+
+Music errors: `align_scene` (`music.align.at` is not a scene ID), `align_mode` (`music.align` on a bed that is not generated), `align_kind` (`music.align` in a talk EDL).
 
 Warnings: `seconds_addressed` (a footage scene in source seconds), `too_long`.

@@ -6,67 +6,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 import soundfile as sf
-from conftest import FakeTools
 from edl_fixtures import clip
+from music_fixtures import jobs
 from typer.testing import CliRunner
 
-from motion_studio.analysis import Span
 from motion_studio.cli import app
 from motion_studio.edl import Timeline
 
 runner = CliRunner()
-
-# Writes a 48 kHz stereo click track at the job's BPM, or loud noise (vocals to the stub
-# detector) for the seeds listed in the VOCAL_SEEDS file, or the numpy expression of t in
-# BASS_HEAVY when that file exists. Every job is appended to jobs.jsonl.
-FAKE_WORKER = """
-import json, sys
-from pathlib import Path
-import numpy as np, soundfile as sf
-
-job = json.loads(sys.stdin.read())
-here = Path(__file__).parent
-with open(here / "jobs.jsonl", "a") as log:
-    log.write(json.dumps(job) + "\\n")
-vocal = here / "VOCAL_SEEDS"
-vocal_seeds = json.loads(vocal.read_text()) if vocal.exists() else []
-sr = 48000
-n = int(job["duration"] * sr)
-t = np.arange(n) / sr
-if job["seed"] in vocal_seeds:
-    y = np.random.default_rng(0).uniform(-0.9, 0.9, n)
-elif (here / "BASS_HEAVY").exists():
-    y = eval((here / "BASS_HEAVY").read_text(), {"np": np, "t": t})
-else:
-    y = np.zeros(n)
-    click = 0.3 * np.sin(2 * np.pi * 1000 * np.arange(2400) / sr) * np.exp(-np.arange(2400) / 300)
-    step = 60 / (job["bpm"] or 120)
-    t = 0.5
-    while t * sr + 2400 < n:
-        i = int(t * sr)
-        y[i:i + 2400] += click
-        t += step
-out = Path(job["out"])
-out.parent.mkdir(parents=True, exist_ok=True)
-sf.write(out, np.stack([y, y], axis=1).astype(np.float32), sr)
-print("model chatter on stderr", file=sys.stderr)
-print(json.dumps({"wav": str(out), "seed": job["seed"], "load_s": 1.0, "generate_s": 2.0}))
-"""
-
-
-class LoudIsSpeech:
-    """Stands in for Silero: any 0.5 s window with an RMS above 0.1 counts as speech."""
-
-    def __init__(self, path: Path | None = None) -> None:
-        pass
-
-    def speech(self, samples: np.ndarray, params: object = None) -> list[Span]:
-        window = 8000
-        spans: list[Span] = []
-        for start in range(0, len(samples) - window + 1, window):
-            if float(np.sqrt(np.mean(samples[start : start + window] ** 2))) > 0.1:
-                spans.append(Span(start=start / 16000, end=(start + window) / 16000))
-        return spans
 
 
 def invoke(*args: str | Path):
@@ -82,16 +29,6 @@ def write_analysis(project: Path) -> None:
         "See you soon.",
     )
     (project / "analysis" / "c1.json").write_text(analysis.model_dump_json(), encoding="utf-8")
-
-
-@pytest.fixture
-def worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    tools = tmp_path / "worker"
-    tools.mkdir()
-    script = FakeTools(tools).add("fake-acestep", FAKE_WORKER)
-    monkeypatch.setenv("MOTION_STUDIO_MUSIC_WORKER", str(script))
-    monkeypatch.setattr("motion_studio.music.vocals.SileroVad", LoudIsSpeech)
-    return tools
 
 
 @pytest.fixture
@@ -120,13 +57,6 @@ def timeline_seconds(project: Path) -> float:
     assert invoke("plan", "validate", "demo").exit_code == 0
     timeline = Timeline.model_validate_json((project / "build/timeline.json").read_text())
     return timeline.duration_frames / timeline.fps
-
-
-def jobs(worker: Path) -> list[dict[str, object]]:
-    log = worker / "jobs.jsonl"
-    if not log.exists():
-        return []
-    return [json.loads(line) for line in log.read_text().splitlines()]
 
 
 def test_music_generates_the_bed_and_records_how_in_music_json(demo: Path, worker: Path) -> None:

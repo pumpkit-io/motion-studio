@@ -222,6 +222,18 @@
       "additionalProperties": false,
       "description": "The music bed. Unset keys fall back to the config's [music].",
       "properties": {
+        "align": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MusicAlign"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A section hit to land on a scene start, for generated beds."
+        },
         "bpm": {
           "anyOf": [
             {
@@ -263,6 +275,26 @@
           ],
           "default": null,
           "title": "Mode"
+        },
+        "preset": {
+          "anyOf": [
+            {
+              "enum": [
+                "tech",
+                "story",
+                "energetic",
+                "explainer",
+                "launch"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A named prompt and tempo; prompt and bpm override it.",
+          "title": "Preset"
         },
         "prompt": {
           "anyOf": [
@@ -793,6 +825,33 @@
         "marker"
       ],
       "title": "MarkerPoint",
+      "type": "object"
+    },
+    "MusicAlign": {
+      "additionalProperties": false,
+      "description": "Land one of the bed's section hits on the start of a scene (product EDLs).",
+      "properties": {
+        "at": {
+          "description": "The scene ID the hit lands on.",
+          "title": "At",
+          "type": "string"
+        },
+        "hit": {
+          "enum": [
+            "intro_end",
+            "build",
+            "drop",
+            "ending"
+          ],
+          "title": "Hit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hit",
+        "at"
+      ],
+      "title": "MusicAlign",
       "type": "object"
     },
     "Policy": {
