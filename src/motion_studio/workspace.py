@@ -15,7 +15,7 @@ from motion_studio.agents import TARGETS, sync_skills
 from motion_studio.config import load_config
 from motion_studio.errors import UserError
 from motion_studio.kind import ProjectKind, project_kind
-from motion_studio.paths import WORKSPACE_FILE, ProjectPaths, project_paths
+from motion_studio.paths import MARKERS_SUFFIX, WORKSPACE_FILE, ProjectPaths, project_paths
 from motion_studio.state import STAGES, State, load_state, project_lock, save_state, stage_status
 from motion_studio.target import RenderTarget
 
@@ -141,7 +141,11 @@ def project_status(workspace: Path, slug: str) -> ProjectStatus:
     config = load_config(workspace, slug)
     state = load_state(project)
     kind = project_kind(project)
-    clips = sum(1 for p in project.raw.iterdir() if not p.name.startswith("."))
+    clips = sum(
+        1
+        for p in project.raw.iterdir()
+        if not p.name.startswith(".") and not p.name.endswith(MARKERS_SUFFIX)
+    )
     lines: list[StageLine] = []
     for stage in STAGES:
         status = (
@@ -153,12 +157,23 @@ def project_status(workspace: Path, slug: str) -> ProjectStatus:
         finished = record.finished_at.isoformat() if record and record.finished_at else None
         lines.append(StageLine(stage, status, finished))
     if clips == 0:
-        return ProjectStatus(slug, kind, 0, lines, None, f"copy clips into {project.raw}")
+        return ProjectStatus(slug, kind, 0, lines, None, empty_raw_hint(project, kind))
     todo = next((line.name for line in lines if line.status not in ("done", "skipped")), None)
     command = _next_command(project, todo) if todo else None
     return ProjectStatus(
         slug, kind, clips, lines, command, None if command else "all stages are done"
     )
+
+
+def empty_raw_hint(project: ProjectPaths, kind: ProjectKind) -> str:
+    """What to do next in a project with nothing in raw/ yet."""
+    if kind is ProjectKind.PRODUCT:
+        slug = project.slug
+        return (
+            f"record with `{APP_NAME} record web {slug} <script.mjs>` or "
+            f"`{APP_NAME} record terminal {slug} <tape>`, or copy recordings into {project.raw}"
+        )
+    return f"copy clips into {project.raw}"
 
 
 def _next_command(project: ProjectPaths, stage: str) -> str:

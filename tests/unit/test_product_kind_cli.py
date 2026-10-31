@@ -258,3 +258,31 @@ def test_an_invalid_sidecar_exits_1_naming_the_file_and_the_problem(
     assert result.exit_code == 1
     assert "demo flow.markers.json" in result.output
     assert "start" in result.output and "twice" in result.output
+
+
+def test_a_new_product_project_points_at_recording(workspace: Path) -> None:
+    result = invoke("new", "other", "--kind", "product")
+
+    (hint,) = [line for line in result.output.splitlines() if line.startswith("next:")]
+    assert "motion-studio record web other <script.mjs>" in hint
+    assert "motion-studio record terminal other <tape>" in hint
+
+
+def test_status_of_a_product_project_without_recordings_points_at_recording(
+    workspace: Path,
+) -> None:
+    assert invoke("new", "launch", "--kind", "product").exit_code == 0
+
+    out = run_json("status", "launch")
+
+    assert out["clips"] == 0
+    assert "motion-studio record web launch <script.mjs>" in out["hint"]
+
+
+def test_status_does_not_count_markers_sidecars_as_clips(workspace: Path) -> None:
+    assert invoke("new", "launch", "--kind", "product").exit_code == 0
+    raw = workspace / "projects" / "launch" / "raw"
+    (raw / "demo.mp4").write_bytes(b"")
+    (raw / "demo.markers.json").write_text("{}", encoding="utf-8")
+
+    assert run_json("status", "launch")["clips"] == 1

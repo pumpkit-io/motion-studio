@@ -13,6 +13,8 @@ from motion_studio.errors import UserError
 WORKSPACE_FILE = f"{APP_NAME}.toml"
 PROJECTS_DIR = "projects"
 CACHE_ENV = f"{ENV_PREFIX}_CACHE_DIR"
+# A recording's markers sidecar sits next to it in raw/: `demo.mp4` and `demo.markers.json`.
+MARKERS_SUFFIX = ".markers.json"
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 

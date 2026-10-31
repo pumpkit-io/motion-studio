@@ -10,7 +10,13 @@ from motion_studio.cli._output import JsonOption, emit, path_line
 from motion_studio.errors import UserError
 from motion_studio.kind import ProjectKind
 from motion_studio.paths import find_workspace, project_paths
-from motion_studio.workspace import clean_project, init_workspace, new_project, project_status
+from motion_studio.workspace import (
+    clean_project,
+    empty_raw_hint,
+    init_workspace,
+    new_project,
+    project_status,
+)
 
 Slug = Annotated[str, typer.Argument(help="Project slug: lowercase letters, digits, hyphens.")]
 
@@ -57,7 +63,7 @@ def new(
     project, raw = new_project(
         workspace, slug, [*(sources or []), *(more or [])], title=title, kind=kind
     )
-    hint = f"`{APP_NAME} ingest {slug}`" if raw else f"copy clips into {project.raw}"
+    hint = f"`{APP_NAME} ingest {slug}`" if raw else empty_raw_hint(project, kind)
     emit(
         as_json,
         {"project": str(project.root), "kind": kind.value, "raw": [str(p) for p in raw]},

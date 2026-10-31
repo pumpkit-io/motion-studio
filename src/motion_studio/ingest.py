@@ -31,7 +31,7 @@ from motion_studio.media.normalise import (
     normalise_image,
 )
 from motion_studio.media.probe import Probe, probe
-from motion_studio.paths import ProjectPaths, project_paths
+from motion_studio.paths import MARKERS_SUFFIX, ProjectPaths, project_paths
 from motion_studio.state import (
     ensure_free_disk,
     load_state,
@@ -49,8 +49,6 @@ RECIPE = 1
 ROLES: tuple[Role, ...] = ("aroll", "broll", "image", "screen")
 # Product projects have no A-roll, so screen recordings take its prefix (ADR 0005's `c2.m.<name>`).
 PREFIX: dict[Role, str] = {"aroll": "c", "broll": "b", "image": "i", "screen": "c"}
-# A recording's markers sidecar sits next to it in raw/: `demo.mp4` and `demo.markers.json`.
-MARKERS_SUFFIX = ".markers.json"
 
 # A video whose loudest moment is quieter than this has no speech worth cutting.
 SPEECH_PEAK_DB = -35.0
