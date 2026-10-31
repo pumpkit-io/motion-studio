@@ -1,8 +1,7 @@
 """The small-speaker chain every generated bed goes through; library tracks stay as licensed.
 
-Laptop and phone speakers roll off under about 150 Hz, so a bed mixed for headphones loses
-its body and leaves only rumble the voice has to fight. The chain trims the sub, cuts the
-low shelf, lifts presence and air, and evens the level out.
+Laptop and phone speakers roll off under about 150 Hz, so a bed mixed for headphones keeps only
+rumble there; the chain trims it and lifts presence and air.
 """
 
 from pathlib import Path

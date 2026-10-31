@@ -21,9 +21,8 @@ def share_path(final: Path) -> Path:
 def share_copy(final: Path, out: Path, *, cap_bytes: int, scratch: Path) -> Path:
     """Write `out` from `final` under `cap_bytes` at the final's resolution, with `+faststart`.
 
-    A final already under the cap is copied as it is. Otherwise the video is re-encoded with
-    two-pass x264 at a bitrate that fits, and the mastered audio is copied so loudness and true
-    peak stay exactly as mixed.
+    A final under the cap is copied. Otherwise two-pass x264 re-encodes the video at a bitrate
+    that fits, and the mastered audio is copied so loudness and true peak stay as mixed.
     """
     tmp = out.with_name(f".{out.name}")
     if final.stat().st_size <= cap_bytes:

@@ -1,8 +1,7 @@
 """Product EDLs resolved to a timeline of scenes (ADR 0004), footage addressed by marker (ADR 0005).
 
-Scenes follow each other on the beat grid with no gap. Each scene type has one resolver in
-`_SCENES`, which returns the timeline scene for the frames it was given, or None after recording
-its problems.
+Scenes sit back to back on the beat grid. Each type's resolver in `_SCENES` returns its
+timeline scene, or None after recording its problems.
 """
 
 import re

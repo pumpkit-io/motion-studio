@@ -1,11 +1,7 @@
 """Fit a bed to a product video: a section hit on a scene start, the length on the scene total.
 
-The bed is cut into pieces of itself played back to back. Before the hit, the head is trimmed,
-and whole bars are repeated at a phrase boundary when the hit comes too early. After it, whole
-bars are repeated or cut at the phrase boundary before the ending so the natural ending lands
-on the end of the video, or, when there is too little room for that, the bed stops on a bar and
-its last beat echoes out. Every join sits on a bar line under a 30 ms crossfade, so the beat
-grid runs on unbroken and the hit is a downbeat of it.
+Whole bars are repeated or cut at phrase boundaries so the hit and then the natural ending land,
+or the bed stops on a bar and echoes out; every join is a bar line under a 30 ms crossfade.
 """
 
 import math

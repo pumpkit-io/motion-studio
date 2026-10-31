@@ -1,8 +1,7 @@
 """`look --at`: stills of the latest render at a scene, a marker or an output time.
 
-A scene gives its middle frame. A marker gives the frame where a footage scene shows that moment
-of its recording, at the scene's rate. The frames are the timeline's, so the render must be as
-fresh as `build/timeline.json`.
+A scene gives its middle frame, a marker the frame that shows that moment of its recording.
+The frames are the timeline's, so the render must be as fresh as `build/timeline.json`.
 """
 
 import math

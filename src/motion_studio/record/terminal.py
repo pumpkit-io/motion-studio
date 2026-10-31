@@ -1,10 +1,7 @@
 """`record terminal`: run a vhs tape against a real shell and add the take to raw/.
 
-The agent's tape is wrapped in a generated one: the recorder's own Output and settings, then a
-hidden preamble (a clean environment and prompt, the `Launch` command started through a short
-wrapper, Claude Code's folder-trust prompt accepted), then the agent's commands. vhs writes the
-terminal's frames to a directory; this module pads them to the take's size at 1:1, encodes a
-constant-frame-rate clip and writes the markers sidecar from the tape's `Mark` lines.
+The tape runs after a hidden preamble (clean environment, `Launch` through a wrapper, Claude
+Code's trust prompt accepted); vhs's frames are encoded at 1:1 with markers from `Mark` lines.
 """
 
 import os

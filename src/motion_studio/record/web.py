@@ -1,9 +1,7 @@
 """`record web`: run a recording script in headless Chromium and add the take to raw/.
 
-Node runs the script against the helper library (`node/studio.mjs`) and leaves JPEG
-screencast frames with their timestamps, the markers and the cursor track in a scratch
-directory. This module lays the frames on a constant-frame-rate grid, encodes them, writes the
-markers sidecar, then moves both into raw/. A failed take leaves nothing in raw/.
+Node runs the script with `node/studio.mjs` and leaves screencast frames, markers and the cursor
+track; this module lays the frames on a 30 fps grid and encodes them with the markers sidecar.
 """
 
 import bisect

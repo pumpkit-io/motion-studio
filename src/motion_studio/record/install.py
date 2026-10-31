@@ -1,8 +1,7 @@
 """The recorders' dependencies: Playwright for `record web`, vhs and ttyd for `record terminal`.
 
-`setup --record` installs the pinned Playwright and its headless Chromium into
-`<cache>/recorder/playwright-<version>/`; recording finds them there and exits 2 with the
-`setup --record` hint when they are missing. vhs and ttyd are system tools nothing installs.
+`setup --record` installs the pinned Playwright and Chromium into `<cache>/recorder/`; vhs and
+ttyd are system tools nothing installs. Recording exits 2 naming whichever is missing.
 """
 
 import json
