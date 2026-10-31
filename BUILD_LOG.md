@@ -665,6 +665,20 @@ Checked:
 
 Not done here: widening the descriptions (ticket #28) and migrating old workspaces and warning on old environment variables (ticket #29).
 
+## Widen the descriptions to video editing (ticket #28, spec #25)
+
+Built:
+
+- The README's first paragraph, the root `AGENTS.md`, CONTRIBUTING, the workspace `AGENTS.md`, the `pyproject.toml` description, the CLI's top-level help and the package docstring now say motion-studio edits video with a coding agent: talk projects (talking-head videos for Reels and X) and product videos made from screen recordings, in `GLOSSARY.md`'s words.
+- Product videos are described as scope, not as a feature: the README says this release edits talking-head videos and the product video commands are still being built, and the workspace `AGENTS.md` tells the host agent that a launch video belongs in the workspace but cannot be edited yet.
+- A `CliRunner` test checks that `--help` names talking-head videos, product videos and screen recordings.
+
+Left as they were: the workspace `CLAUDE.md` and `GEMINI.md` templates (each only imports `AGENTS.md`), the brand and music library READMEs and `renderer/package.json` ("renders a motion-studio timeline"), none of which describe the tool as Reels-only. `docs/cli.md` does not carry the top-level help, so nothing there was regenerated. The two talk-specific skill descriptions (`motion-studio-edit`, `motion-studio-plan`) stay, since those skills only cover talk projects.
+
+Checked:
+
+- `just lint`, `just test`, `just schema-check` and `just edl-coverage` pass.
+
 ## Migrating old workspaces (ticket #29, spec #25)
 
 Built:
@@ -678,4 +692,3 @@ Built:
 Checked:
 
 - `tests/unit/test_migration.py` drives each case through `CliRunner`, including running the printed command through `/bin/sh` on a cache path with a space and checking the models arrive in the new cache. `just lint`, `just test`, `just schema-check` and `just edl-coverage` pass.
-

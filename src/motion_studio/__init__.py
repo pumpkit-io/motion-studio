@@ -1,4 +1,4 @@
-"""motion-studio: an agent-driven video editing harness."""
+"""motion-studio: video editing with a coding agent, for talking-head videos and product videos."""
 
 from importlib.metadata import version
 
