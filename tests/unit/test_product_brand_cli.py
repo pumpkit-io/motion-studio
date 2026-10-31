@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from motion_studio.cli import app
 from motion_studio.edl import Timeline
+from motion_studio.edl.models import TimelineGifMascot, TimelineMascot
 
 BRAND_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "brand"
 OUTRO: dict[str, Any] = {
@@ -68,13 +69,14 @@ def test_the_timeline_carries_the_wordmark_and_the_mascots_sprite_sheet(workspac
     timeline_file = workspace / "projects" / "launch" / "build" / "timeline.json"
     brand = Timeline.model_validate_json(timeline_file.read_text(encoding="utf-8")).brand
     assert brand.wordmark == "library/brand/wordmark.svg"
-    assert brand.mascot is not None
+    mascot = brand.mascot
+    assert isinstance(mascot, TimelineMascot)
     # The fixture is a 15 by 2 grid of 544x416 frames, 22 of them used, looping 4.36 s.
-    assert (brand.mascot.sheet_width, brand.mascot.sheet_height) == (8160, 832)
-    assert (brand.mascot.frame_width, brand.mascot.frame_height) == (544, 416)
-    assert len(brand.mascot.frames) == 22
-    assert sum(f.ms for f in brand.mascot.frames) == 4360
-    assert brand.mascot.loops == 0
+    assert (mascot.sheet_width, mascot.sheet_height) == (8160, 832)
+    assert (mascot.frame_width, mascot.frame_height) == (544, 416)
+    assert len(mascot.frames) == 22
+    assert sum(f.ms for f in mascot.frames) == 4360
+    assert mascot.loops == 0
 
 
 def test_an_outro_with_no_mascot_configured_names_the_key(workspace: Path) -> None:
@@ -179,8 +181,7 @@ def test_a_gif_mascot_goes_into_the_timeline_with_its_size(workspace: Path) -> N
     assert code == 0, out
     timeline_file = workspace / "projects" / "launch" / "build" / "timeline.json"
     mascot = Timeline.model_validate_json(timeline_file.read_text(encoding="utf-8")).brand.mascot
-    assert mascot is not None
-    assert mascot.type == "gif"
+    assert isinstance(mascot, TimelineGifMascot)
     assert (mascot.gif, mascot.width, mascot.height) == ("library/brand/mascot.gif", 16, 12)
 
 

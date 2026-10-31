@@ -1091,3 +1091,20 @@ The three tickets were built and reviewed before the rename and merged here from
 ## Classic captions merged into product videos (spec #26)
 
 `main` (spec #21) was merged into `feat/product-videos`. Both sides changed the bundled font: `main` added TikTok Sans as the caption default and a `bundled_font` prop, and this branch added Inter 500 for product sublines. `lib/fonts.ts` now keeps each bundled family's caption weight and the files of every weight it ships, and `useCaptionFont` takes extra weights to load. The `Product` composition still loads Inter 800 and 500 when there is no brand font file, whatever `bundled_font` names, because TikTok Sans ships only 700. `product_props` writes `bundled_font` beside the wordmark and mascot files, and the assemble check uses `ASSEMBLE_RECIPE`. The `motion-studio-plan` description keeps "talk projects" and gains "captions".
+
+## Product videos: review fixes, round 1 (spec #26)
+
+- `music` on a product EDL with a logo outro: `Fit` resolved the scenes without `[brand]`, so generation failed with `missing_brand_asset`. It now loads the brand like `plan validate` and passes `beats_per_bar`.
+- `RENDER_RECIPE` is 4, so renders mastered before the true-peak limiter mix again.
+- Talk beds from before shaping: when `state.json` holds the old generate parameters (prompt, bpm, seed, duration, model) and the unshaped `music.wav` is still there, `music` shapes it into the candidate store with its attempts instead of running ACE-Step. When the bed is gone it generates again with a one-line warning recorded in `state.json`. The "music.json from before the bar grid" re-analysis in `_fresh_report` stays for library beds and for a current bed with an old `music.json`.
+- `Session.check_memory` returns a warning when the free memory cannot be read; `music` prints it once per run and records it.
+- `[brand] mascot = { gif = ... }`: `brand.py` checks the file is a GIF and reads its size into `TimelineGifMascot` (the timeline's `brand.mascot` is now a union on `type`: `sprite` or `gif`). The renderer plays it with `@remotion/gif` 4.0.538 at the GIF's own delays, looping. `<Gif>` smooths when its canvas is scaled, so the canvas stays at the GIF's size and CSS scales it with `image-rendering: pixelated`; `test_product_outro_render.py` fails without that.
+- The logo outro's wordmark is optional: without one, the EDL's `title` is set in type (`TimelineLogoOutro.name`). A configured wordmark that does not load, or no wordmark and no title, is still `missing_brand_asset`. `plan draft` always ends on the outro, and its rationale names a missing wordmark and a configured mascot or wordmark that failed to load.
+- `status` no longer counts markers sidecars as clips; `status` and `new` on an empty product project point at `record web` and `record terminal`.
+- Screen recordings use a static threshold of 0.02 (the camera one is 1.5): one 10x18 px glyph typed in a 1600x900 frame measures about 0.03 at the 320-wide motion scale, a blinking caret under 0.01. `SCREEN_RECIPE` re-analyses product projects only.
+- `record web` reports the encoded frame count. `--name` and the script or tape stem must be a plain file name. An element box that rounds to zero is dropped from its marker with a warning, and each take is recorded in `state.json` as `record.<name>` with its warnings.
+- `target_too_wide` warns when a camera move with no `zoom` targets a box filling more than 70% of the footage, so the move stays at 1x.
+- `music` with mode `none` on a product project says the video is silent instead of "voice only".
+- Judgement items: `docs/architecture.md` rows for `look/at.py` and `brand.py`; `withAlpha` shares `rgbOf` with `readableOn`; comments on the recorder's two dropped promise errors; the `_size` messages for malformed and too-small sizes; docstrings over three lines trimmed in the new modules.
+- `small_speaker` on a silent render is left as it is: loudness already blocks that render.
+- Deviation: story 58 says "whole bars at phrase boundaries" and the spec decision says "whole phrases"; the code follows story 58, unchanged.
