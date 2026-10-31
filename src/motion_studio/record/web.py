@@ -23,11 +23,13 @@ from motion_studio.media.ffmpeg import binary, run_ffmpeg
 from motion_studio.record.install import NODE_DIR, browser_env, find_recorder, node_binary
 from motion_studio.record.take import (
     Take,
+    log_take,
     place_take,
     product_project,
     refuse_existing,
     refuse_while_heavy,
     scratch_take,
+    take_stem,
 )
 
 DEFAULT_VIEWPORT = (1600, 900)
@@ -50,7 +52,7 @@ def record_web(
     script = script.expanduser().resolve()
     if not script.is_file():
         raise UserError(f"no recording script at {script}", hint="pass the path of a .mjs file")
-    stem = name or script.stem
+    stem = take_stem(name, script)
     refuse_existing(project, stem)
     root = find_recorder()
     node = node_binary()
@@ -62,7 +64,7 @@ def record_web(
         _run_script(node, root, script, scratch, viewport)
         take = json.loads((scratch / "take.json").read_text(encoding="utf-8"))
         step("encoding the frames")
-        return _encode(take, scratch, project.raw, stem)
+        return log_take(project, stem, _encode(take, scratch, project.raw, stem))
 
 
 def _run_script(
@@ -142,25 +144,29 @@ def _encode(take: dict[str, Any], scratch: Path, raw: Path, stem: str) -> Take:
     def clock(t: float) -> float:
         return round(min(max(float(t) - t0, 0.0), duration), 3)
 
+    warnings: list[str] = []
+
+    def elements(marker: dict[str, Any]) -> list[Element]:
+        kept: list[Element] = []
+        for e in marker["elements"]:
+            w, h = round(e["w"] * sx, 1), round(e["h"] * sy, 1)
+            if w <= 0 or h <= 0:
+                warnings.append(
+                    f"marker {marker['name']}: element {e['name']} has a {w}x{h} box, so it was "
+                    "left out; mark it while it is visible"
+                )
+                continue
+            kept.append(
+                Element(name=e["name"], x=round(e["x"] * sx, 1), y=round(e["y"] * sy, 1), w=w, h=h)
+            )
+        return kept
+
     try:
         markers = ScreenMarkers(
             width=width,
             height=height,
             markers=[
-                Marker(
-                    name=m["name"],
-                    t=clock(m["t"]),
-                    elements=[
-                        Element(
-                            name=e["name"],
-                            x=round(e["x"] * sx, 1),
-                            y=round(e["y"] * sy, 1),
-                            w=round(e["w"] * sx, 1),
-                            h=round(e["h"] * sy, 1),
-                        )
-                        for e in m["elements"]
-                    ],
-                )
+                Marker(name=m["name"], t=clock(m["t"]), elements=elements(m))
                 for m in take["markers"]
             ],
             cursor=_cursor(take["cursor"], t0, clock, sx, sy),
@@ -175,8 +181,9 @@ def _encode(take: dict[str, Any], scratch: Path, raw: Path, stem: str) -> Take:
         width=width,
         height=height,
         fps=FPS,
-        frames=len(frames),
+        frames=count,
         markers=[m.name for m in markers.markers],
+        warnings=warnings,
     )
 
 

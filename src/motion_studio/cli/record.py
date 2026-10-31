@@ -31,8 +31,9 @@ def _size(option: str, value: str, *, even: bool = False) -> tuple[int, int]:
 def _take_lines(take: Take, slug: str) -> list[str]:
     marks = ", ".join(take.markers) if take.markers else "none"
     return [
+        *(f"warning: {w}" for w in take.warnings),
         f"recorded {take.duration_s:.1f} s at {take.width}x{take.height}, {take.fps} fps "
-        f"from {take.frames} frames",
+        f"({take.frames} frames)",
         f"  markers: {marks}",
         path_line(take.clip),
         path_line(take.sidecar),

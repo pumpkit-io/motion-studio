@@ -84,6 +84,7 @@ def test_the_take_is_a_constant_frame_rate_clip_in_raw(product: Path, take: dict
     assert (stream["width"], stream["height"]) == (1600, 900)
     assert stream["r_frame_rate"] == stream["avg_frame_rate"] == "30/1"
     assert int(stream["nb_read_frames"]) == pytest.approx(take["duration_s"] * 30, abs=2)
+    assert take["frames"] == int(stream["nb_read_frames"])
     assert sorted(p.name for p in (product / "raw").iterdir()) == ["take.markers.json", "take.mp4"]
     assert not (product / "build" / "record").exists() or not any(
         (product / "build" / "record").iterdir()
@@ -173,3 +174,28 @@ def test_the_take_ingests_with_its_markers(product: Path, take: dict[str, Any]) 
     assert analysis["clip"]["role"] == "screen"
     assert [m["name"] for m in analysis["markers"]] == ["start", "clicked", "shown", "end"]
     assert "c1.e.result" in (product / "analysis" / "packed.md").read_text(encoding="utf-8")
+
+
+def test_an_element_whose_box_rounds_to_zero_is_dropped_and_the_take_kept(
+    product: Path, tmp_path: Path
+) -> None:
+    script = tmp_path / "tiny.mjs"
+    script.write_text(
+        "export default async function take(r) {\n"
+        f"  await r.goto({json.dumps((FIXTURES / 'page.html').as_uri())});\n"
+        "  await r.wait(400);\n"
+        "  await r.mark('start', { title: '#title', sliver: { x: 10, y: 10, w: 0.04, h: 20 } });\n"
+        "  await r.wait(400);\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = invoke("record", "web", "launch", script)
+
+    assert result.exit_code == 0, result.output
+    (warning,) = [line for line in result.output.splitlines() if line.startswith("warning:")]
+    assert "sliver" in warning
+    sidecar = json.loads((product / "raw" / "tiny.markers.json").read_text(encoding="utf-8"))
+    assert [e["name"] for e in sidecar["markers"][0]["elements"]] == ["title"]
+    state = json.loads((product / "state.json").read_text(encoding="utf-8"))
+    assert state["stages"]["record.tiny"]["warnings"] == [warning.removeprefix("warning: ")]

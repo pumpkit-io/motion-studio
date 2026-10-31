@@ -24,11 +24,13 @@ from motion_studio.media.ffmpeg import binary, run_ffmpeg
 from motion_studio.record.install import terminal_tools
 from motion_studio.record.take import (
     Take,
+    log_take,
     place_take,
     product_project,
     refuse_existing,
     refuse_while_heavy,
     scratch_take,
+    take_stem,
 )
 
 DEFAULT_SIZE = (1600, 900)
@@ -72,7 +74,7 @@ def record_terminal(
     if not workdir.is_dir():
         raise UserError(f"--cwd {workdir} is not a directory")
     tape = parse_tape(tape_path.read_text(encoding="utf-8"), tape_path.parent)
-    stem = name or tape_path.stem
+    stem = take_stem(name, tape_path)
     refuse_existing(project, stem)
     tools = terminal_tools()
     ffmpeg = binary("ffmpeg")
@@ -94,7 +96,7 @@ def record_terminal(
         step(f"running {tape_path.name} with vhs")
         _run_vhs(tools["vhs"], generated, workdir, _clean_env(bin_dir))
         step("encoding the frames")
-        return _encode(tape, frames, log, size, scratch, project.raw, stem)
+        return log_take(project, stem, _encode(tape, frames, log, size, scratch, project.raw, stem))
 
 
 def parse_tape(text: str, base: Path) -> Tape:

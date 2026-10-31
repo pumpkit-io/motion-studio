@@ -8,7 +8,7 @@ import os
 import shutil
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from motion_studio.analysis.models import ScreenMarkers
 from motion_studio.errors import UserError
 from motion_studio.kind import ProjectKind, require_kind
 from motion_studio.paths import ProjectPaths, project_paths
-from motion_studio.state import ensure_free_disk, heavy_model_holder, project_lock
+from motion_studio.state import ensure_free_disk, heavy_model_holder, mark_done, project_lock
 
 
 @dataclass(frozen=True)
@@ -30,6 +30,8 @@ class Take:
     fps: int
     frames: int
     markers: list[str]
+    # Fallbacks while building the take, also recorded in state.json under `record.<stem>`.
+    warnings: list[str] = field(default_factory=lambda: list[str]())
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -41,6 +43,7 @@ class Take:
             "fps": self.fps,
             "frames": self.frames,
             "markers": self.markers,
+            "warnings": self.warnings,
         }
 
 
@@ -53,6 +56,18 @@ def product_project(workspace: Path, slug: str, command: str) -> ProjectPaths:
         hint=f"record into a product project: `{APP_NAME} new <slug> --kind product`",
     )
     return project
+
+
+def take_stem(name: str | None, source: Path) -> str:
+    """The clip's file stem in raw/: `--name`, or the script's or tape's own stem."""
+    stem = name if name is not None else source.stem
+    if not stem or "/" in stem or "\\" in stem or ".." in stem or stem.startswith("."):
+        given = f"--name {name!r}" if name is not None else f"{source.name}'s stem {stem!r}"
+        raise UserError(
+            f"{given} is not a plain file name for raw/",
+            hint="pass --name <take>, with no /, no .. and no leading dot",
+        )
+    return stem
 
 
 def refuse_existing(project: ProjectPaths, stem: str) -> None:
@@ -100,3 +115,11 @@ def place_take(
     os.replace(written, sidecar)
     os.replace(encoded, clip)
     return clip, sidecar
+
+
+def log_take(project: ProjectPaths, stem: str, take: Take) -> Take:
+    """Record the take and its warnings in state.json as `record.<stem>`."""
+    mark_done(
+        project, f"record.{stem}", [], outputs=[take.clip, take.sidecar], warnings=take.warnings
+    )
+    return take

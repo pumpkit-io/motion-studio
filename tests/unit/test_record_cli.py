@@ -153,3 +153,31 @@ def test_record_terminal_rejects_a_bad_tape_with_its_line(
 
     assert result.exit_code == 1, result.output
     assert message in result.output
+
+
+@pytest.mark.parametrize("name", ["../escape", "sub/take", "..", ".hidden", "a..b"])
+@pytest.mark.parametrize("command", ["web", "terminal"])
+def test_a_name_that_is_not_a_plain_file_stem_exits_1(
+    workspace: Path, tmp_path: Path, script: Path, name: str, command: str
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+    source = script if command == "web" else write_tape(tmp_path, TRIVIAL_TAPE)
+
+    result = invoke("record", command, "launch", source, "--name", name, "--json")
+
+    assert result.exit_code == 1, result.output
+    assert "plain file name" in json.loads(result.stdout)["error"]
+    assert not (workspace / "projects" / "launch" / "build" / "record").exists()
+
+
+def test_a_script_whose_name_is_not_a_plain_stem_needs_name(
+    workspace: Path, tmp_path: Path
+) -> None:
+    run_json("new", "launch", "--kind", "product")
+    odd = tmp_path / "..take.mjs"
+    odd.write_text("export default async function take(r) {}\n", encoding="utf-8")
+
+    result = invoke("record", "web", "launch", odd, "--json")
+
+    assert result.exit_code == 1, result.output
+    assert "--name" in json.loads(result.stdout)["hint"]
