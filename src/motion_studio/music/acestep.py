@@ -10,6 +10,8 @@ declare; generation refuses to run without it.
 import io
 import json
 import os
+import re
+import selectors
 import shutil
 import subprocess
 import tarfile
@@ -17,8 +19,10 @@ import tempfile
 import time
 import urllib.request
 from collections.abc import Callable
+from contextlib import ExitStack, suppress
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 from pydantic import BaseModel, ConfigDict
 
@@ -38,6 +42,9 @@ MODEL = f"{WEIGHTS_REPO}@{WEIGHTS_REVISION[:7]} ({DIT})"
 # Replaces the worker command (the env's Python running acestep_worker.py) with an executable.
 WORKER_ENV = f"{ENV_PREFIX}_MUSIC_WORKER"
 TIMEOUT_ENV = f"{ENV_PREFIX}_MUSIC_TIMEOUT_S"
+MIN_FREE_MEMORY_ENV = f"{ENV_PREFIX}_MIN_FREE_MEMORY_GB"
+# The worker peaked at 1.8 GB on the build machine; this leaves room for the rest of the system.
+MIN_FREE_MEMORY_GB = 2.0
 STDERR_TAIL = 20
 
 
@@ -178,77 +185,190 @@ def default_timeout_s(duration_s: float) -> float:
     return 600 + 10 * duration_s
 
 
-def generate(
-    *,
-    prompt: str,
-    duration_s: float,
-    bpm: int | None,
-    seed: int,
-    out: Path,
-    timeout_s: float | None = None,
-    on_wait: Callable[[str], None] | None = None,
-) -> Generated:
-    """One generation in a worker subprocess, under the heavy-model lock.
+class LowMemory(UserError):
+    """Too little free memory to start the next generation; those already made stand."""
 
-    Raises DependencyError (exit 2) when `setup --music` has not run, InternalError (exit 3)
-    when the worker crashes or exceeds the timeout.
+
+@dataclass
+class Session:
+    """Generations in one worker process, so the model loads once, under the heavy-model lock.
+
+    The worker starts at the first `generate`; a session that generates nothing never takes the
+    lock. Before each generation the free memory is checked against `min_free_memory_gb()`.
     """
-    override = os.environ.get(WORKER_ENV)
-    if override:
-        command = [override]
-    else:
-        if installed() is None or not env_python().is_file():
-            raise DependencyError(
-                f"the ACE-Step environment is not installed in {env_root()}",
-                hint=f'run `{APP_NAME} setup --music` once while online, or set "mode": "library"',
+
+    on_wait: Callable[[str], None] | None = None
+    timeout_s: float | None = None
+    loads: int = 0
+    _stack: ExitStack | None = None
+    _proc: subprocess.Popen[str] | None = None
+    _stderr: IO[str] | None = None
+
+    def __enter__(self) -> "Session":
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        self.close()
+
+    def check_memory(self, what: str) -> None:
+        """Raise LowMemory naming `what` when free memory is under the threshold."""
+        need = min_free_memory_gb()
+        if need <= 0:
+            return
+        free = free_memory_gb()
+        if free is not None and free < need:
+            raise LowMemory(
+                f"only {free:.1f} GB of memory free before {what}; ACE-Step needs {need:g} GB",
+                hint=f"close memory-hungry apps and run it again, or set {MIN_FREE_MEMORY_ENV}",
             )
-        # -I keeps the script's directory off sys.path: this module would shadow `acestep`.
-        command = [str(env_python()), "-I", str(worker_script()), "generate"]
-    job = {
-        "prompt": prompt,
-        "duration": round(duration_s, 3),
-        "bpm": bpm,
-        "seed": seed,
-        "out": str(out),
-        "project_root": str(source_dir()),
-        "dit": DIT,
-    }
-    limit = timeout_s if timeout_s is not None else default_timeout_s(duration_s)
-    with heavy_model_lock("music", on_wait=on_wait):
+
+    def generate(
+        self, *, prompt: str, duration_s: float, bpm: int | None, seed: int, out: Path
+    ) -> Generated:
+        """One generation. Raises DependencyError (exit 2) when `setup --music` has not run,
+        InternalError (exit 3) when the worker crashes or exceeds the timeout."""
+        proc = self._start()
+        job = {
+            "prompt": prompt,
+            "duration": round(duration_s, 3),
+            "bpm": bpm,
+            "seed": seed,
+            "out": str(out),
+            "project_root": str(source_dir()),
+            "dit": DIT,
+        }
+        limit = self.timeout_s if self.timeout_s is not None else default_timeout_s(duration_s)
         started = time.monotonic()
-        try:
-            proc = subprocess.run(
-                command,
-                input=json.dumps(job),
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=limit,
-                cwd=source_dir() if source_dir().is_dir() else None,
-            )
-        except subprocess.TimeoutExpired as exc:
+        assert proc.stdin is not None and proc.stdout is not None
+        # A worker that died already shows up below as an exit, with its stderr.
+        with suppress(BrokenPipeError):
+            proc.stdin.write(json.dumps(job) + "\n")
+            proc.stdin.flush()
+        line = _read_line(proc, limit)
+        elapsed = time.monotonic() - started
+        if line is None:
+            proc.kill()
+            proc.wait()
             raise InternalError(
                 f"music generation took longer than {limit:.0f} s and was stopped",
                 hint=f"raise {TIMEOUT_ENV}, or close memory-hungry apps and retry",
-            ) from exc
-        elapsed = time.monotonic() - started
-    if proc.returncode != 0:
-        tail = "\n".join(proc.stderr.strip().splitlines()[-STDERR_TAIL:])
-        if proc.returncode == DependencyError.exit_code:
+            )
+        if not line:
+            self._raise_exit(proc)
+        try:
+            result = json.loads(line)
+            wav = Path(result["wav"])
+        except (ValueError, KeyError) as exc:
+            raise InternalError(f"music worker printed invalid output: {line[-500:]}") from exc
+        if not wav.is_file():
+            raise InternalError(f"music worker reported {wav}, which does not exist")
+        return Generated(
+            wav=wav,
+            seed=int(result.get("seed", seed)),
+            elapsed_s=round(elapsed, 1),
+            load_s=float(result.get("load_s", 0.0)),
+            generate_s=float(result.get("generate_s", 0.0)),
+            peak_rss_mb=float(result.get("peak_rss_mb", 0.0)),
+        )
+
+    def close(self) -> None:
+        proc, self._proc = self._proc, None
+        if proc is not None:
+            if proc.stdin is not None:
+                with suppress(BrokenPipeError):
+                    proc.stdin.close()
+            try:
+                proc.wait(timeout=60)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        self._stderr = None
+        stack, self._stack = self._stack, None
+        if stack is not None:
+            stack.close()
+
+    def _start(self) -> subprocess.Popen[str]:
+        if self._proc is not None:
+            return self._proc
+        command = _worker_command()
+        stack = ExitStack()
+        stack.enter_context(heavy_model_lock("music", on_wait=self.on_wait))
+        self._stack = stack
+        # A file, not a pipe: the model's chatter could fill a pipe and block the worker.
+        log = tempfile.TemporaryFile("w+", encoding="utf-8")  # noqa: SIM115, the stack closes it
+        self._stderr = stack.enter_context(log)
+        self._proc = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=self._stderr,
+            text=True,
+            cwd=source_dir() if source_dir().is_dir() else None,
+        )
+        self.loads += 1
+        return self._proc
+
+    def _raise_exit(self, proc: subprocess.Popen[str]) -> None:
+        code = proc.wait()
+        tail = ""
+        if self._stderr is not None:
+            self._stderr.seek(0)
+            tail = "\n".join(self._stderr.read().strip().splitlines()[-STDERR_TAIL:])
+        self._proc = None
+        if code == DependencyError.exit_code:
             raise DependencyError(f"music worker: {tail}", hint=f"run `{APP_NAME} setup --music`")
-        raise InternalError(f"music worker exited {proc.returncode}:\n{tail}")
+        raise InternalError(f"music worker exited {code}:\n{tail}")
+
+
+def _worker_command() -> list[str]:
+    override = os.environ.get(WORKER_ENV)
+    if override:
+        return [override]
+    if installed() is None or not env_python().is_file():
+        raise DependencyError(
+            f"the ACE-Step environment is not installed in {env_root()}",
+            hint=f'run `{APP_NAME} setup --music` once while online, or set "mode": "library"',
+        )
+    # -I keeps the script's directory off sys.path: this module would shadow `acestep`.
+    return [str(env_python()), "-I", str(worker_script()), "generate"]
+
+
+def _read_line(proc: subprocess.Popen[str], timeout_s: float) -> str | None:
+    """The worker's next stdout line, "" when it exited, or None after `timeout_s`."""
+    assert proc.stdout is not None
+    with selectors.DefaultSelector() as selector:
+        selector.register(proc.stdout, selectors.EVENT_READ)
+        if not selector.select(timeout_s):
+            return None
+    return proc.stdout.readline().strip()
+
+
+def min_free_memory_gb() -> float:
+    """The free-memory threshold in GB: the env override if set, else MIN_FREE_MEMORY_GB."""
+    value = os.environ.get(MIN_FREE_MEMORY_ENV)
     try:
-        result = json.loads(proc.stdout.strip().splitlines()[-1])
-        wav = Path(result["wav"])
-    except (ValueError, IndexError, KeyError) as exc:
-        raise InternalError(f"music worker printed invalid output: {proc.stdout[-500:]}") from exc
-    if not wav.is_file():
-        raise InternalError(f"music worker reported {wav}, which does not exist")
-    return Generated(
-        wav=wav,
-        seed=int(result.get("seed", seed)),
-        elapsed_s=round(elapsed, 1),
-        load_s=float(result.get("load_s", 0.0)),
-        generate_s=float(result.get("generate_s", 0.0)),
-        peak_rss_mb=float(result.get("peak_rss_mb", 0.0)),
-    )
+        return float(value) if value else MIN_FREE_MEMORY_GB
+    except ValueError as exc:
+        raise UserError(f"{MIN_FREE_MEMORY_ENV}={value!r} is not a number") from exc
+
+
+def free_memory_gb() -> float | None:
+    """Memory the system can hand out without swapping, or None when it cannot be read."""
+    meminfo = Path("/proc/meminfo")
+    if meminfo.is_file():
+        found = re.search(r"^MemAvailable:\s+(\d+) kB", meminfo.read_text(), re.M)
+        return int(found.group(1)) / 1e6 if found else None
+    try:
+        out = subprocess.run(["vm_stat"], capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    page = re.search(r"page size of (\d+) bytes", out)
+    if page is None:
+        return None
+    # macOS reclaims inactive, speculative and purgeable pages before it swaps.
+    kinds = ("free", "inactive", "speculative", "purgeable")
+    pages = 0
+    for kind in kinds:
+        found = re.search(rf"^Pages {kind}:\s+(\d+)\.", out, re.M)
+        pages += int(found.group(1)) if found else 0
+    return pages * int(page.group(1)) / 1e9

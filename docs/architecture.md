@@ -69,7 +69,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `look/` | Contact sheets for a time range or an asset, and the look budget. |
 | `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
-| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the small-speaker shaping of generated beds, the library picker and the bed analysis (tempo, beat and bar grid, sections and hits). |
+| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the small-speaker shaping of generated beds, the library picker, the bed analysis (tempo, beat and bar grid, sections and hits), the prompt presets, the candidate store (`build/music-candidates/`) and the fitting of a bed to a product video's scenes (`align.py`). |
 | `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, the share copy beside each final, and locating the installed renderer. |
 | `check/` | Re-transcription and diff near cuts, loudness, band energy, black and frozen frames, duration, caption density, the cut stills, and the report. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
@@ -95,7 +95,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 
 ## Processes and memory
 
-Heavy models never load in the CLI process. `asr.transcribe_clips`, `vision.detect_faces` and the music client each start a worker (`python -m motion_studio.asr.worker`, `python -m motion_studio.vision.worker`, and the ACE-Step environment's Python running `music/acestep_worker.py`), exchange JSON over stdin and stdout, and hold `heavy_model_lock` in the cache directory while it runs. The lock is a file lock, so two projects, or two terminals, never hold a transcriber and a music model in memory at once. On the build machine (18 GB) peak worker memory was about 0.9 GB for mlx-whisper, 2.3 GB for faster-whisper and 1.8 GB for ACE-Step plus its unified-memory use.
+Heavy models never load in the CLI process. `asr.transcribe_clips`, `vision.detect_faces` and the music client each start a worker (`python -m motion_studio.asr.worker`, `python -m motion_studio.vision.worker`, and the ACE-Step environment's Python running `music/acestep_worker.py`), exchange JSON over stdin and stdout, and hold `heavy_model_lock` in the cache directory while it runs. The lock is a file lock, so two projects, or two terminals, never hold a transcriber and a music model in memory at once. On the build machine (18 GB) peak worker memory was about 0.9 GB for mlx-whisper, 2.3 GB for faster-whisper and 1.8 GB for ACE-Step plus its unified-memory use. The ACE-Step worker takes one job per line and keeps the model loaded across `--candidates`, and the client checks free memory before each job.
 
 ACE-Step runs from its own uv environment in `<cache>/envs/ace-step`, so its PyTorch and other pins never meet motion-studio's.
 
