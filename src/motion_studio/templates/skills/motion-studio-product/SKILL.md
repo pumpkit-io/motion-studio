@@ -12,7 +12,7 @@ Run every command from the workspace root. Exit codes: 0 OK, 1 a fixable EDL or 
 ## 1. Brief
 - `motion-studio status <slug>`. For a new video, `motion-studio new <slug> --kind product --title "<title>"`; the kind is fixed once set. A talk project cannot become one.
 - Agree with the creator: the kind of video, its audience, the target length, the story in one line, the three to five steps to show, the proof shot (a real result such as the published post) and the closing tagline and URL.
-- Check `[brand]` in `motion-studio.toml`: `primary`, `accent`, `wordmark` and `mascot` (see `library/brand/README.md`). Without a wordmark there is no logo outro; ask for one. Without a mascot the outro shows the wordmark alone (`"mascot": false`, which the draft sets).
+- Check `[brand]` in `motion-studio.toml`: `primary`, `accent`, `wordmark` and `mascot` (see `library/brand/README.md`). Without a wordmark the logo outro sets the EDL's title in type; ask for one if the brand has it. Without a mascot the outro shows the wordmark alone (`"mascot": false`, which the draft sets).
 
 ## 2. Demo kit
 Ask for the product's **demo kit**: the document in the product's own repository that says how to film it safely (the isolated instance, demo accounts, how to sign in, how to undo each side effect). Read it in full.

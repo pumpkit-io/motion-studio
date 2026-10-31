@@ -76,14 +76,50 @@ def test_the_timeline_carries_the_wordmark_and_the_mascots_sprite_sheet(workspac
     assert brand.mascot.loops == 0
 
 
-def test_an_outro_with_no_brand_assets_configured_names_both_keys(workspace: Path) -> None:
+def test_an_outro_with_no_mascot_configured_names_the_key(workspace: Path) -> None:
+    edl_path = workspace / "projects" / "launch" / "edl.json"
+    edl = json.loads(edl_path.read_text(encoding="utf-8"))
+    edl_path.write_text(json.dumps({**edl, "title": "Meet Pumpkit"}), encoding="utf-8")
+
     code, out = validate(workspace)
 
     assert code == 1
-    messages = [e["message"] for e in out["errors"]]
-    assert [e["code"] for e in out["errors"]] == ["missing_brand_asset"] * 2
-    assert "scene outro: [brand] wordmark is not set" in messages
-    assert "scene outro: [brand] mascot is not set" in messages
+    [error] = out["errors"]
+    assert error["code"] == "missing_brand_asset"
+    assert error["message"] == "scene outro: [brand] mascot is not set"
+
+
+def test_without_a_wordmark_the_outro_sets_the_title_in_type(workspace: Path) -> None:
+    edl_path = workspace / "projects" / "launch" / "edl.json"
+    edl = json.loads(edl_path.read_text(encoding="utf-8"))
+    edl["title"] = "Meet Pumpkit"
+    edl["scenes"][0]["mascot"] = False
+    edl_path.write_text(json.dumps(edl), encoding="utf-8")
+
+    code, out = validate(workspace)
+
+    assert code == 0, out
+    timeline = Timeline.model_validate_json(
+        (workspace / "projects" / "launch" / "build" / "timeline.json").read_text(encoding="utf-8")
+    )
+    assert timeline.brand.wordmark is None
+    [outro] = timeline.scenes
+    assert outro.type == "logo_outro"
+    assert outro.name == "Meet Pumpkit"
+
+
+def test_an_outro_with_neither_a_wordmark_nor_a_title_is_an_error(workspace: Path) -> None:
+    edl_path = workspace / "projects" / "launch" / "edl.json"
+    edl = json.loads(edl_path.read_text(encoding="utf-8"))
+    edl["scenes"][0]["mascot"] = False
+    edl_path.write_text(json.dumps(edl), encoding="utf-8")
+
+    code, out = validate(workspace)
+
+    assert code == 1
+    [error] = out["errors"]
+    assert error["code"] == "missing_brand_asset"
+    assert "no title" in error["message"]
 
 
 def test_a_configured_file_that_does_not_exist_is_named_with_its_key(workspace: Path) -> None:

@@ -442,6 +442,10 @@ export interface TimelineLogoOutro {
    * Draw brand.mascot beside the wordmark.
    */
   mascot: boolean;
+  /**
+   * Set in type in place of the wordmark when brand has none.
+   */
+  name: string;
   start: number;
   /**
    * Empty for no tagline.

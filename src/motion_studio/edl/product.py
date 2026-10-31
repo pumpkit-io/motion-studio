@@ -97,6 +97,7 @@ class SceneContext:
     fps: int
     problems: Problems
     brand: BrandAssets
+    title: str
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,7 @@ def resolve_scenes(
 ) -> ProductScenes:
     """Every scene on the grid. Errors go to `problems`; the caller raises them."""
     fps = config.defaults.fps
-    context = SceneContext({c.clip.id: c for c in clips}, grid, fps, problems, brand)
+    context = SceneContext({c.clip.id: c for c in clips}, grid, fps, problems, brand, edl.title)
     _check_formats(edl, problems)
     seen: set[str] = set()
     scenes: list[TimelineScene] = []
@@ -259,13 +260,17 @@ def _proof(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | N
 def _logo_outro(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScene | None:
     assert isinstance(scene, LogoOutroScene)
     brand = context.brand
-    needed = {"wordmark": brand.wordmark is not None}
+    # Without a wordmark the title is set in type; one that is configured must load.
+    reasons = dict(brand.broken)
+    if brand.wordmark is None and "wordmark" not in reasons and not context.title.strip():
+        reasons["wordmark"] = "is not set and the EDL has no title to set in its place"
+    needed = {"wordmark": "wordmark" not in reasons}
     if scene.mascot:
         needed["mascot"] = brand.mascot is not None
     for key in (k for k, loaded in needed.items() if not loaded):
         context.problems.error(
             "missing_brand_asset",
-            f"scene {scene.id}: [brand] {key} {brand.broken.get(key, 'is not set')}",
+            f"scene {scene.id}: [brand] {key} {reasons.get(key, 'is not set')}",
             hint=_BRAND_HINTS[key],
         )
     lines = _accented(scene, [scene.tagline or ""], "the tagline", context)
@@ -279,12 +284,14 @@ def _logo_outro(scene: Scene, slot: Slot, context: SceneContext) -> TimelineScen
         tagline=lines[0],
         url=scene.url,
         mascot=scene.mascot,
+        name=context.title.strip(),
     )
 
 
 _BRAND_HINTS = {
     "wordmark": f'set wordmark = "library/brand/wordmark.svg" under [brand] in {WORKSPACE_FILE} '
-    "or project.toml, an image path relative to the workspace",
+    'or project.toml, an image path relative to the workspace, or "title" in the EDL to set it '
+    "in type",
     "mascot": f"set mascot = {{ sheet = ..., timings = ... }} under [brand] in {WORKSPACE_FILE} "
     'or project.toml (a sprite sheet and its frame-timing JSON), or "mascot": false on the scene',
 }

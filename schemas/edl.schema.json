@@ -877,7 +877,7 @@
     },
     "LogoOutroScene": {
       "additionalProperties": false,
-      "description": "The brand's mascot and wordmark, a tagline and a URL, fading to black at the end.",
+      "description": "The brand's mascot and wordmark (or the title in type), a tagline and a URL, then black.",
       "properties": {
         "accent": {
           "description": "Words of the tagline drawn in the brand accent colour.",

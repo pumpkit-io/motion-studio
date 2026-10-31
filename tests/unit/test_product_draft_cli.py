@@ -202,7 +202,7 @@ def test_the_outro_draws_the_mascot_when_one_is_configured(launch: Path) -> None
     assert invoke("plan", "validate", "launch").exit_code == 0
 
 
-def test_without_a_wordmark_the_draft_leaves_the_outro_out_and_says_so(
+def test_without_a_wordmark_the_draft_ends_on_the_title_in_type_and_says_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     ws = tmp_path / "videos"
@@ -214,8 +214,26 @@ def test_without_a_wordmark_the_draft_leaves_the_outro_out_and_says_so(
 
     assert invoke("plan", "draft", "launch").exit_code == 0
 
-    assert [s["id"] for s in scenes_of(project)] == ["intro", "step1", "demo1"]
-    assert "No logo outro: the [brand] wordmark is not set." in edl_of(project)["rationale"]
+    assert [s["id"] for s in scenes_of(project)] == ["intro", "step1", "demo1", "outro"]
+    assert "[brand] has no wordmark, so the outro sets the title in type." in (
+        edl_of(project)["rationale"]
+    )
+    assert invoke("plan", "validate", "launch").exit_code == 0
+    outro = timeline_of(project).scenes[-1]
+    assert outro.type == "logo_outro"
+    assert outro.name == "launch"
+
+
+def test_a_mascot_that_does_not_load_is_left_out_of_the_outro_and_named(launch: Path) -> None:
+    configure(launch, MASCOT_TOML)
+
+    assert invoke("plan", "draft", "launch").exit_code == 0
+
+    assert scenes_of(launch)[-1]["mascot"] is False
+    assert (
+        "The outro has no mascot: the [brand] mascot names library/brand/mascot.png, which does "
+        "not exist." in edl_of(launch)["rationale"]
+    )
     assert invoke("plan", "validate", "launch").exit_code == 0
 
 

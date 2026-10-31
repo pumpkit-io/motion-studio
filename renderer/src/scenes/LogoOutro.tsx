@@ -9,7 +9,7 @@ const FADE_FRAMES = 18;
 
 export type BrandArt = { wordmark: string | null; mascot: { sheet: TimelineMascot; file: string } | null };
 
-/** Mascot and wordmark slide together, the tagline and URL rise under them, then all fades to black. */
+/** Mascot and wordmark (or the name in type) slide together, the tagline and URL rise under them, then all fades to black. */
 export const LogoOutro: React.FC<{
   scene: TimelineLogoOutro;
   palette: Palette;
@@ -49,17 +49,30 @@ export const LogoOutro: React.FC<{
               <Mascot mascot={mascot.sheet} file={mascot.file} height={300 * unit} startFrame={4} />
             </div>
           ) : null}
-          {art.wordmark !== null ? (
-            <div
-              style={{
-                paddingBottom: (mascot !== null ? 18 : 0) * unit,
-                transform: `translateX(${(1 - wordIn) * 120 * unit}px)`,
-                opacity: Math.min(1, wordIn * 1.4),
-              }}
-            >
+          <div
+            style={{
+              paddingBottom: (mascot !== null ? 18 : 0) * unit,
+              transform: `translateX(${(1 - wordIn) * 120 * unit}px)`,
+              opacity: Math.min(1, wordIn * 1.4),
+            }}
+          >
+            {art.wordmark !== null ? (
               <Img src={staticFile(art.wordmark)} style={{ height: 240 * unit, display: "block" }} />
-            </div>
-          ) : null}
+            ) : (
+              <div
+                style={{
+                  fontFamily: font.family,
+                  fontSize: 150 * unit,
+                  fontWeight: FONT_WEIGHT,
+                  letterSpacing: -4 * unit,
+                  lineHeight: 1,
+                  color: palette.text,
+                }}
+              >
+                {scene.name}
+              </div>
+            )}
+          </div>
         </div>
         {scene.tagline.length > 0 ? (
           <div

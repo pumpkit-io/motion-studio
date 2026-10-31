@@ -395,7 +395,7 @@ class ProofScene(_Scene):
 
 
 class LogoOutroScene(_Scene):
-    """The brand's mascot and wordmark, a tagline and a URL, fading to black at the end."""
+    """The brand's mascot and wordmark (or the title in type), a tagline and a URL, then black."""
 
     type: Literal["logo_outro"]
     tagline: str | None = Field(default=None, description="A line under the wordmark.")
@@ -727,6 +727,7 @@ class TimelineLogoOutro(_Out):
     tagline: list[TimelineHeadlineWord] = Field(description="Empty for no tagline.")
     url: str | None
     mascot: bool = Field(description="Draw brand.mascot beside the wordmark.")
+    name: str = Field(description="Set in type in place of the wordmark when brand has none.")
 
 
 TimelineScene = Annotated[

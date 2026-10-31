@@ -167,7 +167,7 @@ A short full-frame scene with a headline, and optionally a step number and a sub
 A product video scene that shows an image of a real result, such as the published post, swinging in in 3D. The `proof` scene type.
 
 **Logo outro**:
-The closing scene of a product video: the brand mascot and wordmark, a tagline and a URL, fading to black.
+The closing scene of a product video: the brand mascot and wordmark (or the title in type), a tagline and a URL, fading to black.
 
 **Mascot**:
 A brand's animated character, given as a sprite sheet and a frame-timing JSON under `[brand] mascot`, played at its own frame timings without smoothing.

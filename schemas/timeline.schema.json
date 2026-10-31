@@ -805,6 +805,11 @@
           "title": "Mascot",
           "type": "boolean"
         },
+        "name": {
+          "description": "Set in type in place of the wordmark when brand has none.",
+          "title": "Name",
+          "type": "string"
+        },
         "start": {
           "title": "Start",
           "type": "integer"
@@ -841,7 +846,8 @@
         "end",
         "tagline",
         "url",
-        "mascot"
+        "mascot",
+        "name"
       ],
       "title": "TimelineLogoOutro",
       "type": "object"

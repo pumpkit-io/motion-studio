@@ -76,26 +76,22 @@ def draft_product(
                 note="Add a headline and a badge if the image proves a result.",
             )
         )
-    leftout: list[str] = []
-    if brand.wordmark is not None:
-        scenes.append(
-            LogoOutroScene(
-                type="logo_outro",
-                id="outro",
-                bars=_bars(grid, _OUTRO_S),
-                mascot=brand.mascot is not None,
-                note="Add a tagline and the product's URL.",
-            )
+    scenes.append(
+        LogoOutroScene(
+            type="logo_outro",
+            id="outro",
+            bars=_bars(grid, _OUTRO_S),
+            mascot=brand.mascot is not None,
+            note="Add a tagline and the product's URL.",
         )
-    else:
-        reason = brand.broken.get("wordmark", "is not set")
-        leftout.append(f"No logo outro: the [brand] wordmark {reason}.")
+    )
+    notes = _brand_notes(brand)
     return ProductEdl(
         kind="product",
         title=title,
         scenes=scenes,
         music=EdlMusic(mode="generate", preset="launch", seed=SEED),
-        rationale=_rationale(grid, recordings, scenes, leftout),
+        rationale=_rationale(grid, recordings, scenes, notes),
     )
 
 
@@ -149,6 +145,20 @@ def _headline(recording: ClipAnalysis) -> str:
 def _bars(grid: BeatGrid, seconds: float) -> int:
     bar_s = grid.beats_per_bar * 60 / grid.bpm
     return max(1, round(seconds / bar_s))
+
+
+def _brand_notes(brand: BrandAssets) -> list[str]:
+    notes: list[str] = []
+    if "wordmark" in brand.broken:
+        notes.append(
+            f"The [brand] wordmark {brand.broken['wordmark']}: fix it, or remove it to set the "
+            "title in type."
+        )
+    elif brand.wordmark is None:
+        notes.append("[brand] has no wordmark, so the outro sets the title in type.")
+    if "mascot" in brand.broken:
+        notes.append(f"The outro has no mascot: the [brand] mascot {brand.broken['mascot']}.")
+    return notes
 
 
 def _rationale(
