@@ -19,6 +19,7 @@ from typer.testing import CliRunner
 
 from motion_studio.cli import app
 from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.render import pipeline
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -299,6 +300,23 @@ def test_a_second_render_with_nothing_changed_is_a_no_op(demo: Path, fake_render
     assert again["noop"] is True
     assert len(calls(fake_renderer)) == 2
     assert [o["format"] for o in again["outputs"]] == ["9x16", "16x9"]
+
+
+def test_a_render_cached_under_an_older_renderer_recipe_is_composed_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    current = pipeline.RENDER_RECIPE
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current - 1)
+    render("--preview", "--format", "9x16")
+    assembled = demo / "build" / "assembled.mp4"
+    assembled_at = assembled.stat().st_mtime_ns
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current)
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
+    assert assembled.stat().st_mtime_ns == assembled_at
 
 
 def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(

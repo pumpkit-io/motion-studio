@@ -33,7 +33,7 @@ export type CaptionPage = {
 /**
  * Pages kept words for word-by-word captions. A page closes when the next word would break the
  * word, character or width cap, after a sentence end, and before a long silence. A one-word page
- * then joins or rebalances with a neighbour, unless a sentence end or long silence cuts it off.
+ * then joins or rebalances with the previous page, unless a sentence end or long silence cuts it off.
  */
 export function pageCaptions(words: readonly TimelineWord[], options: PagingOptions): CaptionPage[] {
   if (words.length === 0) return [];
@@ -88,24 +88,17 @@ export function pageCaptions(words: readonly TimelineWord[], options: PagingOpti
     return fits(merged) ? [merged] : rebalance(merged);
   };
 
-  // A lone word joins a neighbour across a break that is not hard: the previous page first, else the next.
+  // A lone word joins the previous page across a break that is not hard. It never joins the next page: a lone
+  // page closes at a cap only when it and the next word break the cap, and any join would page them together.
   // The start and end of the words count as hard, so a lone word never crosses a sentence end or silence.
   const joined: { words: TimelineWord[]; hard: boolean }[] = [];
-  for (let k = 0; k < breaks.length; k++) {
-    const current = breaks[k]!;
+  for (const current of breaks) {
     if (current.words.length === 1 && fits(current.words)) {
       const prev = joined[joined.length - 1];
       const withPrev = prev !== undefined && !prev.hard ? join(prev.words, current.words) : null;
       if (withPrev !== null) {
         joined.pop();
         joined.push(...withPrev.map((ws, i) => ({ words: ws, hard: i === withPrev.length - 1 && current.hard })));
-        continue;
-      }
-      const next = breaks[k + 1];
-      const withNext = next !== undefined && !current.hard ? join(current.words, next.words) : null;
-      if (withNext !== null) {
-        joined.push(...withNext.map((ws, i) => ({ words: ws, hard: i === withNext.length - 1 && next!.hard })));
-        k++;
         continue;
       }
     }

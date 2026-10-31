@@ -22,7 +22,6 @@ export type BundledFont = keyof typeof BUNDLED;
 /** Used when the props name no bundled font. */
 const DEFAULT_FONT: BundledFont = "TikTok Sans";
 
-/** Brand font files draw at 800. */
 const BRAND_WEIGHT = 800;
 
 export type LoadedFont = { family: string; weight: number; ready: boolean };
@@ -32,18 +31,17 @@ export type LoadedFont = { family: string; weight: number; ready: boolean };
  * offline. `ready` turns true once the font is in `document.fonts`, so text can be measured.
  */
 export function useCaptionFont(brandFamily: string, fontFile: string | null, bundled: BundledFont | null): LoadedFont {
-  const name = bundled ?? DEFAULT_FONT;
+  const name = bundled !== null && Object.hasOwn(BUNDLED, bundled) ? bundled : DEFAULT_FONT;
   const family = fontFile === null ? name : brandFamily;
   const weight = fontFile === null ? BUNDLED[name].weight : BRAND_WEIGHT;
   const [ready, setReady] = useState(false);
   // Starts loading during the first render, so loadFont's delayRender holds the first frame.
   useState(() => {
-    const { latin, latinExt } = BUNDLED[name];
     const loads =
       fontFile === null
         ? [
-            loadFont({ family, url: latin, weight: String(weight), unicodeRange: LATIN }),
-            loadFont({ family, url: latinExt, weight: String(weight), unicodeRange: LATIN_EXT }),
+            loadFont({ family, url: BUNDLED[name].latin, weight: String(weight), unicodeRange: LATIN }),
+            loadFont({ family, url: BUNDLED[name].latinExt, weight: String(weight), unicodeRange: LATIN_EXT }),
           ]
         : [loadFont({ family, url: staticFile(fontFile) })];
     void Promise.all(loads).then(() => setReady(true));
