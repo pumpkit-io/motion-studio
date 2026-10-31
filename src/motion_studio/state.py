@@ -86,6 +86,16 @@ def stage_is_fresh(
     )
 
 
+def recorded_with(project: ProjectPaths, stage: str, params: Mapping[str, Any]) -> bool:
+    """Whether the stage's last successful run had exactly these parameters."""
+    record = load_state(project).stages.get(stage)
+    return (
+        record is not None
+        and record.status == "done"
+        and record.params_hash == _params_hash(params)
+    )
+
+
 def stage_status(
     project: ProjectPaths, stage: str
 ) -> Literal["pending", "done", "stale", "failed"]:

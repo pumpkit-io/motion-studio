@@ -12,6 +12,9 @@ from typer.testing import CliRunner
 
 from motion_studio.cli import app
 from motion_studio.edl import Timeline
+from motion_studio.music import acestep
+from motion_studio.paths import project_paths
+from motion_studio.state import mark_done
 
 runner = CliRunner()
 
@@ -437,3 +440,68 @@ def test_a_library_track_is_left_as_licensed(demo: Path, library: Path) -> None:
     assert bass_over_top_db(bed[: rate * 10], rate) == pytest.approx(
         bass_over_top_db(source[: source_rate * 10], source_rate), abs=0.5
     )
+
+
+def write_pre_shaping_bed(project: Path, seconds: float, *, seed: int, accepted: int) -> Path:
+    """A generated bed as music wrote it before shaping: unshaped wav, music.json and state."""
+    length = round(seconds + 3, 3)
+    wav = project / "build" / "music.wav"
+    wav.parent.mkdir(parents=True, exist_ok=True)
+    t = np.arange(int(48000 * length)) / 48000
+    bed = eval(BASS_HEAVY, {"np": np, "t": t})
+    sf.write(str(wav), np.stack([bed, bed], axis=1), 48000, subtype="PCM_16")
+    attempts = [
+        {"seed": s, "speech_ratio": 0.0 if s == accepted else 0.9, "accepted": s == accepted}
+        for s in range(seed, accepted + 1)
+    ]
+    info = {
+        "schema_version": 1, "mode": "generate", "path": "build/music.wav",
+        "duration_s": length, "prompt": "deep house, instrumental", "seed": accepted,
+        "bpm": 120, "detected_bpm": 120.0, "model": acestep.MODEL, "beats": [0.5, 1.0],
+        "attempts": attempts, "elapsed_s": 12.0,
+    }  # fmt: skip
+    music_json = project / "build" / "music.json"
+    music_json.write_text(json.dumps(info), encoding="utf-8")
+    params = {
+        "mode": "generate", "prompt": "deep house, instrumental", "bpm": 120, "seed": seed,
+        "duration": length, "model": acestep.MODEL,
+    }  # fmt: skip
+    paths = project_paths(project.parents[1], project.name)
+    mark_done(paths, "music", [], outputs=[wav, music_json], params=params)
+    return wav
+
+
+def test_a_bed_generated_before_shaping_is_shaped_without_generating_again(
+    demo: Path, worker: Path
+) -> None:
+    set_music(demo, mode="generate", prompt="deep house, instrumental", bpm=120, seed=4)
+    wav = write_pre_shaping_bed(demo, timeline_seconds(demo), seed=4, accepted=5)
+
+    result = invoke("music", "demo", "--json")
+    again = invoke("music", "demo", "--json")
+
+    assert result.exit_code == 0, result.output
+    assert jobs(worker) == []
+    out = json.loads(result.stdout)
+    assert out["seed"] == 5
+    assert [(c["seed"], c["accepted"]) for c in out["candidates"]] == [(4, False), (5, True)]
+    shaped, rate = sf.read(str(wav))
+    assert bass_over_top_db(shaped[rate * 2 : rate * 6], rate) <= 10
+    assert json.loads(again.stdout)["fresh"] is True
+    assert jobs(worker) == []
+
+
+def test_a_pre_shaping_bed_that_is_gone_is_generated_again_with_a_notice(
+    demo: Path, worker: Path
+) -> None:
+    set_music(demo, mode="generate", prompt="deep house, instrumental", bpm=120, seed=4)
+    write_pre_shaping_bed(demo, timeline_seconds(demo), seed=4, accepted=4).unlink()
+
+    result = invoke("music", "demo")
+
+    assert result.exit_code == 0, result.output
+    assert len(jobs(worker)) == 1
+    (notice,) = [line for line in result.output.splitlines() if line.startswith("warning:")]
+    assert "before shaping" in notice
+    state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
+    assert state["stages"]["music"]["warnings"] == [notice.removeprefix("warning: ")]

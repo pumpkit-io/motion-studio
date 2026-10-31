@@ -44,6 +44,8 @@ from motion_studio.state import (
     mark_done,
     mark_failed,
     project_lock,
+    record_warning,
+    recorded_with,
     stage_is_fresh,
 )
 
@@ -395,6 +397,7 @@ def _generate(
     # An aligned bed depends on every scene, not only on its length.
     inputs = [project.edl] if align else []
     store = CandidateStore(project, key)
+    notices = _adopt_unshaped(project, store, request, length, step)
     wanted = [request.seed + i for i in range(request.candidates or 0)]
     if all(store.get(s) for s in wanted):
         fresh = _fresh_report(project, params, fit.duration_s, inputs)
@@ -465,7 +468,43 @@ def _generate(
     )
     path = _write(project, info)
     mark_done(project, STAGE, inputs, outputs=[wav, path], params=params)
-    return MusicReport(info, path, wav, fresh=False, model_loads=loads)
+    return MusicReport(info, path, wav, fresh=False, warnings=notices, model_loads=loads)
+
+
+def _adopt_unshaped(
+    project: ProjectPaths,
+    store: "CandidateStore",
+    request: Request,
+    length: float,
+    step: Callable[[str], None],
+) -> list[str]:
+    """Shape a bed generated before shaping existed, so asking for it again does not regenerate.
+
+    Before shaping, music recorded these parameters and kept the accepted generation, unshaped, as
+    `music.wav`. Returns the notice to print when that bed is gone and has to be generated again.
+    """
+    legacy = {
+        "mode": "generate",
+        "prompt": request.prompt,
+        "bpm": request.bpm,
+        "seed": request.seed,
+        "duration": length,
+        "model": acestep.MODEL,
+    }
+    if not recorded_with(project, STAGE, legacy):
+        return []
+    wav = music_wav_path(project)
+    try:
+        info = MusicInfo.model_validate_json(music_json_path(project).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        info = None
+    if info is None or info.seed is None or not wav.is_file():
+        notice = "the bed generated before shaping is gone, so it is generated again"
+        record_warning(project, STAGE, notice)
+        return [notice]
+    step("shaping the bed generated before shaping, without generating it again")
+    store.adopt(wav, info, length)
+    return []
 
 
 def _align(
@@ -577,16 +616,41 @@ class CandidateStore:
             path = shaped.relative_to(self.project.root).as_posix()
             bed = analyze_bed(shaped)
         generated.wav.unlink(missing_ok=True)
+        return self._add(seed, path, ratio, length, bed, generated.elapsed_s)
+
+    def adopt(self, unshaped: Path, info: MusicInfo, length: float) -> None:
+        """Record the attempts of a generation made before shaping, shaping its accepted bed."""
+        self.dir.mkdir(parents=True, exist_ok=True)
+        for attempt in info.attempts:
+            if not attempt.accepted:
+                self._add(attempt.seed, None, attempt.speech_ratio, length, BedAnalysis(), 0.0)
+                continue
+            shaped = shape_bed(unshaped, self.dir / f"seed-{attempt.seed}.wav")
+            path = shaped.relative_to(self.project.root).as_posix()
+            elapsed = info.elapsed_s or 0.0
+            self._add(
+                attempt.seed, path, attempt.speech_ratio, length, analyze_bed(shaped), elapsed
+            )
+
+    def _add(
+        self,
+        seed: int,
+        path: str | None,
+        ratio: float,
+        length: float,
+        bed: BedAnalysis,
+        elapsed_s: float,
+    ) -> MusicCandidate:
         candidate = MusicCandidate(
             seed=seed,
             path=path,
             speech_ratio=ratio,
-            accepted=accepted,
+            accepted=path is not None,
             duration_s=length,
             detected_bpm=bed.bpm,
             tempo_from=bed.tempo_from,
             hits=[MusicHit(**vars(h)) for h in bed.hits],
-            elapsed_s=generated.elapsed_s,
+            elapsed_s=elapsed_s,
         )
         self.index.candidates = [c for c in self.index.candidates if c.seed != seed]
         self.index.candidates.append(candidate)
