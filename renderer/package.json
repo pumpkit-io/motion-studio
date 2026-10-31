@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource/inter": "5.3.0",
+    "@fontsource/tiktok-sans": "5.3.0",
     "@remotion/captions": "4.0.538",
     "@remotion/cli": "4.0.538",
     "@remotion/fonts": "4.0.538",

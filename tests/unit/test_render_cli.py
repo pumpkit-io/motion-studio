@@ -19,6 +19,7 @@ from typer.testing import CliRunner
 
 from motion_studio.cli import app
 from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.render import pipeline
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -329,6 +330,23 @@ def test_a_second_render_with_nothing_changed_is_a_no_op(demo: Path, fake_render
     assert [o["format"] for o in again["outputs"]] == ["9x16", "16x9"]
 
 
+def test_a_render_cached_under_an_older_renderer_recipe_is_composed_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    current = pipeline.RENDER_RECIPE
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current - 1)
+    render("--preview", "--format", "9x16")
+    assembled = demo / "build" / "assembled.mp4"
+    assembled_at = assembled.stat().st_mtime_ns
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current)
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
+    assert assembled.stat().st_mtime_ns == assembled_at
+
+
 def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(
     demo: Path, fake_renderer: Path
 ) -> None:
@@ -403,25 +421,51 @@ def test_a_missing_renderer_fails_with_exit_2_and_points_at_setup(
     assert result.exit_code == 2
 
 
-def test_an_unknown_caption_font_falls_back_to_inter_with_a_warning(
+def set_caption_font(project: Path, font: str) -> None:
+    toml = project.parents[1] / "motion-studio.toml"
+    text = toml.read_text(encoding="utf-8")
+    toml.write_text(re.sub(r'(?m)^font = "[^"]*"', f'font = "{font}"', text), encoding="utf-8")
+
+
+def test_a_default_workspace_sends_the_bundled_tiktok_sans(demo: Path, fake_renderer: Path) -> None:
+    result = invoke("render", "demo", "--preview", "--format", "9x16")
+
+    assert result.exit_code == 0, result.output
+    assert "warning:" not in result.stderr
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "TikTok Sans"
+    assert props["font_file"] is None
+    assert props["timeline"]["captions"]["style"] == "clean"
+
+
+def test_inter_is_sent_as_a_bundled_font_without_a_warning(demo: Path, fake_renderer: Path) -> None:
+    set_caption_font(demo, "inter")
+
+    result = invoke("render", "demo", "--preview", "--format", "9x16")
+
+    assert result.exit_code == 0, result.output
+    assert "warning:" not in result.stderr
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "Inter"
+    assert props["font_file"] is None
+
+
+def test_an_unknown_caption_font_falls_back_to_tiktok_sans_with_a_warning(
     demo: Path, fake_renderer: Path
 ) -> None:
-    ws = demo.parents[1]
-    toml = ws / "motion-studio.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8").replace('font = "Inter"', 'font = "Montserrat"'),
-        encoding="utf-8",
-    )
+    set_caption_font(demo, "Montserrat")
 
     result = invoke("render", "demo", "--preview", "--format", "9x16")
 
     assert result.exit_code == 0, result.output
     warnings = [line for line in result.stderr.splitlines() if line.startswith("warning:")]
     assert len(warnings) == 1
-    assert "Montserrat" in warnings[0] and "Inter" in warnings[0]
+    assert "Montserrat" in warnings[0] and "TikTok Sans" in warnings[0]
     state = json.loads((demo / "state.json").read_text(encoding="utf-8"))
     assert any("Montserrat" in w for w in state["stages"]["preview"]["warnings"])
-    assert calls(fake_renderer)[0]["props"]["font_file"] is None
+    props = calls(fake_renderer)[0]["props"]
+    assert props["bundled_font"] == "TikTok Sans"
+    assert props["font_file"] is None
 
 
 def test_brand_font_and_logo_are_linked_into_the_public_dir(
@@ -432,11 +476,7 @@ def test_brand_font_and_logo_are_linked_into_the_public_dir(
     fonts.mkdir(parents=True, exist_ok=True)
     (fonts / "Montserrat-ExtraBold.ttf").write_bytes(b"font bytes")
     (ws / "library" / "brand" / "logo.png").write_bytes(b"png bytes")
-    toml = ws / "motion-studio.toml"
-    toml.write_text(
-        toml.read_text(encoding="utf-8").replace('font = "Inter"', 'font = "Montserrat"'),
-        encoding="utf-8",
-    )
+    set_caption_font(demo, "Montserrat")
 
     result = invoke("render", "demo", "--preview", "--format", "9x16")
 
@@ -445,6 +485,7 @@ def test_brand_font_and_logo_are_linked_into_the_public_dir(
     props = calls(fake_renderer)[0]["props"]
     public = demo / "build" / "public"
     assert (public / props["font_file"]).read_bytes() == b"font bytes"
+    assert props["bundled_font"] is None
     assert (public / props["logo_file"]).read_bytes() == b"png bytes"
     assert props["timeline"]["captions"]["font"].isalnum()
 

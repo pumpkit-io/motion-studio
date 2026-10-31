@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 from motion_studio.edl import Timeline
 from motion_studio.errors import InternalError
@@ -16,7 +16,11 @@ from motion_studio.render.renderer import remotion_bin
 
 FONT_SUFFIXES = (".ttf", ".otf", ".woff2", ".woff")
 FONTS_DIR = Path("library") / "brand" / "fonts"
-DEFAULT_FONT = "Inter"
+# The families the renderer bundles; the first is the fallback for a caption font that is not found.
+BundledFont = Literal["TikTok Sans", "Inter"]
+# A key is the casefolded name the config may use.
+BUNDLED_FONTS: dict[str, BundledFont] = {name.casefold(): name for name in get_args(BundledFont)}
+DEFAULT_FONT: BundledFont = get_args(BundledFont)[0]
 PREVIEW_SCALE = 0.5
 FINAL_CRF = 16
 PREVIEW_CRF = 23
@@ -30,6 +34,7 @@ class Brand:
     """The brand files a render uses; None means the renderer's built-in look."""
 
     font: Path | None
+    bundled_font: BundledFont | None
     logo: Path | None
     warnings: tuple[str, ...]
     # Product outros only; validation has checked the files exist.
@@ -43,15 +48,18 @@ class Brand:
 def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
     """Resolve the caption font and logo named in the timeline to files in the workspace.
 
-    `captions.font` is "Inter" (bundled), a font file path relative to the workspace, or a family
-    name matched against the file names in `library/brand/fonts`. A missing default logo is not
-    worth a warning: most workspaces have no logo.
+    `captions.font` is a bundled family ("TikTok Sans" or "Inter"), a font file path relative to
+    the workspace, or a family name matched against the file names in `library/brand/fonts`. A
+    missing default logo is not worth a warning: most workspaces have no logo.
     """
     warnings: list[str] = []
-    font = _find_font(timeline.captions.font, workspace)
-    if font is None and timeline.captions.font.casefold() != DEFAULT_FONT.casefold():
+    name = timeline.captions.font
+    bundled = BUNDLED_FONTS.get(name.casefold())
+    font = None if bundled else _find_font(name, workspace)
+    if bundled is None and font is None:
+        bundled = DEFAULT_FONT
         warnings.append(
-            f"caption font {timeline.captions.font!r} not found in {workspace / FONTS_DIR}; "
+            f"caption font {name!r} not found in {workspace / FONTS_DIR}; "
             f"captions use the bundled {DEFAULT_FONT}"
         )
     logo: Path | None = None
@@ -65,6 +73,7 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
     mascot = timeline.brand.mascot
     return Brand(
         font=font,
+        bundled_font=bundled,
         logo=logo,
         warnings=tuple(warnings),
         wordmark=workspace / wordmark if wordmark is not None else None,
@@ -73,8 +82,6 @@ def find_brand(timeline: Timeline, workspace: Path, default_logo: str) -> Brand:
 
 
 def _find_font(name: str, workspace: Path) -> Path | None:
-    if name.casefold() == DEFAULT_FONT.casefold():
-        return None
     if "/" in name or name.lower().endswith(FONT_SUFFIXES):
         path = workspace / name
         return path if path.is_file() else None
@@ -156,6 +163,7 @@ def product_props(timeline: Timeline, fmt: str, brand: Brand) -> dict[str, Any]:
         "timeline": data,
         "format": fmt,
         "font_file": font_file,
+        "bundled_font": brand.bundled_font,
         "logo_file": files.get("logo"),
         "wordmark_file": files.get("wordmark"),
         "mascot_file": files.get("mascot"),

@@ -17,7 +17,8 @@ const REFERENCE_WIDTH = 1920;
 /** A product video: its scenes back to back on the brand's backdrop. */
 export const Product: React.FC<ProductProps> = ({ timeline, font_file, wordmark_file, mascot_file }) => {
   const { width } = useVideoConfig();
-  const font = useCaptionFont(timeline.captions.font, font_file, [FONT_WEIGHT, TEXT_WEIGHT]);
+  // Product scenes are drawn around Inter's 800 and 500 weights, which TikTok Sans does not ship.
+  const font = useCaptionFont(timeline.captions.font, font_file, "Inter", [FONT_WEIGHT, TEXT_WEIGHT]);
   const palette = paletteOf(timeline.brand);
   const unit = width / REFERENCE_WIDTH;
   const { mascot } = timeline.brand;

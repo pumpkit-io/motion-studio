@@ -28,8 +28,8 @@ look_budget = 8               # max contact sheets per project unless the creato
 
 [captions]
 enabled = true
-style = "pop"                 # pop | clean | karaoke
-font = "Inter"                # or a path in library/brand/fonts
+style = "clean"               # clean | karaoke | pop
+font = "TikTok Sans"          # TikTok Sans or Inter (bundled), or a file in library/brand/fonts
 max_words_per_page = 3
 uppercase = false
 hide_during_broll = false     # true: no captions over full-frame B-roll or images

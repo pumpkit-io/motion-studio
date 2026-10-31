@@ -39,8 +39,10 @@ from motion_studio.state import (
 from motion_studio.target import RenderTarget
 
 DEFAULT_CONCURRENCY = 4
-# Bump when the assemble, compose or mix recipe changes, so earlier renders go stale.
-RECIPE = 2
+# Bump when the assemble recipe changes, so earlier assembled A-roll goes stale.
+ASSEMBLE_RECIPE = 2
+# Bump when the renderer's output or the mix recipe changes, so earlier renders go stale.
+RENDER_RECIPE = 3
 ASSEMBLE_RECORD = "render.assemble"
 # Bump when the share copy's encode changes: it redoes the share copies, not the finals.
 SHARE_RECIPE = 1
@@ -155,7 +157,7 @@ def render_project(
         inputs = [*assemble_inputs, *_overlay_media(project, timeline)]
         inputs += [*([music_file] if music_file is not None else []), *brand.files()]
         params = {
-            "recipe": RECIPE,
+            "recipe": RENDER_RECIPE,
             "formats": chosen,
             "music": music.model_dump(),
             "master": config.master.model_dump(),
@@ -177,7 +179,7 @@ def render_project(
                 record_warning(project, stage, message)
                 warn(message)
             if assembled is not None and not stage_is_fresh(
-                project, ASSEMBLE_RECORD, assemble_inputs, params={"recipe": RECIPE}
+                project, ASSEMBLE_RECORD, assemble_inputs, params={"recipe": ASSEMBLE_RECIPE}
             ):
                 step("assembling the A-roll cuts")
                 total = timeline.duration_frames / timeline.fps
@@ -188,7 +190,7 @@ def render_project(
                     ASSEMBLE_RECORD,
                     assemble_inputs,
                     outputs=[assembled],
-                    params={"recipe": RECIPE},
+                    params={"recipe": ASSEMBLE_RECIPE},
                 )
             public = prepare_public(project.build, assembled, timeline, project.root, brand)
             done: list[Output] = []

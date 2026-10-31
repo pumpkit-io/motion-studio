@@ -29,8 +29,8 @@ const texts = (pages: ReturnType<typeof pageCaptions>) => pages.map((p) => p.wor
 
 describe("pageCaptions", () => {
   it("caps each page at max_words_per_page", () => {
-    const pages = pageCaptions(words("one two three four five six seven"), options);
-    expect(texts(pages)).toEqual(["one two three", "four five six", "seven"]);
+    const pages = pageCaptions(words("one two three four five six seven eight"), options);
+    expect(texts(pages)).toEqual(["one two three", "four five six", "seven eight"]);
   });
 
   it("caps a page by measured width, so long Italian words page alone", () => {
@@ -85,10 +85,10 @@ describe("pageCaptions", () => {
   });
 
   it("times pages by their words and keeps word timing and emphasis", () => {
-    const pages = pageCaptions(words("uno due tre quattro", ["due"]), options);
+    const pages = pageCaptions(words("uno due tre quattro cinque", ["due"]), options);
     expect(pages[0]).toMatchObject({ startMs: 0, endMs: 1050 });
     expect(pages[0]?.words[1]).toEqual({ text: "due", fromMs: 350, toMs: 650, emphasis: true });
-    expect(pages[1]).toMatchObject({ startMs: 1050, endMs: 1350 });
+    expect(pages[1]).toMatchObject({ startMs: 1050, endMs: 1700 });
   });
 
   it("keeps a page up through a short gap but clears it during a long one", () => {
@@ -96,6 +96,65 @@ describe("pageCaptions", () => {
     ws[1] = { ...ws[1]!, start_ms: 3000, end_ms: 3300 };
     const pages = pageCaptions(ws, options);
     expect(pages[0]?.endMs).toBe(300 + 500);
+  });
+
+  it("merges a lone word that ends a sentence into the previous page", () => {
+    const pages = pageCaptions(words("Oggi ho visto tutto."), options);
+    expect(texts(pages)).toEqual(["Oggi ho", "visto tutto."]);
+  });
+
+  it("merges a lone word into a previous page that still has room", () => {
+    // Carrying "il" leaves "ab cd" one word short; carrying "di" past the character cap leaves "il" alone.
+    const pages = pageCaptions(words("ab cd il di efghijklmn"), { ...options, maxChars: 12, keepWithNext: ["il", "di"] });
+    expect(texts(pages)).toEqual(["ab cd il", "di efghijklmn"]);
+  });
+
+  it("rebalances three words and a lone word into two pages of two", () => {
+    const pages = pageCaptions(words("uno due tre quattro"), options);
+    expect(texts(pages)).toEqual(["uno due", "tre quattro"]);
+  });
+
+  it("starts a merged page at its first word and holds it as before", () => {
+    const pages = pageCaptions(words("uno due tre quattro"), options);
+    expect(pages[0]).toMatchObject({ startMs: 0, endMs: 700 });
+    expect(pages[1]).toMatchObject({ startMs: 700, endMs: 1350 });
+  });
+
+  it("keeps a lone word after a long silence off the previous page", () => {
+    const ws = words("uno due tre");
+    ws[2] = { ...ws[2]!, start_ms: 2000, end_ms: 2300 };
+    expect(texts(pageCaptions(ws, options))).toEqual(["uno due", "tre"]);
+  });
+
+  it("keeps a lone word after a sentence end off the previous page", () => {
+    expect(texts(pageCaptions(words("Ho finito. Grazie"), options))).toEqual(["Ho finito.", "Grazie"]);
+  });
+
+  it("leaves a word alone between a sentence end and a long silence", () => {
+    const ws = words("Ho finito. Allora vediamo");
+    ws[3] = { ...ws[3]!, start_ms: 3000, end_ms: 3300 };
+    expect(texts(pageCaptions(ws, options))).toEqual(["Ho finito.", "Allora", "vediamo"]);
+  });
+
+  it("keeps the character and width caps when a lone word is rebalanced", () => {
+    const chars = pageCaptions(words("aa bb cc dddddddd"), { ...options, maxChars: 14 });
+    expect(texts(chars)).toEqual(["aa bb", "cc dddddddd"]);
+    // "cc dddddddd" is 11 characters, so no split fits under 10 and the lone word stays.
+    const tight = pageCaptions(words("aa bb cc dddddddd"), { ...options, maxChars: 10 });
+    expect(texts(tight)).toEqual(["aa bb cc", "dddddddd"]);
+    const wide = pageCaptions(words("aa bb cc dddddddd"), { ...options, maxWidth: 500 });
+    expect(texts(wide)).toEqual(["aa bb cc", "dddddddd"]);
+  });
+
+  it("never ends a rebalanced page on a keep-with-next word", () => {
+    const pages = pageCaptions(words("io vedo il gatto nero"), { ...options, maxWords: 4, keepWithNext: ["il"] });
+    expect(texts(pages)).toEqual(["io vedo", "il gatto nero"]);
+  });
+
+  it("pages a single word wider than the page alone and shrinks it", () => {
+    const pages = pageCaptions(words("ciao precipitevolissimevolmente"), { ...options, maxWidth: 650 });
+    expect(texts(pages)).toEqual(["ciao", "precipitevolissimevolmente"]);
+    expect(pages[1]?.fit).toBeCloseTo(650 / (26 * 50));
   });
 
   it("returns no pages without words", () => {

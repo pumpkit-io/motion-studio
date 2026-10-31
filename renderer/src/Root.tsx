@@ -10,6 +10,7 @@ const defaultProps: ReelProps = {
   regions: {},
   video: "assembled.mp4",
   font_file: null,
+  bundled_font: "TikTok Sans",
   logo_file: null,
   timeline: {
     schema_version: 1,
@@ -25,8 +26,8 @@ const defaultProps: ReelProps = {
     formats: [{ name: "9x16", width: 1080, height: 1920, safe_zone: { top: 0.1, right: 0.12, bottom: 0.2, left: 0.05 } }],
     captions: {
       enabled: true,
-      style: "pop",
-      font: "Inter",
+      style: "clean",
+      font: "TikTok Sans",
       max_words_per_page: 3,
       max_chars_per_page: null,
       keep_with_next: [],
@@ -44,6 +45,7 @@ const defaultProps: ReelProps = {
 const productDefaults: ProductProps = {
   format: "16x9",
   font_file: null,
+  bundled_font: "Inter",
   logo_file: null,
   wordmark_file: null,
   mascot_file: null,

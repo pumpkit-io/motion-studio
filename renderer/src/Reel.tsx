@@ -11,7 +11,7 @@ import { formatOf, type ReelProps } from "./props";
 export const Reel: React.FC<ReelProps> = (props) => {
   const { timeline } = props;
   const format = formatOf(props);
-  const font = useCaptionFont(timeline.captions.font, props.font_file);
+  const font = useCaptionFont(timeline.captions.font, props.font_file, props.bundled_font);
   return (
     <AbsoluteFill style={{ backgroundColor: "black" }}>
       {timeline.runs.length > 0 ? <BaseVideo props={props} format={format} /> : null}

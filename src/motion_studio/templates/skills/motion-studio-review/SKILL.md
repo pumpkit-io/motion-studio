@@ -39,7 +39,7 @@ A product video is music only, so `check` re-transcribes nothing and reports no 
 | "start stronger" / "hook is weak" | Pick a different hook utterance; move it first |
 | "too slow" | Lower `max_pause_ms` (min 200), drop soft fillers, cut a supporting point |
 | "too choppy" | Raise `max_pause_ms` to 450–550, set `jumpcut_punch` false, fewer zooms |
-| "more dynamic" | Add zooms on numbers and punchlines, B-roll or titles every 3–4 s |
+| "more dynamic" | Add zooms on numbers and punchlines, B-roll or titles every 3–4 s. Never switch the captions to `pop` or `karaoke`: keep the caption style as it is |
 | "music too loud" | Lower music `gain_db` by 3–4 dB |
 | "different music" | New `seed` (same vibe) or new `prompt` |
 | "remove X" | Find the utterance in packed.md, then split the segment around it or leave it out |

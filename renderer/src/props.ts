@@ -1,5 +1,6 @@
 import type { CalculateMetadataFunction } from "remotion";
 import type { Regions } from "./lib/camera";
+import type { BundledFont } from "./lib/fonts";
 import type { FormatSpec, Size, Timeline } from "./lib/timeline";
 
 /** Props of the `Reel` composition: what `render/compose.py` writes to `build/props_<fmt>.json`. */
@@ -13,8 +14,10 @@ export type ReelProps = {
   regions: Regions;
   /** The assembled A-roll, relative to the public dir. */
   video: string;
-  /** Brand caption font file relative to the public dir; null loads the bundled Inter. */
+  /** Brand caption font file relative to the public dir; null loads `bundled_font`. */
   font_file: string | null;
+  /** The bundled family to load when there is no brand font file; null when there is one. */
+  bundled_font: BundledFont | null;
   /** Brand logo image relative to the public dir; null draws no logo. */
   logo_file: string | null;
 }
@@ -25,6 +28,8 @@ export type ProductProps = {
   format: FormatSpec["name"];
   /** Brand font file relative to the public dir; null loads the bundled Inter. */
   font_file: string | null;
+  /** Written for both compositions; product scenes load Inter whatever it names. */
+  bundled_font: BundledFont | null;
   /** Brand logo image relative to the public dir; null draws no logo. */
   logo_file: string | null;
   /** Brand wordmark and mascot sprite sheet relative to the public dir; null when not configured. */

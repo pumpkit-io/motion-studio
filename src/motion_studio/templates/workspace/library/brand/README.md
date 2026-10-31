@@ -1,7 +1,7 @@
 # Brand
 
 - `logo.png`: your logo, used on titles (the path is `[brand] logo` in `motion-studio.toml`).
-- `fonts/`: font files for captions and titles. Set `[captions] font` to a file here, or leave it as `Inter`.
+- `fonts/`: font files for captions and titles. Set `[captions] font` to a file here, or leave it as `TikTok Sans` (the default; `Inter` is also bundled). Product videos use Inter unless it names a file here.
 - A wordmark image (SVG or PNG), for the logo outro of product videos. Set `[brand] wordmark` to its path, such as `library/brand/wordmark.svg`.
 - A mascot sprite sheet and its frame-timing JSON, for the logo outro of product videos. Set `[brand] mascot = { sheet = "library/brand/mascot.png", timings = "library/brand/mascot.json" }`.
 
