@@ -39,6 +39,13 @@ REQUIRED_FILTERS = (
     "freezedetect",
     "arnndn",
     "colorspace",
+    # The small-speaker bed chain and the true-peak limiter in mastering.
+    "alimiter",
+    "acompressor",
+    "highpass",
+    "lowshelf",
+    "highshelf",
+    "equalizer",
 )
 # HDR tone-mapping per ADR 0003: scale_vt on macOS, zscale where present, else colorspace.
 OPTIONAL_FILTERS = ("zscale", "scale_vt", "libplacebo")

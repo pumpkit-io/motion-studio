@@ -247,3 +247,13 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | sips | sips-316 on macOS 27.0.1: `sips -s format png <in.heic> --out <out.png>` writes the raw pixels with the EXIF orientation tag kept | `sips --version`; converted a JPEG with orientation 6 to HEIC and back, read the PNG with Pillow |
 | heif-convert | `heif-convert <in> <out>` (libheif example tool) | Not verified: Homebrew libheif 1.23.1 on the build machine fails to load `libx265.216.dylib` |
 | Rich | 15.0.0: `Progress(SpinnerColumn(), TextColumn(), BarColumn(), TaskProgressColumn(), TimeElapsedColumn(), console=, transient=True)`, `add_task(description, total=None)`, `update(task, completed=, total=)`, `remove_task`, `progress.console.print` | Imported from the installed package; rendered under `script` in a pseudo-terminal |
+
+## Bed shaping and true-peak mastering (ticket #38, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| ffmpeg | 9.0.2 (Homebrew) on the build machine | `ffmpeg -version` |
+| `alimiter` | `limit` (linear, 0.0625 to 1), `attack`, `release`, `level=false` (no auto make-up gain), `latency=true` (compensates its look-ahead delay, so audio stays in sync) | `ffmpeg -h filter=alimiter` |
+| `acompressor` | `threshold` (accepts `-18dB`), `ratio`, `attack`, `release` | `ffmpeg -h filter=acompressor` |
+| `highpass`, `lowshelf`, `highshelf`, `equalizer` | `f` and `g` (dB); `equalizer` takes `t=q:w=1` | `ffmpeg -h filter=<name>`; the chain ran on the music tests' synthetic beds |
+| Oversampled limiting | `aresample=192000` before `alimiter`, `aresample=48000` after; with 0.5 dB of margin the AAC final measures under the −1.5 dBTP ceiling in `ebur128=peak=true` | `test_a_peaky_loud_mix_is_mastered_to_target_and_under_the_true_peak_ceiling` |

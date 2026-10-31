@@ -252,6 +252,34 @@ def test_the_edl_music_gain_overrides_the_config_level(demo: Path) -> None:
     assert band_level(Path(out["outputs"][0]["path"]), 440) < loud - 3
 
 
+def test_a_peaky_loud_mix_is_mastered_to_target_and_under_the_true_peak_ceiling(
+    demo: Path,
+) -> None:
+    # Full-scale clicks over a quiet tone: a fixed gain to -14 LUFS alone would push the peaks
+    # far over -1.5 dBTP, so only the limiter can bring them under.
+    clicks = "if(lt(mod(t,0.25),0.003),0.99*sin(2*PI*3000*t),0)"
+    run_ffmpeg(
+        [
+            "-y", "-f", "lavfi",
+            "-i", f"aevalsrc='0.12*sin(2*PI*220*t)+{clicks}':s=48000:d={C1.clip.duration_s}",
+            "-ac", "1", "-c:a", "pcm_s16le", demo / "media" / "c1.wav",
+        ]
+    )  # fmt: skip
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", f"aevalsrc='0.9*sin(2*PI*55*t)+{clicks}':s=48000:d=2",
+            "-ac", "2", demo / "build" / "music.wav",
+        ]
+    )  # fmt: skip
+    write_edl(demo, music={"mode": "generate", "gain_db": -6})
+
+    out = render("--final", "--format", "9x16")
+
+    integrated, peak = ebur128(Path(out["outputs"][0]["path"]))
+    assert abs(integrated + 14) <= 1
+    assert peak <= -1.5
+
+
 def band_level(path: Path, hz: int) -> float:
     """Mean dB around `hz` from 4 s to 2 s before the end of `path`."""
     lines = run_ffmpeg(

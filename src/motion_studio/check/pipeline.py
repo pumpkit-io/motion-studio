@@ -40,6 +40,10 @@ TRUE_PEAK_TOLERANCE_DB = 0.5
 FINAL_TRUE_PEAK_TOLERANCE_DB = 0.05
 # A detected stretch mostly inside an image segment is the still image, not a defect.
 INTENTIONAL_SHARE = 0.5
+# Laptop and phone speakers barely reproduce the bass, so a mix this bass-heavy sounds empty.
+SMALL_SPEAKER_DB = 10.0
+# Bass this far under the loudest band is too faint to mask anything, whatever the top does.
+AUDIBLE_BASS_DB = 30.0
 
 
 @dataclass
@@ -165,6 +169,7 @@ def _check(
         fmt: {"integrated_lufs": m.integrated_lufs, "true_peak_db": m.true_peak_db, "lra": m.lra}
         for fmt, m in measured.items()
     }
+    metrics["bands"] = {fmt: m.bands for fmt, m in measured.items()}
 
     peak_wps = _caption_density(timeline, findings)
     metrics["caption_peak_words_per_s"] = peak_wps
@@ -350,6 +355,18 @@ def _media_findings(
                 fix,
             )
         )
+    audible_bass = m.bands["below_150_hz"] >= max(m.bands.values()) - AUDIBLE_BASS_DB
+    if audible_bass and m.bass_over_top_db > SMALL_SPEAKER_DB:
+        found.append(
+            Finding(
+                "warning",
+                "small_speaker",
+                f"{fmt}: energy above 1 kHz is {m.bass_over_top_db:.1f} dB below the energy "
+                f"under 150 Hz (over {SMALL_SPEAKER_DB:g}): laptop and phone speakers will "
+                "make it sound faint",
+                _small_speaker_fix(config, edl, target, slug),
+            )
+        )
     fix = "check the B-roll's asset_in_s and duration, and the segments around it"
     for s in m.black:
         if not _intentional(s, images):
@@ -382,6 +399,16 @@ def _loudness_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> 
         return f"{rerender}; {bug}"
     gain = edl.music.gain_db if edl.music.gain_db is not None else config.music.gain_db
     return f"lower music.gain_db in edl.json (now {gain:g}) and {rerender}; {bug}"
+
+
+def _small_speaker_fix(config: Config, edl: Edl, target: RenderTarget, slug: str) -> str:
+    rerender = f"re-render with `{APP_NAME} render {slug} {target.flag}`"
+    mode = edl.music.mode or config.music.mode
+    if mode == "library":
+        return f"pick a brighter library track (music.track) and {rerender}"
+    if mode == "generate":
+        return f"ask for brighter instruments in music.prompt, run music again and {rerender}"
+    return "the voice itself is bass-heavy: check the microphone and the source audio"
 
 
 def _intentional(stretch: Stretch, images: list[tuple[float, float]]) -> bool:
@@ -503,6 +530,16 @@ def _metric_rows(metrics: dict[str, Any]) -> list[tuple[str, str]]:
                 f"loudness {fmt}",
                 f"{m['integrated_lufs']:.1f} LUFS, {m['true_peak_db']:.1f} dBTP, "
                 f"LRA {m['lra']:.1f} LU",
+            )
+        )
+    for fmt, bands in metrics["bands"].items():
+        rows.append(
+            (
+                f"bands {fmt}",
+                f"below 150 Hz {bands['below_150_hz']:.1f} dB, "
+                f"150 Hz-1 kHz {bands['150_hz_to_1_khz']:.1f} dB, "
+                f"1-5 kHz {bands['1_to_5_khz']:.1f} dB, "
+                f"above 5 kHz {bands['above_5_khz']:.1f} dB",
             )
         )
     rows.append(("clip window", f"{CLIP_WINDOW_MS} ms either side of a cut"))

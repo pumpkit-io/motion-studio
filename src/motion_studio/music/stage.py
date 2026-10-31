@@ -18,6 +18,7 @@ from motion_studio.errors import UserError
 from motion_studio.media.ffmpeg import run_ffmpeg
 from motion_studio.music import acestep, library
 from motion_studio.music.beats import detect_beats
+from motion_studio.music.shape import CHAIN, shape_bed
 from motion_studio.music.vocals import MAX_SPEECH_RATIO, speech_ratio
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.plan import MUSIC_JSON, resolve_project
@@ -181,6 +182,7 @@ def _generate(
         "seed": seed,
         "duration": length,
         "model": acestep.MODEL,
+        "shaping": CHAIN,
     }
     fresh = _fresh_report(project, params)
     if fresh is not None:
@@ -205,7 +207,8 @@ def _generate(
         accepted = ratio <= MAX_SPEECH_RATIO
         attempts.append(Attempt(seed=generated.seed, speech_ratio=ratio, accepted=accepted))
         if accepted:
-            generated.wav.replace(wav)
+            shape_bed(generated.wav, wav)
+            generated.wav.unlink(missing_ok=True)
             break
         generated.wav.unlink(missing_ok=True)
     else:

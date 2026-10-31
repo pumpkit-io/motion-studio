@@ -749,3 +749,17 @@ Checked:
 
 - New tests in `tests/unit/test_migration.py`: the command printed by the first `doctor` run adopts the cache without nesting it, and the command refuses (old cache untouched) when the new location holds a file.
 - `just lint`, `just schema-check`, `just test` and `just edl-coverage` pass.
+
+## Small-speaker bed shaping, true-peak mastering and band energy (ticket #38, spec #26)
+
+Built:
+
+- `music/shape.py`: every accepted ACE-Step bed goes through a fixed chain before it becomes `build/music.wav` (high-pass 35 Hz, low shelf −4 dB at 120 Hz, +3 dB at 3 kHz, high shelf +3 dB at 7 kHz, a 2:1 compressor from −18 dB, and a limiter at 0.95 so the boosts never clip the 16-bit WAV). The vocal check still runs on the raw generation. The chain is a stage parameter, so changing it regenerates the bed. Library tracks are only resampled, as before.
+- Mastering (`render/mix.py`) no longer uses linear loudnorm for the final pass. loudnorm's first pass measures; the mix gets one fixed gain to the target and then `alimiter` at 4x the sample rate, 0.5 dB under the true-peak ceiling. Because limiting the peaks lowers the loudness, the mastered chain is measured again and the gain corrected, at most twice, until it is within 0.3 LU. Deviation: the spec asks for one fixed gain; on a mix of full-scale clicks over a quiet tone the single gain landed 3 LU low after the limiter, so the gain is corrected by measurement (still one fixed gain in the final pass, never dynamic).
+- `check` measures each format's energy below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz and above 5 kHz (metrics `bands`, a `bands <fmt>` row in the report) and warns `small_speaker` when the energy above 1 kHz is more than 10 dB below the energy under 150 Hz. The rule skips a render whose bass is over 30 dB under its loudest band, since such bass cannot mask anything (the demo's bare 220 Hz tone would otherwise warn). It warns on every kind; blocking music-only renders belongs to the product check (#42).
+- `doctor` requires the new filters: `alimiter`, `acompressor`, `highpass`, `lowshelf`, `highshelf`, `equalizer`.
+
+Checked:
+
+- New tests: a bass-heavy generated bed comes out of `music` within the 10 dB rule and a library track keeps its balance (`test_music_cli.py`); a peaky loud mix masters within 1 LU of −14 LUFS and under −1.5 dBTP (`test_render_cli.py`); `check` reports the four bands and warns on a bass-heavy render, and stays quiet on a balanced one and on the bare-tone demo (`test_check_cli.py`).
+- `just lint`, `just schema-check`, `just test` (405 Python, 42 vitest) and `just edl-coverage` (99.88%) pass. Local-only: `tests/integration/test_render_fixtures.py` and `test_check_fixtures.py` pass on the build machine after `just fixtures` (8 passed, 2 skipped). `test_music_generate.py` (`music`) could not run: the cached ACE-Step environment fails with `No module named 'acestep.handler'` before generating, so `setup --music` needs re-running there. `just e2e` not run.
