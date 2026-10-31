@@ -79,7 +79,7 @@ $ motion-studio doctor [OPTIONS]
 * `--json`: Print machine-readable JSON.
 * `--help`: Show this message and exit.
 
-Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the command that adopts it, the same `mv` or `export` as `setup` prints (doctor never moves it).
+Each line is `ok`, `warn` or `missing` with a suggested fix. Free disk below 20 GB (`MOTION_STUDIO_MIN_FREE_GB` changes the threshold) is a warning here; ingest, music and render refuse to start below it. The `heic decoder` line warns when neither `sips` nor `heif-convert` is there, since ingest then skips HEIC photos. An `old cache` line warns when the cache from before the rename is still there (the same lookup as `setup`) and the new one holds no files apart from empty lock files; its fix is the command that adopts it, the same `mv` or `export` as `setup` prints (doctor never moves it). The `vhs` and `ttyd` lines warn when either is missing, since only `record terminal` needs them; the fix is `brew install vhs` (which brings ttyd) with a warning that Homebrew may upgrade ffmpeg too, and doctor never runs it, not even with `--fix`.
 
 `--fix` runs the installs the build guide calls safe: when the renderer, the speech or face models or DeepFilterNet are missing, it runs the same downloads as plain `setup`, then prints the checks again. It never runs brew, apt or npm for system tools such as ffmpeg and node, and never fetches ACE-Step (`setup --music`); their fixes stay on their lines. With `--json` the result also carries `fixed` (what it installed) and `fix_error`.
 
@@ -258,6 +258,64 @@ A target is a CSS or Playwright selector string, a Playwright `Locator`, or a bo
 ```console
 $ motion-studio record web launch takes/brief.mjs
 $ motion-studio record web launch takes/brief.mjs --name brief-take2
+```
+
+## `motion-studio record terminal`
+
+Run a vhs tape in a clean shell; write raw/<name>.mp4 and its markers.
+
+```console
+$ motion-studio record terminal [OPTIONS] {slug} {tape}
+```
+
+* `slug`: Project slug: lowercase letters, digits, hyphens.  [required]
+* `tape`: vhs tape (.tape), with Launch and Mark lines.  [required]
+* `--name <str>`: Clip name in raw/; defaults to the tape's file name.
+* `--size <str>`: Terminal frame, WIDTHxHEIGHT, both even.  [default: 1600x900]
+* `--cwd <path>`: Folder the shell starts in; defaults to the tape's folder.
+* `--json`: Print machine-readable JSON.
+* `--help`: Show this message and exit.
+
+For product projects only; a talk project exits 1. It records a real CLI session, such as Claude Code using an MCP server, from a [vhs](https://github.com/charmbracelet/vhs) tape. Like a recording script, the tape drives the creator's product, so writing it does not break the rule that the agent edits data. The recorder wraps the tape in one it generates:
+
+1. Its own `Output`, `Set Shell bash`, `Set Width`/`Height` from `--size` and `Set Framerate 30`, then the tape's leading `Set` and `Require` lines.
+2. A hidden preamble. The shell starts in `--cwd` with every inherited `CLAUDE*` variable, `VIRTUAL_ENV` and `PROMPT_COMMAND` removed (and unset again in the shell), a plain `❯ ` prompt and a cleared screen.
+3. The `Launch` command, also hidden: the recorder puts a wrapper named after the command first on `PATH`, so the screen shows only `❯ claude`, never the arguments, paths or keys. For `claude` it waits 7 s, accepts the folder-trust prompt (which focuses "No, exit") with Down and Enter, and waits 5 s more; in an already trusted folder those keys do nothing. Any other command gets 2 s.
+4. The rest of the tape, on camera.
+
+vhs writes the terminal's frames and the recorder encodes them unscaled into `raw/<name>.mp4`: 30 fps constant frame rate, H.264 CRF 12, the terminal centred on a `--size` frame filled with the theme's background. vhs's own video settings (`WindowBar`, `Margin`, `BorderRadius`) do not apply; the renderer's terminal device frame draws the window. The markers sidecar `raw/<name>.markers.json` (see [the markers sidecar](#the-markers-sidecar)) has the frame size and one marker per `Mark` line, timed to the frame on screen when vhs reached it, with no element boxes and no cursor track. Run `ingest` next.
+
+The tape is ordinary vhs, plus two lines the recorder consumes:
+
+| Line | What it does |
+|---|---|
+| `Launch <command> [args...]` | Start the command in the hidden preamble through a short wrapper. At most one, before every command but `Set` and `Require`. A command with a `/` and any argument naming an existing file are relative to the tape's folder and passed as absolute paths; a bare command is looked up on `PATH`. |
+| `Mark <name>` | Record marker `name` at this point of the tape. Names are unique and use letters, digits, `_` and `-`, so `Mark v1_shown` becomes `c2.m.v1_shown`. A `Mark` between `Hide` and `Show` exits 1. |
+
+```
+# takes/terminal.tape
+Set FontSize 24
+Set Theme "Catppuccin Mocha"
+Set TypingSpeed 28ms
+Launch claude --strict-mcp-config --mcp-config demo-kit/own-mcp.json --allowedTools 'mcp__pumpkit__*'
+Mark ready
+Type "Write a post with pumpkit: ship it in a week"
+Enter
+Mark brief_sent
+Sleep 50s
+Mark v1_shown
+Type "Make the hook punchier"
+Enter
+Sleep 50s
+Mark v2_shown
+```
+
+Keep keys in files passed by path, such as an MCP config for `--mcp-config`; the path stays inside the wrapper. Claude Code shows the folder it runs in, so pass a `--cwd` with a clean name (not a scratchpad). Use fixed `Sleep`s for model calls rather than `Wait`, whose screen regexes break as the output scrolls; the edit cuts the waits at the markers. `Mark` and `Launch` only work in the tape itself, not in a `Source`d one.
+
+The tape's own `Output`, or a `Set` of `Shell`, `Framerate`, `Width` or `Height`, exits 1 naming the line, as do a bad `Mark` or `Launch` and anything `vhs validate` rejects (with its message, on the tape's line numbers). A tape that fails while running exits 1 with vhs's output, and an existing clip exits 1 as for `record web`; nothing is added to `raw/`. Missing `vhs` or `ttyd` exits 2 naming them with the install line; `doctor` lists both and never installs them, since Homebrew's `brew install vhs` can upgrade ffmpeg as a side effect. Recording refuses to start while another command holds a heavy model, as `record web` does.
+
+```console
+$ motion-studio record terminal launch takes/terminal.tape --cwd ~/pumpkit-demo
 ```
 
 ## Ingest and analysis

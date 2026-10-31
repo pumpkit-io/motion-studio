@@ -273,3 +273,17 @@ Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same
 | Loading Playwright | `createRequire(<install>/package.json)('playwright')` from the shipped runner, since ES module imports ignore `NODE_PATH` | `record web` on the fixture page |
 | CDP screencast | `Page.startScreencast {format: 'jpeg', quality, maxWidth, maxHeight, everyNthFrame: 1}`; each `Page.screencastFrame` must be acked with `Page.screencastFrameAck {sessionId}`. Frames come at the CSS viewport size (1600x900 with `deviceScaleFactor: 1`), only when the page changes, and `metadata.timestamp` is wall-clock seconds, the clock of Node's `Date.now()` | Fixture recording: frame size read from the JPEG, and the frame showing a click's result falls between the press and the next marker |
 | Constant frame rate | Each 1/30 s output frame hard-links the last screencast frame sent by then, and ffmpeg encodes the sequence with `-framerate 30`. The concat demuxer with per-frame `duration` lines gave 12% more frames than the take's length on ffmpeg 9.0.2, so it is not used | `ffprobe -count_frames` on both variants |
+
+## Terminal recording (ticket #43, 2026-10-31)
+
+| Item | Value | How checked |
+|---|---|---|
+| vhs | 0.12.1 (Homebrew, `/opt/homebrew/bin/vhs`); not installed by motion-studio. Homebrew's formula depends on ffmpeg, and installing it once upgraded ffmpeg to a build without `drawtext` (motion-studio does not use `drawtext`) | `vhs --version`; `tests/integration/test_record_terminal.py` |
+| ttyd | 1.7.7 (Homebrew); vhs starts it to drive the shell | `ttyd --version` |
+| Frames output | `Output "<dir>/"` (a path ending in `/`) leaves `frame-text-%05d.png` (opaque, the theme background) and `frame-cursor-%05d.png` (transparent) per captured frame, numbered from 1 at the first visible frame, at the terminal canvas size (1455x756 for 1600x900 with the default padding). No video is encoded. vhs's own mp4 scales the canvas down, pads it, encodes CRF 20 and overlays a 25 fps colour source, so its clips come out at 25 fps; that is why it is not used | Listed the directory; `ffprobe` on vhs's mp4 |
+| Capture rate | Frames are captured while shown at about the `Set Framerate` rate (29.7 and 28.6 per wall-clock second over 2.5 s and 3.5 s at 30), and hidden time captures nothing | Frame indices against command timestamps on vhs's stdout |
+| Screenshot timing | `Screenshot <path>` captures from the next shown frame and renders it after the take with `ffmpeg -i <tmp>/frame-text-<n>.png ... <path>`; a Screenshot while hidden takes the first frame after `Show`. The recorder's `ffmpeg` shim on `PATH` logs `<n>` for each `Mark` instead of rendering | `ffmpeg` argument log from a shim |
+| Env and shell | vhs passes its environment through ttyd to the shell; `Set Shell bash` starts bash without startup files | `env` printed on camera in a test tape |
+| Claude Code trust prompt | 2.1.316: the folder-trust dialog lists "No, exit" first and focuses it, with hidden indexes ("Yes, I trust this folder" second), so Down then Enter accepts | Strings in the Claude Code binary; matches the launch video session |
+| `vhs validate <tape>` | Exits 1 with `<line> │ <text>` and `Invalid command: <word>` per error | Ran on a tape with a typo |
+| tesseract (tests only) | 5.5.0 (Homebrew), reads the take's stills in `test_record_terminal.py` | `tesseract --version` |

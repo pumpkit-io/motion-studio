@@ -17,6 +17,7 @@ motion-studio is a deterministic CLI that a coding agent drives. The agent makes
 
 ```
 recording script ──record web──► raw/<name>.mp4 + raw/<name>.markers.json   (product projects)
+vhs tape ──record terminal──► raw/<name>.mp4 + raw/<name>.markers.json   (product projects)
 
 raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz voice), <id>_16k.wav
                     │
@@ -60,7 +61,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `media/` | ffmpeg and ffprobe as argument lists (never shell strings), probing the installed ffmpeg's filters and options, mezzanine normalisation, frame reading. |
 | `audio/` | Voice extraction and denoising: DeepFilterNet, or ffmpeg `arnndn` with a vendored model as the fallback. |
 | `ingest.py` | Clip IDs, provisional roles, mezzanines, enhanced audio, image normalisation, `media/manifest.json`; in product projects, screen recordings and their 1 fps contact sheets. |
-| `record/` | `record web`: the shipped Node runner and helper library (`record/node/`) run the agent's recording script in headless Chromium and leave CDP screencast frames, markers and the cursor track; Python lays the frames on a 30 fps grid, encodes `raw/<name>.mp4` and writes its markers sidecar. Installs the pinned Playwright for `setup --record`. |
+| `record/` | `record web`: the shipped Node runner and helper library (`record/node/`) run the agent's recording script in headless Chromium and leave CDP screencast frames, markers and the cursor track; Python lays the frames on a 30 fps grid, encodes `raw/<name>.mp4` and writes its markers sidecar. `record terminal` (`record/terminal.py`): wraps the agent's vhs tape in a hidden preamble (clean env and prompt, `Launch` through a wrapper, the Claude Code trust prompt), turns `Mark` lines into screenshots whose frame numbers an `ffmpeg` shim logs, and encodes vhs's frames unscaled. `record/take.py` holds what both share: the checks, the scratch directory and the move into `raw/`. Installs the pinned Playwright for `setup --record`. |
 | `asr/` | Silero VAD, the `ASRBackend` protocol with `mlx-whisper` and `faster-whisper`, and the worker subprocess. |
 | `vision/` | Shot and motion detection in-process; face detection (MediaPipe, YuNet fallback) in a worker subprocess. |
 | `analysis/` | Pure functions over transcripts and spans: filler tagging, utterances, pauses, unaligned voice, retake clusters, role finalisation, and the packers that write `packed.md` and `assets.md`. |
@@ -86,7 +87,7 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 |---|---|---|---|---|
 | Config | `motion_studio.config.Config` | `schemas/config.schema.json` | the creator | every stage |
 | Clip analysis | `motion_studio.analysis.models.ClipAnalysis` | `schemas/analysis.schema.json` | analyze | plan, look, check |
-| Markers sidecar | `motion_studio.analysis.models.ScreenMarkers` | `schemas/markers.schema.json` | the recorders (`record web`), or the creator by hand (`raw/<name>.markers.json`) | analyze, into `analysis/<id>.json` |
+| Markers sidecar | `motion_studio.analysis.models.ScreenMarkers` | `schemas/markers.schema.json` | the recorders (`record web`, `record terminal`), or the creator by hand (`raw/<name>.markers.json`) | analyze, into `analysis/<id>.json` |
 | EDL | `motion_studio.edl.models.Edl` | `schemas/edl.schema.json` | the host agent (`plan draft` for the baseline) | plan validate |
 | Timeline | `motion_studio.edl.models.Timeline` | `schemas/timeline.schema.json`, `renderer/src/types.gen.ts` | plan validate | render, the renderer, check |
 | Music bed | `motion_studio.music.stage.MusicInfo` | `schemas/music.schema.json` | music | plan validate, the host agent |
@@ -109,7 +110,7 @@ Each stage records its inputs' fingerprints (path and SHA-256 of the content), i
 
 ## Testing seams
 
-- The `motion-studio` CLI on a fixture workspace: integration and e2e tests with the markers `slow`, `mac`, `models`, `renderer`, `music` and `record`, run locally (`just test-all`, `just e2e`). `record web` is tested end to end on a static HTML page (`tests/fixtures/record/`).
+- The `motion-studio` CLI on a fixture workspace: integration and e2e tests with the markers `slow`, `mac`, `models`, `renderer`, `music` and `record`, run locally (`just test-all`, `just e2e`). `record web` is tested end to end on a static HTML page and `record terminal` on a tape that launches a stand-in Claude Code (`tests/fixtures/record/`).
 - The resolver: example and property tests, in CI.
 - The renderer's pure libraries (camera transform, caption paging): vitest, in CI.
 - The pure analysers, through `analyse_transcript`, `find_retakes` and `pack_project`, with constructed transcripts, in CI.

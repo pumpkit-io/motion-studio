@@ -1,7 +1,8 @@
-"""The pinned Playwright and its headless Chromium in the cache, for `record web`.
+"""The recorders' dependencies: Playwright for `record web`, vhs and ttyd for `record terminal`.
 
-`setup --record` installs them into `<cache>/recorder/playwright-<version>/`; recording finds
-them there and exits 2 with the `setup --record` hint when they are missing.
+`setup --record` installs the pinned Playwright and its headless Chromium into
+`<cache>/recorder/playwright-<version>/`; recording finds them there and exits 2 with the
+`setup --record` hint when they are missing. vhs and ttyd are system tools nothing installs.
 """
 
 import json
@@ -19,6 +20,12 @@ NODE_DIR = Path(__file__).parent / "node"
 MARKER = ".installed"
 INSTALL_TIMEOUT_S = 1800
 SETUP_HINT = f"run `{APP_NAME} setup --record` once while online"
+TERMINAL_TOOLS = ("vhs", "ttyd")
+# Homebrew's vhs formula depends on ffmpeg, so installing it can replace the ffmpeg build.
+TERMINAL_HINT = (
+    "brew install vhs (it brings ttyd); Homebrew may upgrade ffmpeg as a side effect,"
+    f" so run `{APP_NAME} doctor` again afterwards"
+)
 
 
 def playwright_version() -> str:
@@ -60,6 +67,19 @@ def find_recorder() -> Path:
             hint=SETUP_HINT,
         )
     return root
+
+
+def terminal_tools() -> dict[str, str]:
+    """The paths of vhs and ttyd; exits 2 naming whichever is missing."""
+    found = {tool: shutil.which(tool) for tool in TERMINAL_TOOLS}
+    missing = [tool for tool, path in found.items() if path is None]
+    if missing:
+        raise DependencyError(
+            f"{' and '.join(missing)} not found on PATH; `record terminal` runs the tape with vhs,"
+            " which drives the shell through ttyd",
+            hint=TERMINAL_HINT,
+        )
+    return {tool: path for tool, path in found.items() if path is not None}
 
 
 def browser_env(root: Path) -> dict[str, str]:
