@@ -7,9 +7,9 @@ import pytest
 from conftest import FakeTools
 from test_doctor_cli import FILTERS, check, doctor_json, fake_ffmpeg, fake_node
 
-from reelcut import __version__
-from reelcut.errors import DependencyError
-from reelcut.render.renderer import install_renderer
+from motion_studio import __version__
+from motion_studio.errors import DependencyError
+from motion_studio.render.renderer import install_renderer
 
 # `npm ci` lays down a remotion binary that logs its arguments, and the remotion package.json.
 FAKE_NPM = """
@@ -49,7 +49,7 @@ def test_install_copies_the_renderer_runs_npm_ci_and_fetches_the_browser(
 
     assert root == isolated_cache / "renderer" / __version__
     assert (root / "src" / "index.ts").is_file()
-    assert json.loads((root / "package.json").read_text())["name"] == "reelcut-renderer"
+    assert json.loads((root / "package.json").read_text())["name"] == "motion-studio-renderer"
     assert (root / "browser.log").read_text() == "browser ensure"
     assert not root.with_name(root.name + ".partial").exists()
 

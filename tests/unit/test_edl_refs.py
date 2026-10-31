@@ -3,8 +3,8 @@
 import pytest
 from edl_fixtures import asset, clip, edl
 
-from reelcut.config import Config
-from reelcut.edl import EdlError, resolve
+from motion_studio.config import Config
+from motion_studio.edl import EdlError, resolve
 
 C1 = clip("c1", "Hello there world.", "Second line here.", "Third and last.")
 C2 = clip("c2", "Another clip speaking.")

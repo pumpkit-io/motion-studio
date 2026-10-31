@@ -1,4 +1,4 @@
-"""`reelcut setup` against the real cache: every download is present afterwards."""
+"""`motion-studio setup` against the real cache: every download is present afterwards."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.cli import app
+from motion_studio.cli import app
 
 pytestmark = [pytest.mark.slow, pytest.mark.models]
 

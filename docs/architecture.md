@@ -1,6 +1,6 @@
 # Architecture
 
-reelcut is a deterministic CLI that a coding agent drives. The agent makes every editorial choice by writing `edl.json`; reelcut turns footage into text the agent can read and renders the edit it describes. reelcut never calls a language model (ADR 0001) and never sends anything over the network after `setup`. Terms used here are defined in `GLOSSARY.md`.
+motion-studio is a deterministic CLI that a coding agent drives. The agent makes every editorial choice by writing `edl.json`; motion-studio turns footage into text the agent can read and renders the edit it describes. motion-studio never calls a language model (ADR 0001) and never sends anything over the network after `setup`. Terms used here are defined in `GLOSSARY.md`.
 
 ## Principles
 
@@ -23,7 +23,7 @@ raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz
                     │        analysis/packed.md   the agent's index
                     │        analysis/assets.md   B-roll and image catalogue, contact/<id>.png
                     │
-   host agent ◄─────┤  reads packed.md; runs `reelcut words`, `reelcut look` when needed
+   host agent ◄─────┤  reads packed.md; runs `motion-studio words`, `motion-studio look` when needed
        │
        └─writes──► edl.json ──plan validate──► build/timeline.json (frames, output time)
                                      │
@@ -41,15 +41,16 @@ raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz
 
 ## Modules
 
-Python lives in `src/reelcut/`, the renderer in `renderer/`.
+Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 
 | Module | Responsibility |
 |---|---|
-| `cli/` | Typer app, one module per command group. `_output.emit` prints the human summary or the `--json` object; the group class maps `ReelcutError` subclasses to exit codes 1, 2 and 3. |
+| `cli/` | Typer app, one module per command group. `_output.emit` prints the human summary or the `--json` object; the group class maps `MotionStudioError` subclasses to exit codes 1, 2 and 3. |
 | `errors.py` | `UserError` (1), `DependencyError` (2), `InternalError` (3), each with a hint. |
-| `config.py` | The `Config` model and `load_config`: built-in defaults < `reelcut.toml` < `project.toml` < the EDL's `policy` (which may override `[edit]` only). |
-| `paths.py` | Finds the workspace, resolves a project's directories, and locates the cache (`~/Library/Caches/reelcut` on macOS). |
+| `config.py` | The `Config` model and `load_config`: built-in defaults < `motion-studio.toml` < `project.toml` < the EDL's `policy` (which may override `[edit]` only). |
+| `paths.py` | Finds the workspace, resolves a project's directories, and locates the cache (`~/Library/Caches/motion-studio` on macOS). |
 | `state.py` | `state.json`: per-stage status, input fingerprints and warnings; the per-project lock; the machine-wide heavy-model lock in the cache; the free-disk guard. |
+| `migrate.py` | Recognises what the previous name left behind: `agents sync` migrates old workspaces, `doctor` and `setup` print the `mv` for the old cache, and old environment variables warn. The only module that keeps the previous name. |
 | `workspace.py` | `init`, `new`, `status`, `clean`, and copying the workspace template. |
 | `doctor.py`, `setup.py` | Machine checks, and one-time downloads into the cache. |
 | `media/` | ffmpeg and ffprobe as argument lists (never shell strings), probing the installed ffmpeg's filters and options, mezzanine normalisation, frame reading. |
@@ -68,28 +69,28 @@ Python lives in `src/reelcut/`, the renderer in `renderer/`.
 | `check/` | Re-transcription and diff near cuts, loudness, black and frozen frames, duration, caption density, the cut stills, and the report. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
 | `templates/` | The workspace template and the five skills. |
-| `reference/edl.md` | The EDL reference printed by `reelcut docs edl` (`docs/edl.md` links to it). |
+| `reference/edl.md` | The EDL reference printed by `motion-studio docs edl` (`docs/edl.md` links to it). |
 
 ## The resolver
 
-`reelcut.edl.resolve(clips, edl, config, beats=None) -> Resolution` is a pure function from the analysis, the EDL and the effective config to a `Timeline`. It expands segment references to word spans, applies drops and keeps, removes fillers per the policy, splits segments into runs at removed words and long pauses, pads and tightens the edges, drops runs shorter than `min_segment_ms` with a warning, aligns every edge to the output frame grid, frames each run on the median face position, alternates punch-in scale across jump cuts, anchors events to the words that survive, and snaps B-roll and image starts to beats within 80 ms. Speech cuts never move to a beat. Errors and warnings are `Issue` objects with a code, a message and a fix in EDL terms. It is the most heavily tested module: example tests, Hypothesis property tests, and a 95% line-coverage gate in CI (`just edl-coverage`).
+`motion_studio.edl.resolve(clips, edl, config, beats=None) -> Resolution` is a pure function from the analysis, the EDL and the effective config to a `Timeline`. It expands segment references to word spans, applies drops and keeps, removes fillers per the policy, splits segments into runs at removed words and long pauses, pads and tightens the edges, drops runs shorter than `min_segment_ms` with a warning, aligns every edge to the output frame grid, frames each run on the median face position, alternates punch-in scale across jump cuts, anchors events to the words that survive, and snaps B-roll and image starts to beats within 80 ms. Speech cuts never move to a beat. Errors and warnings are `Issue` objects with a code, a message and a fix in EDL terms. It is the most heavily tested module: example tests, Hypothesis property tests, and a 95% line-coverage gate in CI (`just edl-coverage`).
 
 ## Contracts
 
 | Contract | Model | Schema | Written by | Read by |
 |---|---|---|---|---|
-| Config | `reelcut.config.Config` | `schemas/config.schema.json` | the creator | every stage |
-| Clip analysis | `reelcut.analysis.models.ClipAnalysis` | `schemas/analysis.schema.json` | analyze | plan, look, check |
-| EDL | `reelcut.edl.models.Edl` | `schemas/edl.schema.json` | the host agent (`plan draft` for the baseline) | plan validate |
-| Timeline | `reelcut.edl.models.Timeline` | `schemas/timeline.schema.json`, `renderer/src/types.gen.ts` | plan validate | render, the renderer, check |
+| Config | `motion_studio.config.Config` | `schemas/config.schema.json` | the creator | every stage |
+| Clip analysis | `motion_studio.analysis.models.ClipAnalysis` | `schemas/analysis.schema.json` | analyze | plan, look, check |
+| EDL | `motion_studio.edl.models.Edl` | `schemas/edl.schema.json` | the host agent (`plan draft` for the baseline) | plan validate |
+| Timeline | `motion_studio.edl.models.Timeline` | `schemas/timeline.schema.json`, `renderer/src/types.gen.ts` | plan validate | render, the renderer, check |
 
-`just schema` regenerates the schemas and the TypeScript types; `just schema-check` (in CI) fails when the committed copies are stale. Every contract carries `schema_version: 1`. `media/manifest.json`, `analysis/retakes.json` and `build/music.json` are Pydantic models too, read only by reelcut, with no published schema.
+`just schema` regenerates the schemas and the TypeScript types; `just schema-check` (in CI) fails when the committed copies are stale. Every contract carries `schema_version: 1`. `media/manifest.json`, `analysis/retakes.json` and `build/music.json` are Pydantic models too, read only by motion-studio, with no published schema.
 
 ## Processes and memory
 
-Heavy models never load in the CLI process. `asr.transcribe_clips`, `vision.detect_faces` and the music client each start a worker (`python -m reelcut.asr.worker`, `python -m reelcut.vision.worker`, and the ACE-Step environment's Python running `music/acestep_worker.py`), exchange JSON over stdin and stdout, and hold `heavy_model_lock` in the cache directory while it runs. The lock is a file lock, so two projects, or two terminals, never hold a transcriber and a music model in memory at once. On the build machine (18 GB) peak worker memory was about 0.9 GB for mlx-whisper, 2.3 GB for faster-whisper and 1.8 GB for ACE-Step plus its unified-memory use.
+Heavy models never load in the CLI process. `asr.transcribe_clips`, `vision.detect_faces` and the music client each start a worker (`python -m motion_studio.asr.worker`, `python -m motion_studio.vision.worker`, and the ACE-Step environment's Python running `music/acestep_worker.py`), exchange JSON over stdin and stdout, and hold `heavy_model_lock` in the cache directory while it runs. The lock is a file lock, so two projects, or two terminals, never hold a transcriber and a music model in memory at once. On the build machine (18 GB) peak worker memory was about 0.9 GB for mlx-whisper, 2.3 GB for faster-whisper and 1.8 GB for ACE-Step plus its unified-memory use.
 
-ACE-Step runs from its own uv environment in `<cache>/envs/ace-step`, so its PyTorch and other pins never meet reelcut's.
+ACE-Step runs from its own uv environment in `<cache>/envs/ace-step`, so its PyTorch and other pins never meet motion-studio's.
 
 ## Rendering
 
@@ -101,7 +102,7 @@ Each stage records its inputs' fingerprints (path and SHA-256 of the content), i
 
 ## Testing seams
 
-- The `reelcut` CLI on a fixture workspace: integration and e2e tests with the markers `slow`, `mac`, `models`, `renderer` and `music`, run locally (`just test-all`, `just e2e`).
+- The `motion-studio` CLI on a fixture workspace: integration and e2e tests with the markers `slow`, `mac`, `models`, `renderer` and `music`, run locally (`just test-all`, `just e2e`).
 - The resolver: example and property tests, in CI.
 - The renderer's pure libraries (camera transform, caption paging): vitest, in CI.
 - The pure analysers, through `analyse_transcript`, `find_retakes` and `pack_project`, with constructed transcripts, in CI.

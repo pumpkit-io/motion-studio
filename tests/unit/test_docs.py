@@ -11,12 +11,14 @@ import typer
 from typer._click import Command
 from typer.core import TyperGroup
 
-from reelcut import APP_NAME
-from reelcut.cli import app
+from motion_studio import APP_NAME
+from motion_studio.cli import app
+from motion_studio.migrate import OLD_APP_NAME
 
 REPO = Path(__file__).resolve().parents[2]
 CLI_DOC = REPO / "docs" / "cli.md"
 RENAMING_DOC = REPO / "docs" / "renaming.md"
+OLD_NAME_HEADING = "\n## Where the previous name stays\n"
 
 
 def leaf_commands(group: TyperGroup, prefix: tuple[str, ...] = ()) -> list[tuple[str, Command]]:
@@ -56,8 +58,8 @@ def test_every_command_and_option_is_in_the_cli_reference() -> None:
 
 
 def checklist_entries() -> list[str]:
-    """The path or pattern that opens each `- ` item of docs/renaming.md."""
-    text = RENAMING_DOC.read_text(encoding="utf-8")
+    """The path or pattern that opens each `- ` item of docs/renaming.md, old-name ones aside."""
+    text = RENAMING_DOC.read_text(encoding="utf-8").split(OLD_NAME_HEADING, 1)[0]
     return re.findall(r"^- `([^`]+)`", text, flags=re.M)
 
 
@@ -72,8 +74,10 @@ def git_lines(*args: str) -> list[str]:
 def named_files() -> list[str]:
     if shutil.which("git") is None or not (REPO / ".git").exists():
         pytest.skip("needs a git checkout")
-    by_content = git_lines("grep", "-l", "-i", APP_NAME)
-    by_path = [p for p in git_lines("ls-files") if APP_NAME in p.lower()]
+    # The import package spells the name with an underscore, which `-` in APP_NAME does not match.
+    names = (APP_NAME, APP_NAME.replace("-", "_"))
+    by_content = git_lines("grep", "-l", "-i", *(arg for n in names for arg in ("-e", n)))
+    by_path = [p for p in git_lines("ls-files") if any(n in p.lower() for n in names)]
     return sorted(set(by_content) | set(by_path))
 
 
@@ -90,4 +94,28 @@ def test_renaming_checklist_covers_every_file_that_names_the_product(
 def test_renaming_checklist_has_no_stale_entries(named_files: list[str]) -> None:
     stale = [e for e in checklist_entries() if not any(fnmatchcase(f, e) for f in named_files)]
 
+    assert not stale
+
+
+def old_name_entries() -> list[str]:
+    """The entries under the renaming doc's section on where the previous name stays."""
+    text = RENAMING_DOC.read_text(encoding="utf-8")
+    section = text.split(OLD_NAME_HEADING, 1)[1].split("\n## ", 1)[0]
+    return re.findall(r"^- `([^`]+)`", section, flags=re.M)
+
+
+def test_the_previous_name_appears_only_where_the_renaming_doc_allows() -> None:
+    if shutil.which("git") is None or not (REPO / ".git").exists():
+        pytest.skip("needs a git checkout")
+    entries = old_name_entries()
+    by_content = git_lines("grep", "-l", "-i", "-e", OLD_APP_NAME)
+    by_path = [p for p in git_lines("ls-files") if OLD_APP_NAME in p.lower()]
+
+    named = sorted({*by_content, *by_path})
+
+    stray = [f for f in named if not any(fnmatchcase(f, e) for e in entries)]
+    stale = [e for e in entries if not any(fnmatchcase(f, e) for f in named)]
+
+    assert entries
+    assert not stray
     assert not stale

@@ -1,4 +1,4 @@
-"""`reelcut check` on a rendered demo project, with stand-ins for Remotion and the ASR worker.
+"""`motion-studio check` on a rendered demo project, with stand-ins for Remotion and the ASR worker.
 
 The ASR stand-in returns the words a test scripts, so these tests drive the diff, the report
 and the exit code; tests/integration/test_check_fixtures.py re-transcribes with the real model.
@@ -17,7 +17,7 @@ import pytest
 from PIL import Image
 from test_render_cli import demo, fake_renderer, invoke, render, timeline, write_edl
 
-from reelcut.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
 
 __all__ = ["demo", "fake_renderer"]
 
@@ -46,7 +46,7 @@ print(json.dumps({"pid": os.getpid(), "peak_rss_mb": 1.0, "results": results}))
 @pytest.fixture(autouse=True)
 def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     # CI runners have less free disk than the 20 GB render guard.
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def asr(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     worker.write_text(f"#!{sys.executable}\n{textwrap.dedent(FAKE_WORKER)}", encoding="utf-8")
     worker.chmod(worker.stat().st_mode | stat.S_IEXEC)
     script = tmp_path / "heard.json"
-    monkeypatch.setenv("REELCUT_ASR_WORKER", str(worker))
+    monkeypatch.setenv("MOTION_STUDIO_ASR_WORKER", str(worker))
     monkeypatch.setenv("FAKE_ASR_SCRIPT", str(script))
     monkeypatch.setenv("FAKE_ASR_LOG", str(script.with_suffix(".log")))
     return script

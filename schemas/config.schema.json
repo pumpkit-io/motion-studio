@@ -288,7 +288,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "The effective config; every key in reelcut.toml can be overridden in project.toml.",
+  "description": "The effective config; every key in motion-studio.toml can be overridden in project.toml.",
   "properties": {
     "asr": {
       "$ref": "#/$defs/Asr"

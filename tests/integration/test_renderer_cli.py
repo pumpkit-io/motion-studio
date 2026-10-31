@@ -1,6 +1,6 @@
 """The Remotion CLI renders a hand-made timeline over test media (guide phase 7b).
 
-Set REELCUT_RENDER_STILLS=<dir> to also write the start, cut, zoom and overlay stills there.
+Set MOTION_STUDIO_RENDER_STILLS=<dir> to also write the start, cut, zoom and overlay stills there.
 """
 
 import json
@@ -12,8 +12,8 @@ from typing import Any
 
 import pytest
 
-from reelcut.edl import Timeline
-from reelcut.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.edl import Timeline
+from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
 
 pytestmark = [pytest.mark.slow, pytest.mark.renderer]
 
@@ -110,7 +110,7 @@ def test_renders_each_format_at_its_size_and_frame_count(
     assert int(video["nb_read_frames"]) == json.loads(TIMELINE.read_text())["duration_frames"]
     assert video["avg_frame_rate"] == "30/1"
 
-    stills = os.environ.get("REELCUT_RENDER_STILLS")
+    stills = os.environ.get("MOTION_STUDIO_RENDER_STILLS")
     if stills and scale == "1":
         Path(stills).mkdir(parents=True, exist_ok=True)
         for name, frame in STILLS.items():

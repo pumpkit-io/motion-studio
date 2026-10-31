@@ -1,7 +1,7 @@
-"""`reelcut render` with the real Remotion renderer on the analysed EN and IT fixtures.
+"""`motion-studio render` with the real Remotion renderer on the analysed EN and IT fixtures.
 
-Uses the real cache; run `reelcut setup` and `just fixtures` first. Set
-REELCUT_RENDER_STILLS=<dir> to also write stills of each preview (start, first cut, zoom).
+Uses the real cache; run `motion-studio setup` and `just fixtures` first. Set
+MOTION_STUDIO_RENDER_STILLS=<dir> to also write stills of each preview (start, first cut, zoom).
 """
 
 import json
@@ -15,12 +15,12 @@ import pytest
 from PIL import Image, ImageDraw
 from typer.testing import CliRunner
 
-from reelcut.asr import DEFAULT_MODELS, model_path, resolve_backend
-from reelcut.asr.vad import vad_model_path
-from reelcut.audio.enhance import deep_filter_binary
-from reelcut.cli import app
-from reelcut.media.ffmpeg import run_ffmpeg, run_ffprobe
-from reelcut.render.renderer import find_renderer, remotion_bin
+from motion_studio.asr import DEFAULT_MODELS, model_path, resolve_backend
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.audio.enhance import deep_filter_binary
+from motion_studio.cli import app
+from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.render.renderer import find_renderer, remotion_bin
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.models, pytest.mark.renderer]
 
@@ -76,13 +76,13 @@ def planned(
         pytest.skip("fixtures not generated; run `just fixtures`")
     backend = resolve_backend("auto")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:  # type: ignore[index]
-        pytest.skip("speech models not in the cache; run `reelcut setup`")
+        pytest.skip("speech models not in the cache; run `motion-studio setup`")
     find_renderer()
     with pytest.MonkeyPatch.context() as monkeypatch:
         deep_filter = deep_filter_binary()
         if deep_filter:
-            monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
-        monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+            monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
+        monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
         workspace = tmp_path_factory.mktemp(language) / "reels"
         run("init", str(workspace))
         logo = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
@@ -102,7 +102,7 @@ def planned(
             (project / "edl.json").write_text(json.dumps(edl, indent=2), encoding="utf-8")
         run("plan", "validate", "demo")
         if language == "it":
-            # A tone bed stands in for `reelcut music` (#14) at the path the timeline names.
+            # A tone bed stands in for `motion-studio music` (#14) at the path the timeline names.
             run_ffmpeg(
                 [
                     "-f", "lavfi", "-i", "sine=frequency=220:sample_rate=48000", "-t", "5",
@@ -124,7 +124,7 @@ def test_preview_is_a_half_size_file_per_format_lasting_the_timeline(
         frames, width, height = frames_and_size(Path(item["path"]))
         assert (width, height) == SIZES[item["format"]]
         assert abs(frames - timeline["duration_frames"]) <= 1, (language, item)
-    stills = os.environ.get("REELCUT_RENDER_STILLS")
+    stills = os.environ.get("MOTION_STUDIO_RENDER_STILLS")
     if stills:
         write_stills(project, timeline, Path(stills) / language)
 

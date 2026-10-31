@@ -1,4 +1,4 @@
-"""`reelcut render` on generated media, with a stand-in for the Remotion CLI.
+"""`motion-studio render` on generated media, with a stand-in for the Remotion CLI.
 
 The stand-in scales the assembled video to the format's size, so assemble and mix run for real
 in CI; the real renderer is covered by tests/integration/test_render_fixtures.py.
@@ -17,8 +17,8 @@ from edl_fixtures import clip
 from test_plan_cli import write_analyses
 from typer.testing import CliRunner
 
-from reelcut.cli import app
-from reelcut.media.ffmpeg import run_ffmpeg, run_ffprobe
+from motion_studio.cli import app
+from motion_studio.media.ffmpeg import run_ffmpeg, run_ffprobe
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -83,7 +83,7 @@ def ebur128(path: Path) -> tuple[float, float]:
 @pytest.fixture(autouse=True)
 def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
     # CI runners have less free disk than the 20 GB default.
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def fake_renderer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     script = bin_dir / "remotion"
     script.write_text(f"#!{sys.executable}\n{textwrap.dedent(FAKE_REMOTION)}", encoding="utf-8")
     script.chmod(0o755)
-    monkeypatch.setenv("REELCUT_RENDERER_DIR", str(renderer))
+    monkeypatch.setenv("MOTION_STUDIO_RENDERER_DIR", str(renderer))
     return renderer
 
 
@@ -334,7 +334,7 @@ def test_an_edited_edl_is_validated_and_rendered_again(demo: Path, fake_renderer
 def test_render_refuses_to_start_below_the_free_disk_threshold(
     demo: Path, monkeypatch: pytest.MonkeyPatch, fake_renderer: Path
 ) -> None:
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "1000000")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "1000000")
 
     result = invoke("render", "demo", "--preview", "--json")
 
@@ -368,7 +368,7 @@ def test_preview_and_final_together_is_a_user_error(demo: Path) -> None:
 def test_a_missing_renderer_fails_with_exit_2_and_points_at_setup(
     demo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("REELCUT_RENDERER_DIR", str(tmp_path / "nowhere"))
+    monkeypatch.setenv("MOTION_STUDIO_RENDERER_DIR", str(tmp_path / "nowhere"))
 
     result = invoke("render", "demo", "--preview", "--json")
 
@@ -376,7 +376,7 @@ def test_a_missing_renderer_fails_with_exit_2_and_points_at_setup(
 
 
 def set_caption_font(project: Path, font: str) -> None:
-    toml = project.parents[1] / "reelcut.toml"
+    toml = project.parents[1] / "motion-studio.toml"
     text = toml.read_text(encoding="utf-8")
     toml.write_text(re.sub(r'(?m)^font = "[^"]*"', f'font = "{font}"', text), encoding="utf-8")
 

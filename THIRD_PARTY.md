@@ -1,6 +1,6 @@
 # Third-party licences
 
-reelcut is MIT-licensed. This file lists the licences of everything it depends on, downloads or vendors, with a link to each project. Python licences come from the installed package metadata (`License-Expression`, else the licence classifiers), npm licences from each package's `package.json`, and model licences from the files at the pinned revision. All entries were checked on 2026-10-24. Nothing is marked UNVERIFIED.
+motion-studio is MIT-licensed. This file lists the licences of everything it depends on, downloads or vendors, with a link to each project. Python licences come from the installed package metadata (`License-Expression`, else the licence classifiers), npm licences from each package's `package.json`, and model licences from the files at the pinned revision. All entries were checked on 2026-10-24. Nothing is marked UNVERIFIED.
 
 Three items matter for commercial use: Remotion (free only for individuals, companies of up to 3 employees, non-profits and evaluation), the ACE-Step weights (MIT, commercial output allowed per the model card), and CrisperWhisper (not shipped; CC BY-NC 4.0, non-commercial). The README's Licences section summarises them.
 
@@ -10,13 +10,13 @@ Three items matter for commercial use: Remotion (free only for individuals, comp
 |---|---|---|---|---|
 | Remotion (`remotion`, `@remotion/cli`, and the `@remotion/*` packages they pull in: renderer, bundler, player, media, web-renderer, studio, compositor binaries) | 4.0.538 | Remotion License (source-available, not OSI open source) | [remotion.dev/license](https://www.remotion.dev/license) | Checked 2026-10-24: remotion.dev/license redirects to `LICENSE.md` on the main branch of remotion-dev/remotion, and that file is byte-identical to `node_modules/remotion/LICENSE.md` of the pinned 4.0.538. Free License: individuals, for-profit organisations with up to 3 employees, non-profits and not-for-profits, and evaluation before commercial use, for creating videos and images, commercially or not. Copying or modifying Remotion to sell or relicense a derivative is not allowed. Everyone else needs a Company License ([remotion.pro/license](https://www.remotion.pro/license)). The file says the licence changes slightly in Remotion 5.0. |
 | `@remotion/captions`, `@remotion/fonts`, `@remotion/layout-utils` | 4.0.538 | MIT | [github.com/remotion-dev/remotion](https://github.com/remotion-dev/remotion) | Their own `package.json` declares MIT. |
-| FFmpeg inside `@remotion/compositor-darwin-arm64` (and the other platform packages) | n7.1 | GPL (built with `--enable-gpl`, libx264, libx265, libfdk-aac) | [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) | Remotion's own build, downloaded by npm into the renderer; reelcut does not redistribute it. |
-| Chrome Headless Shell | 157.0.8080.0 (Remotion build) | BSD-3-Clause (Chromium) plus the third-party notices in its `LICENSE.headless_shell` | [chromium.org](https://www.chromium.org/Home/) | Downloaded by `remotion browser ensure` during `reelcut setup`; not redistributed. |
+| FFmpeg inside `@remotion/compositor-darwin-arm64` (and the other platform packages) | n7.1 | GPL (built with `--enable-gpl`, libx264, libx265, libfdk-aac) | [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) | Remotion's own build, downloaded by npm into the renderer; motion-studio does not redistribute it. |
+| Chrome Headless Shell | 157.0.8080.0 (Remotion build) | BSD-3-Clause (Chromium) plus the third-party notices in its `LICENSE.headless_shell` | [chromium.org](https://www.chromium.org/Home/) | Downloaded by `remotion browser ensure` during `motion-studio setup`; not redistributed. |
 | React, React DOM | 19.2.3 | MIT | [github.com/facebook/react](https://github.com/facebook/react) | |
 | TikTok Sans font via `@fontsource/tiktok-sans` | 5.3.0 | SIL Open Font License 1.1 | [github.com/tiktok/TikTokSans](https://github.com/tiktok/TikTokSans) | Verified from `node_modules/@fontsource/tiktok-sans/LICENSE` and its `package.json`. Bundled into every render as the default caption and title font. |
 | Inter font via `@fontsource/inter` | 5.3.0 | SIL Open Font License 1.1 | [github.com/rsms/inter](https://github.com/rsms/inter) | Verified from `node_modules/@fontsource/inter/LICENSE`. Bundled into every render; used when `[captions] font = "Inter"`. |
 
-The renderer's full npm tree is 286 packages: 222 MIT, 17 ISC, 11 BSD-2-Clause, 7 Apache-2.0, 6 MPL-2.0 (`lightningcss` and `mediabunny` with its encoders), 5 BSD-3-Clause, 2 Unlicense (`memfs`, `fs-monkey`), 2 OFL-1.1 (Inter, TikTok Sans), 1 each of 0BSD, CC-BY-4.0 (`caniuse-lite`, data), Python-2.0 and PSF-2.0 (`argparse`), and the Remotion packages above. Counted from the installed `node_modules` of the renderer `reelcut setup` installs; `renderer/package-lock.json` pins every version.
+The renderer's full npm tree is 286 packages: 222 MIT, 17 ISC, 11 BSD-2-Clause, 7 Apache-2.0, 6 MPL-2.0 (`lightningcss` and `mediabunny` with its encoders), 5 BSD-3-Clause, 2 Unlicense (`memfs`, `fs-monkey`), 2 OFL-1.1 (Inter, TikTok Sans), 1 each of 0BSD, CC-BY-4.0 (`caniuse-lite`, data), Python-2.0 and PSF-2.0 (`argparse`), and the Remotion packages above. Counted from the installed `node_modules` of the renderer `motion-studio setup` installs; `renderer/package-lock.json` pins every version.
 
 Renderer development only (not installed by `setup`'s users unless they run tests): `typescript` 5.9.3 Apache-2.0 ([github.com/microsoft/TypeScript](https://github.com/microsoft/TypeScript)), `vitest` 5.0.5 MIT ([vitest.dev](https://vitest.dev)), `json-schema-to-typescript` 16.0.0 MIT ([github.com/bcherny/json-schema-to-typescript](https://github.com/bcherny/json-schema-to-typescript)), `@types/react` 19.2.7 MIT ([github.com/DefinitelyTyped/DefinitelyTyped](https://github.com/DefinitelyTyped/DefinitelyTyped)).
 
@@ -24,7 +24,7 @@ Renderer development only (not installed by `setup`'s users unless they run test
 
 | Component | Version | Licence | Link | Notes |
 |---|---|---|---|---|
-| DejaVu Sans, cut to Latin (`src/reelcut/look/fonts/DejaVuSans-Latin.ttf`) | 2.35 | Bitstream Vera licence (DejaVu changes public domain) | [github.com/dejavu-fonts/dejavu-fonts](https://github.com/dejavu-fonts/dejavu-fonts) | Licence vendored next to the font as `LICENSE-DejaVu.txt`. Subset with fontTools `pyftsubset` from the `DejaVuSans.ttf` that matplotlib 3.11.2 ships (SHA-256 `3fdf69ca...0d22`); the licence allows modified copies whose names do not contain "Bitstream" or "Vera". |
+| DejaVu Sans, cut to Latin (`src/motion_studio/look/fonts/DejaVuSans-Latin.ttf`) | 2.35 | Bitstream Vera licence (DejaVu changes public domain) | [github.com/dejavu-fonts/dejavu-fonts](https://github.com/dejavu-fonts/dejavu-fonts) | Licence vendored next to the font as `LICENSE-DejaVu.txt`. Subset with fontTools `pyftsubset` from the `DejaVuSans.ttf` that matplotlib 3.11.2 ships (SHA-256 `3fdf69ca...0d22`); the licence allows modified copies whose names do not contain "Bitstream" or "Vera". |
 
 ## Python: direct dependencies
 
@@ -130,7 +130,7 @@ Every other package in the runtime closure of `uv.lock` with both extras (`uv ex
 | [tzdata](https://pypi.org/project/tzdata/) | 2026.5 | Apache-2.0 |
 | [urllib3](https://pypi.org/project/urllib3/) | 2.8.0 | MIT |
 
-All are permissive except three weak-copyleft libraries that reelcut uses unmodified, as installed packages: `certifi` and `tqdm` (MPL-2.0) and `soxr` (LGPL-2.1-or-later). None restricts commercial use.
+All are permissive except three weak-copyleft libraries that motion-studio uses unmodified, as installed packages: `certifi` and `tqdm` (MPL-2.0) and `soxr` (LGPL-2.1-or-later). None restricts commercial use.
 
 ## Python: development only
 
@@ -148,7 +148,7 @@ From the `dev` dependency group; not installed by `uv tool install`.
 
 ## Models and weights
 
-Downloaded by `reelcut setup` into the cache; none is redistributed in this repository except the RNNoise model.
+Downloaded by `motion-studio setup` into the cache; none is redistributed in this repository except the RNNoise model.
 
 | Model | Licence | Link | Notes |
 |---|---|---|---|
@@ -157,13 +157,13 @@ Downloaded by `reelcut setup` into the cache; none is redistributed in this repo
 | Silero VAD `silero_vad.onnx` v6.2.3 | MIT | [github.com/snakers4/silero-vad](https://github.com/snakers4/silero-vad) | From `LICENSE` at tag v6.2.3. SHA-256 `1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3`. |
 | MediaPipe BlazeFace full range, `blaze_face_full_range.tflite` float16 version 1 | Apache-2.0 | [MediaPipe face detector guide](https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector) | From the official model card ("MediaPipe BlazeFace Model Card (Full Range)"): "Licensed under Apache License, Version 2.0". SHA-256 `3698b18f063835bc609069ef052228fbe86d9c9a6dc8dcb7c7c2d69aed2b181b`. |
 | OpenCV Zoo YuNet `face_detection_yunet_2023mar.onnx` (face-detection fallback) | MIT | [github.com/opencv/opencv_zoo](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) | From `models/face_detection_yunet/LICENSE` and its README at commit `48b10fa505aeb51fbd127fc60a5c660040e823b7`. SHA-256 `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4`. |
-| ACE-Step 1.5 weights `ACE-Step/Ace-Step1.5` @ `19671f406d603126926c1b7e2adc169acbcade22` (DiT `acestep-v15-turbo`, VAE, text encoder, 5 Hz LM 1.7B) | MIT | [huggingface.co/ACE-Step/Ace-Step1.5](https://huggingface.co/ACE-Step/Ace-Step1.5) | The repository has no LICENSE file; its model card declares `license: mit` in the front matter and "License: MIT" in the body, and says the generated music may be used commercially. The bundled Qwen3-Embedding-0.6B text encoder is Apache-2.0 upstream ([Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)). `reelcut setup --music` reads the licence from the downloaded files, prints it and records it in `<cache>/envs/ace-step/install.json`; every generated `music.json` copies it. |
-| RNNoise model `sh.rnnn` ("somnolent-hogwash", speech in recording noise) | Not subject to copyright, per the repository README | [github.com/GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models) | At commit `3eee541a283fd3b8f81b85b1748e3b9ccbefa04d`. Vendored in `src/reelcut/audio/models/sh.rnnn` (SHA-256 `70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0`) for the ffmpeg `arnndn` fallback. |
+| ACE-Step 1.5 weights `ACE-Step/Ace-Step1.5` @ `19671f406d603126926c1b7e2adc169acbcade22` (DiT `acestep-v15-turbo`, VAE, text encoder, 5 Hz LM 1.7B) | MIT | [huggingface.co/ACE-Step/Ace-Step1.5](https://huggingface.co/ACE-Step/Ace-Step1.5) | The repository has no LICENSE file; its model card declares `license: mit` in the front matter and "License: MIT" in the body, and says the generated music may be used commercially. The bundled Qwen3-Embedding-0.6B text encoder is Apache-2.0 upstream ([Qwen/Qwen3-Embedding-0.6B](https://huggingface.co/Qwen/Qwen3-Embedding-0.6B)). `motion-studio setup --music` reads the licence from the downloaded files, prints it and records it in `<cache>/envs/ace-step/install.json`; every generated `music.json` copies it. |
+| RNNoise model `sh.rnnn` ("somnolent-hogwash", speech in recording noise) | Not subject to copyright, per the repository README | [github.com/GregorR/rnnoise-models](https://github.com/GregorR/rnnoise-models) | At commit `3eee541a283fd3b8f81b85b1748e3b9ccbefa04d`. Vendored in `src/motion_studio/audio/models/sh.rnnn` (SHA-256 `70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0`) for the ffmpeg `arnndn` fallback. |
 | CrisperWhisper `nyralabs/CrisperWhisper` | CC BY-NC 4.0 (non-commercial) | [huggingface.co/nyralabs/CrisperWhisper](https://huggingface.co/nyralabs/CrisperWhisper) | From the repository's `license:cc-by-nc-4.0` tag and card front matter (the repository moved from `nyrahealth/`). Not shipped or downloaded in v0.1.0; see ROADMAP.md. |
 
 ## ACE-Step environment
 
-`reelcut setup --music` installs ACE-Step into its own environment (`<cache>/envs/ace-step`, `uv sync --frozen` against ACE-Step's lock file), never into reelcut's.
+`motion-studio setup --music` installs ACE-Step into its own environment (`<cache>/envs/ace-step`, `uv sync --frozen` against ACE-Step's lock file), never into motion-studio's.
 
 | Component | Version | Licence | Link | Notes |
 |---|---|---|---|---|
@@ -174,9 +174,9 @@ Downloaded by `reelcut setup` into the cache; none is redistributed in this repo
 
 | Tool | Version | Licence | Link | Notes |
 |---|---|---|---|---|
-| FFmpeg | system (9.0.1 on the build machine) | LGPL-2.1+ or GPL-2+ depending on the build | [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) | reelcut calls the system `ffmpeg` binary and does not distribute it. Homebrew's build is GPL. |
-| DeepFilterNet (`deep-filter` binary) | 0.5.6 | MIT or Apache-2.0, at your option | [github.com/Rikorose/DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | From the repository's `LICENSE`, `LICENSE-MIT` and `LICENSE-APACHE`. The release binary embeds the DeepFilterNet3 model from the same repository. `reelcut setup` downloads it into the cache and checks its SHA-256; it is not redistributed. |
+| FFmpeg | system (9.0.1 on the build machine) | LGPL-2.1+ or GPL-2+ depending on the build | [ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) | motion-studio calls the system `ffmpeg` binary and does not distribute it. Homebrew's build is GPL. |
+| DeepFilterNet (`deep-filter` binary) | 0.5.6 | MIT or Apache-2.0, at your option | [github.com/Rikorose/DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | From the repository's `LICENSE`, `LICENSE-MIT` and `LICENSE-APACHE`. The release binary embeds the DeepFilterNet3 model from the same repository. `motion-studio setup` downloads it into the cache and checks its SHA-256; it is not redistributed. |
 | Node.js and npm | 22.13+ or 24+ | MIT (Node.js), Artistic-2.0 (npm) | [nodejs.org](https://nodejs.org) | Installed by the user; runs the Remotion CLI. |
-| uv | 0.5.21 on the build machine | MIT OR Apache-2.0 | [github.com/astral-sh/uv](https://github.com/astral-sh/uv) | Installs reelcut and the ACE-Step environment. |
+| uv | 0.5.21 on the build machine | MIT OR Apache-2.0 | [github.com/astral-sh/uv](https://github.com/astral-sh/uv) | Installs motion-studio and the ACE-Step environment. |
 | sips | sips-316 (macOS 27.0.1) | Part of macOS | [developer.apple.com](https://developer.apple.com) | Decodes HEIC and HEIF photos to PNG during ingest on macOS. |
-| libheif `heif-convert` | optional; not verified on the build machine | LGPL-3.0 (libheif), MIT (the example tools) | [github.com/strukturag/libheif](https://github.com/strukturag/libheif) | Decodes HEIC and HEIF on Linux when installed (`apt install libheif-examples`). reelcut runs the binary and does not distribute it. pillow-heif was not used because its binary wheels bundle libx265 (GPL-2.0). |
+| libheif `heif-convert` | optional; not verified on the build machine | LGPL-3.0 (libheif), MIT (the example tools) | [github.com/strukturag/libheif](https://github.com/strukturag/libheif) | Decodes HEIC and HEIF on Linux when installed (`apt install libheif-examples`). motion-studio runs the binary and does not distribute it. pillow-heif was not used because its binary wheels bundle libx265 (GPL-2.0). |

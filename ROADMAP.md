@@ -19,5 +19,5 @@ Ideas beyond v0.1.0, in no particular order.
 
 ## Packaging and interfaces
 
-- Claude Code plugin packaging for the reelcut skills.
+- Claude Code plugin packaging for the motion-studio skills.
 - Optional MCP server wrapping the CLI.

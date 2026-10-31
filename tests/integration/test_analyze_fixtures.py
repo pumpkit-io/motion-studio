@@ -1,6 +1,6 @@
-"""`reelcut analyze` on the EN and IT fixtures with the real VAD and both Whisper backends.
+"""`motion-studio analyze` on the EN and IT fixtures with the real VAD and both Whisper backends.
 
-Uses the real cache (models and the heavy-model lock are machine-wide); run `reelcut setup`
+Uses the real cache (models and the heavy-model lock are machine-wide); run `motion-studio setup`
 first. Each backend gets its own project; faster-whisper is forced through project.toml.
 """
 
@@ -17,13 +17,13 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.asr import DEFAULT_MODELS, model_path
-from reelcut.asr.vad import vad_model_path
-from reelcut.audio.enhance import deep_filter_binary
-from reelcut.cli import app
-from reelcut.state import heavy_model_lock
-from reelcut.text import normalise_words
-from reelcut.vision import mediapipe_model_path
+from motion_studio.asr import DEFAULT_MODELS, model_path
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.audio.enhance import deep_filter_binary
+from motion_studio.cli import app
+from motion_studio.state import heavy_model_lock
+from motion_studio.text import normalise_words
+from motion_studio.vision import mediapipe_model_path
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.models]
 
@@ -46,9 +46,9 @@ def require_setup(backend: str) -> None:
     if missing:
         pytest.skip(f"fixtures not generated ({', '.join(missing)}); run `just fixtures`")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:  # type: ignore[index]
-        pytest.skip("speech models not in the cache; run `reelcut setup`")
+        pytest.skip("speech models not in the cache; run `motion-studio setup`")
     if not mediapipe_model_path().is_file():
-        pytest.skip("face models not in the cache; run `reelcut setup`")
+        pytest.skip("face models not in the cache; run `motion-studio setup`")
 
 
 def make_project(
@@ -56,8 +56,8 @@ def make_project(
 ) -> Path:
     deep_filter = deep_filter_binary()
     if deep_filter:
-        monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+        monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
     workspace = root / "reels"
     assert runner.invoke(app, ["init", str(workspace)]).exit_code == 0
     monkeypatch.chdir(workspace)

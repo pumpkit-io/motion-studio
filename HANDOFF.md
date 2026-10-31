@@ -1,10 +1,10 @@
-# Hand-off: reelcut v0.1.0
+# Hand-off: motion-studio v0.1.0
 
 Written 2026-10-24 at the end of the unattended build (spec: issue #1; per-ticket record: [BUILD_LOG.md](BUILD_LOG.md)). No real footage was available during the build, so every timing below comes from the synthetic fixtures. Your first edit tomorrow morning is the first run on real takes.
 
 ## What was built
 
-reelcut is a command-line toolchain that lets a coding agent (Claude Code, Codex, Gemini CLI, Cursor) edit talking-head footage into short vertical videos. The agent never writes code and never sees the video directly. It reads a text index of what was said, writes its creative decisions into `edl.json`, and reelcut does the rest:
+motion-studio is a command-line toolchain that lets a coding agent (Claude Code, Codex, Gemini CLI, Cursor) edit talking-head footage into short vertical videos. The agent never writes code and never sees the video directly. It reads a text index of what was said, writes its creative decisions into `edl.json`, and motion-studio does the rest:
 
 - ingest: constant-frame-rate mezzanines, HDR tone-mapping, voice cleaned with DeepFilterNet.
 - analyze: transcription with mlx-whisper, fillers, pauses, retakes, shots, static stretches and faces, packed into `analysis/packed.md`.
@@ -17,29 +17,29 @@ English and Italian are supported; another language is one data file ([docs/addi
 
 ## Your workspace
 
-Everything is installed and `reelcut doctor` reports all items ok on this Mac. The workspace is at `~/Videos/reels`, with one empty project:
+Everything is installed and `motion-studio doctor` reports all items ok on this Mac. The workspace is at `~/Videos/reels`, with one empty project:
 
 ```
 ~/Videos/reels/
   AGENTS.md, CLAUDE.md, GEMINI.md   what the agent reads first
-  reelcut.toml                      workspace defaults (formats, captions, music, brand)
+  motion-studio.toml                      workspace defaults (formats, captions, music, brand)
   library/music, library/brand      your own tracks, font and logo (each has a README)
   projects/first-test/raw/          empty: your takes go here
 ```
 
-The global `reelcut` command is v0.1.0, installed from the integration branch.
+The global `motion-studio` command is v0.1.0, installed from the integration branch.
 
 ## Tomorrow morning
 
-1. Copy 2 to 5 talking-head takes into `~/Videos/reels/projects/first-test/raw/`, optionally with an image or a B-roll clip. Copy rather than move: reelcut never modifies `raw/`, but your originals are safer where they are. iPhone HEIC photos can go in as they are: ingest converts them to PNG with `sips`.
+1. Copy 2 to 5 talking-head takes into `~/Videos/reels/projects/first-test/raw/`, optionally with an image or a B-roll clip. Copy rather than move: motion-studio never modifies `raw/`, but your originals are safer where they are. iPhone HEIC photos can go in as they are: ingest converts them to PNG with `sips`.
 2. Open a terminal, `cd ~/Videos/reels`, and start your agent there (`claude` for Claude Code).
 3. Ask: "Edit first-test into a 45-second Reel and an X version."
 4. Wait. The agent ingests, analyses, plans, generates music, renders a preview, checks it, fixes what the check flags and renders the finals. Expect a few minutes for ingest and analysis, about 4 minutes for music (mostly the model loading), and render time that grows with the length of the Reel.
 5. The finals land in `projects/first-test/final/`: `first-test_9x16.mp4` and `first-test_16x9.mp4`. The agent reports the hook line, duration and the music it used.
 
-To approve the plan or the preview before the agent goes on, say so in your request, or set `plan = true` or `preview = true` under `[review]` in `reelcut.toml`. Feedback such as "start stronger", "too choppy" or "music too loud" goes straight to the agent, which turns it into EDL changes (the `reelcut-review` skill has the table). Decisions and your feedback are kept in `projects/first-test/notes.md` for the next video.
+To approve the plan or the preview before the agent goes on, say so in your request, or set `plan = true` or `preview = true` under `[review]` in `motion-studio.toml`. Feedback such as "start stronger", "too choppy" or "music too loud" goes straight to the agent, which turns it into EDL changes (the `motion-studio-review` skill has the table). Decisions and your feedback are kept in `projects/first-test/notes.md` for the next video.
 
-For later videos: `reelcut new <slug> --from <files or a folder>`, then ask the agent the same way. Each project's state is in `reelcut status <slug>`.
+For later videos: `motion-studio new <slug> --from <files or a folder>`, then ask the agent the same way. Each project's state is in `motion-studio status <slug>`.
 
 ## Timings from fixture runs
 
@@ -58,14 +58,14 @@ Other fixture runs:
 
 - Claude Code, headless, in a fresh workspace with the English fixture, a B-roll clip and an image, asked "Edit my-video into a 45-second Reel and an X version.": 7 min 4 s from the request to both checked finals (ticket #18). It said 45 s was impossible, since the footage holds about 13 s of speech, and delivered 7 s videos.
 - Music generation for a 60 s bed: 290 to 364 s, of which model loading was 227 s on a machine deep in swap (ticket #14).
-- First-time `reelcut setup` downloads: renderer 14.5 min (mostly Chrome Headless Shell), `setup --music` 19 min (9.4 GB of ACE-Step weights). Both are done on this Mac.
+- First-time `motion-studio setup` downloads: renderer 14.5 min (mostly Chrome Headless Shell), `setup --music` 19 min (9.4 GB of ACE-Step weights). Both are done on this Mac.
 - With all outbound network blocked (`sandbox-exec`, localhost allowed), a fresh workspace with the English fixture and a B-roll clip went from `ingest` to a passing `check --final` of a 9x16 final in about 4.8 minutes: ingest 5 s, analyze 9 s, music 248 s, final render 20 s, check 7 s (ticket #19). Editing works offline once `setup --music` has run.
 
 ## Known limitations
 
 From the open issues in BUILD_LOG.md that still apply:
 
-- `reelcut doctor --fix` downloads missing models and the renderer, but does not install system tools (ffmpeg, node) or ACE-Step; their fixes are printed.
+- `motion-studio doctor --fix` downloads missing models and the renderer, but does not install system tools (ffmpeg, node) or ACE-Step; their fixes are printed.
 - HEIC orientation was checked only on files `sips` made from rotated JPEGs, not on photos from an iPhone. Look at the first one you ingest. On Linux, HEIC needs libheif's `heif-convert`, which was not run during the build.
 - Clips are classified as A-roll only when they show a face. A screen recording with a voice-over becomes B-roll and needs `role = "aroll"` under its clip in `project.toml`.
 - The static-stretch threshold was tuned on synthetic footage; real phone noise on a locked-off shot may hide static stretches. Worth looking at in the first run.
@@ -73,13 +73,13 @@ From the open issues in BUILD_LOG.md that still apply:
 - Captions stay on screen during full-frame B-roll unless `hide_during_broll = true` is set under `[captions]` (or in the EDL's `captions`).
 - Glyphs outside Inter's Latin sets (for example "→" in a title) fall back to a system font.
 - Ingest rewrites `project.toml` when it adds clips, which drops comments you wrote in it (values are kept).
-- Freshness checks hash file content, but trust the cached hash while a file's size and modification time are unchanged. A file edited in place that keeps both is not noticed; `reelcut clean <slug> --all` starts the project over without touching `raw/`.
-- Progress bars track ffmpeg encodes only. Remotion renders and ACE-Step show a spinner with the elapsed time, since neither reports progress to reelcut.
+- Freshness checks hash file content, but trust the cached hash while a file's size and modification time are unchanged. A file edited in place that keeps both is not noticed; `motion-studio clean <slug> --all` starts the project over without touching `raw/`.
+- Progress bars track ffmpeg encodes only. Remotion renders and ACE-Step show a spinner with the elapsed time, since neither reports progress to motion-studio.
 - On long takes Whisper occasionally attaches the first word of the next take to an abandoned one. The check stage re-transcribes the render and flags it.
 - The check can report ASR noise right next to a cut as a clipped word. Its fix (more padding) is harmless.
 - The two talking fixtures are about 23 s long, so nothing in the build measured a multi-minute shoot end to end. The 5-minute concatenation was checked only for the size of `packed.md` (about 2,040 tokens).
 - Agents other than Claude Code were not run against a workspace. Gemini CLI has been succeeded by Antigravity CLI, and its use of `.agents/skills/` comes from third-party guides. Cursor sees each skill twice.
-- Upgrading: `uv tool install` reuses its cached wheel when the version number is unchanged. To install a newer checkout with the same version, add `--reinstall-package reelcut`, then run `reelcut agents sync` in the workspace. The renderer is cached per version too: after a same-version upgrade, delete `~/Library/Caches/reelcut/renderer/0.1.0` and run `reelcut setup` so the cache gets the new composition.
+- Upgrading: `uv tool install` reuses its cached wheel when the version number is unchanged. To install a newer checkout with the same version, add `--reinstall-package motion-studio`, then run `motion-studio agents sync` in the workspace. The renderer is cached per version too: after a same-version upgrade, delete `~/Library/Caches/motion-studio/renderer/0.1.0` and run `motion-studio setup` so the cache gets the new composition.
 
 Blocked items: none. No ticket recorded an acceptance criterion as blocked in BUILD_LOG.md. The one adapted item is the guide's Phase 13 dogfood on real footage, which spec #1 replaces with this hand-off and your morning run.
 
@@ -88,7 +88,7 @@ Blocked items: none. No ticket recorded an acceptance criterion as blocked in BU
 - Remotion, which draws the composition, is source-available, not open source. It is free, commercial use included, for individuals, companies of up to 3 employees, non-profits and evaluation; a larger for-profit company needs a Company License from remotion.pro.
 - ACE-Step 1.5 weights are MIT according to their model card at the pinned revision, and the card says generated music may be used commercially. This settles the open question in #1: local generation stays the default music mode. Every `build/music.json` records the licence, prompt and seed.
 - CrisperWhisper is CC BY-NC 4.0 (non-commercial) and is not shipped. Setting `fillers_backend = "crisper"` fails with "not implemented in v0.1.0".
-- Library music is yours to license: reelcut refuses tracks without a licence entry in `library/music/tags.json` and writes attributions to `final/<slug>_credits.txt`.
+- Library music is yours to license: motion-studio refuses tracks without a licence entry in `library/music/tags.json` and writes attributions to `final/<slug>_credits.txt`.
 
 Every dependency and model, with its licence and a link: [THIRD_PARTY.md](THIRD_PARTY.md).
 

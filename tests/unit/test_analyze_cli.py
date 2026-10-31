@@ -1,4 +1,4 @@
-"""`reelcut analyze` on ingested tiny clips, with a stand-in for the speech-to-text worker.
+"""`motion-studio analyze` on ingested tiny clips, with a stand-in for the speech-to-text worker.
 
 The stand-in replaces only the model subprocess: it returns scripted VAD regions and words,
 reports whether it saw the heavy-model lock held, and logs each request it receives.
@@ -17,7 +17,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.cli import app
+from motion_studio.cli import app
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
 
@@ -28,8 +28,8 @@ WINNER = [*ABANDONED, "to", "keep", "it", "short."]
 
 FAKE_WORKER = """
 import fcntl, json, os, sys
-from reelcut.paths import locks_dir
-from reelcut.state import HEAVY_MODEL_LOCK
+from motion_studio.paths import locks_dir
+from motion_studio.state import HEAVY_MODEL_LOCK
 
 request = json.load(sys.stdin)
 with open(locks_dir() / HEAVY_MODEL_LOCK, "a+") as handle:
@@ -75,7 +75,7 @@ def spoken(words: list[str], start: float = 0.1, step: float = 0.12) -> list[lis
 
 @pytest.fixture(autouse=True)
 def no_disk_threshold(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
 
 
 @pytest.fixture
@@ -94,7 +94,7 @@ def worker_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         encoding="utf-8",
     )
     log = tmp_path / "worker.log"
-    monkeypatch.setenv("REELCUT_ASR_WORKER", str(worker))
+    monkeypatch.setenv("MOTION_STUDIO_ASR_WORKER", str(worker))
     monkeypatch.setenv("FAKE_ASR_SCRIPT", str(script))
     monkeypatch.setenv("FAKE_ASR_LOG", str(log))
     return log
@@ -250,7 +250,7 @@ PHOTO = Path(__file__).resolve().parents[1] / "fixtures" / "faces" / "neil_armst
 
 def still_video(path: Path, seconds: float = 3.0) -> Path:
     """A silent clip of one unchanging colour: no speech and no motion."""
-    from reelcut.media.ffmpeg import run_ffmpeg
+    from motion_studio.media.ffmpeg import run_ffmpeg
 
     source = f"color=c=0x336699:s=320x180:r=30:d={seconds}"
     run_ffmpeg(["-f", "lavfi", "-i", source, "-c:v", "libx264", "-pix_fmt", "yuv420p", path])

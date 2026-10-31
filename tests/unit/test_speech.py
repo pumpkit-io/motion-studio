@@ -1,8 +1,8 @@
 """Fitting VAD probabilities and Whisper words to speech regions, without any model."""
 
-from reelcut.analysis.models import Span, TranscribedWord
-from reelcut.asr.speech import align_to_speech, uncovered, windows
-from reelcut.asr.vad import VadParams, speech_spans
+from motion_studio.analysis.models import Span, TranscribedWord
+from motion_studio.asr.speech import align_to_speech, uncovered, windows
+from motion_studio.asr.vad import VadParams, speech_spans
 
 WINDOW_S = 512 / 16_000  # one Silero window: 32 ms
 

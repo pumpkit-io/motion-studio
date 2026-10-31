@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.analyze import AnalyzeReport, ClipSummary
-from reelcut.cli import app
-from reelcut.ingest import ClipMedia, IngestReport
-from reelcut.paths import project_paths
+from motion_studio.analyze import AnalyzeReport, ClipSummary
+from motion_studio.cli import app
+from motion_studio.ingest import ClipMedia, IngestReport
+from motion_studio.paths import project_paths
 
 CLIPS = 20
 
@@ -20,7 +20,7 @@ runner = CliRunner()
 
 @pytest.fixture
 def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    (tmp_path / "reelcut.toml").write_text("", encoding="utf-8")
+    (tmp_path / "motion-studio.toml").write_text("", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     return tmp_path
 
@@ -54,7 +54,7 @@ def test_analyze_prints_every_analysis_file_it_wrote(
         retakes=project.analysis / "retakes.json",
         assets=project.analysis / "assets.md",
     )
-    monkeypatch.setattr("reelcut.cli.analyze.analyze_project", lambda *_a, **_k: report)
+    monkeypatch.setattr("motion_studio.cli.analyze.analyze_project", lambda *_a, **_k: report)
 
     result = runner.invoke(app, ["analyze", "demo"])
 
@@ -88,7 +88,7 @@ def test_ingest_prints_every_media_file_it_wrote(
         for n in range(1, CLIPS + 1)
     ]
     report = IngestReport(project, media, [c.id for c in media], [])
-    monkeypatch.setattr("reelcut.cli.ingest.ingest_project", lambda *_a, **_k: report)
+    monkeypatch.setattr("motion_studio.cli.ingest.ingest_project", lambda *_a, **_k: report)
 
     result = runner.invoke(app, ["ingest", "demo"])
 

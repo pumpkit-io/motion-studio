@@ -1,4 +1,4 @@
-"""The EDL reference doc that `reelcut docs edl` prints stays in step with the EDL models."""
+"""The EDL reference doc that `motion-studio docs edl` prints stays in step with the EDL models."""
 
 import re
 from importlib import resources
@@ -7,9 +7,9 @@ from typing import get_args
 
 from pydantic import BaseModel
 
-from reelcut.edl.models import Edl, EdlCaptions, EdlMusic, Event, Policy
+from motion_studio.edl.models import Edl, EdlCaptions, EdlMusic, Event, Policy
 
-REFERENCE = resources.files("reelcut") / "reference" / "edl.md"
+REFERENCE = resources.files("motion_studio") / "reference" / "edl.md"
 REPO_DOC = Path(__file__).resolve().parents[2] / "docs" / "edl.md"
 
 
@@ -35,7 +35,7 @@ def test_the_repo_docs_copy_is_the_packaged_reference() -> None:
 
 def test_every_issue_code_the_resolver_raises_is_documented() -> None:
     text = REFERENCE.read_text(encoding="utf-8")
-    sources = Path(__file__).resolve().parents[2] / "src" / "reelcut" / "edl"
+    sources = Path(__file__).resolve().parents[2] / "src" / "motion_studio" / "edl"
     raised = re.compile(r"problems\.(?:error|warn)\(\s*\"([a-z_]+)\"")
     codes = {c for path in sources.glob("*.py") for c in raised.findall(path.read_text("utf-8"))}
 

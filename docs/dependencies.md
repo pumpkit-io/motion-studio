@@ -71,7 +71,7 @@ Scaffold: the current command is `npx create-video@latest` (version 4.0.538), wh
 ## Python libraries used by the core (ticket #3)
 
 - Typer 0.27.3 vendors Click as `typer._click`; catch `typer._click.exceptions`, not the separate `click` package.
-- platformdirs 4.13.5: `user_cache_path("reelcut")` is `~/Library/Caches/reelcut` on macOS and `~/.cache/reelcut` on Linux.
+- platformdirs 4.13.5: `user_cache_path("motion-studio")` is `~/Library/Caches/motion-studio` on macOS and `~/.cache/motion-studio` on Linux.
 
 ## Fixture generation (ticket #4, 2026-10-24)
 
@@ -108,7 +108,7 @@ All four require or recommend `name` and `description` frontmatter in `SKILL.md`
 | DeepFilterNet | `deep-filter` 0.5.6 release binary (latest release, 2023-08-31) | `gh release view v0.5.6 -R Rikorose/DeepFilterNet`; ran `--help`, `--version` and a 48 kHz mono WAV through it on arm64 macOS 27 |
 | `deep-filter` flags | `--compensate-delay` (`-D`), `-o <dir>` (writes `<dir>/<input name>`) | `deep-filter --help`; with `-D` the output is about 30 ms shorter, so ingest pads back to the input length |
 | `deepfilternet` pip package | 0.5.6: no cp312 wheel for `deepfilterlib`, `numpy<2` | PyPI JSON API; unusable with Python 3.12 and numpy 2.5, hence the binary |
-| Binary SHA-256 (pinned in `reelcut.audio.enhance`) | aarch64-apple-darwin `4601e7f4…1081`, x86_64-apple-darwin `d3be8400…5b50f`, x86_64-unknown-linux-musl `70775e25…2ef7da`, aarch64-unknown-linux-gnu `14e02a1c…57166` | computed from the downloads |
+| Binary SHA-256 (pinned in `motion_studio.audio.enhance`) | aarch64-apple-darwin `4601e7f4…1081`, x86_64-apple-darwin `d3be8400…5b50f`, x86_64-unknown-linux-musl `70775e25…2ef7da`, aarch64-unknown-linux-gnu `14e02a1c…57166` | computed from the downloads |
 | ffmpeg `arnndn` | needs a model file (`m=`); no built-in default | `ffmpeg -h filter=arnndn` (9.0.1) |
 | RNNoise model | `sh.rnnn` from GregorR/rnnoise-models `3eee541` | vendored in the package |
 | ffmpeg `scale_vt` (ADR 0003) | options `w`, `h`, `color_matrix`, `color_primaries`, `color_transfer`; needs VideoToolbox frames: `-init_hw_device videotoolbox=vt -filter_hw_device vt` and `format=p010le,hwupload,scale_vt=…,hwdownload,format=p010le` (downloading as `nv12` fails) | `ffmpeg -h filter=scale_vt`; tone-mapped a 10-bit HLG HEVC clip and checked the tags with ffprobe |
@@ -177,7 +177,7 @@ Remotion: `remotion browser ensure` (`npx remotion browser --help`, @remotion/cl
 
 | Item | Value | How checked |
 |---|---|---|
-| Silero VAD | `silero_vad.onnx` from tag v6.2.3 (latest release, 2026-09-23), `raw.githubusercontent.com/snakers4/silero-vad/v6.2.3/src/silero_vad/data/silero_vad.onnx`, SHA-256 pinned in `reelcut.asr.vad` | `gh release list`; ONNX inputs `input` [1, 64 + 512], `state` [2, 1, 128], `sr` int64; outputs probability and new state, as in `OnnxWrapper` of that tag's `utils_vad.py` |
+| Silero VAD | `silero_vad.onnx` from tag v6.2.3 (latest release, 2026-09-23), `raw.githubusercontent.com/snakers4/silero-vad/v6.2.3/src/silero_vad/data/silero_vad.onnx`, SHA-256 pinned in `motion_studio.asr.vad` | `gh release list`; ONNX inputs `input` [1, 64 + 512], `state` [2, 1, 128], `sr` int64; outputs probability and new state, as in `OnnxWrapper` of that tag's `utils_vad.py` |
 | mlx-whisper 0.4.3 | `transcribe(audio, path_or_hf_repo=, word_timestamps=, initial_prompt=, condition_on_previous_text=, hallucination_silence_threshold=, clip_timestamps=[start, end, ...], language=)`; words carry `word`, `start`, `end`, `probability`. Language ID: `model.detect_language(mel)` returns `(tokens, {code: prob})` for one 30 s mel segment; model loaded with `mlx_whisper.transcribe.ModelHolder.get_model(path, mx.float16)` | Read from the installed package source |
 | MLX model | `mlx-community/whisper-large-v3-turbo` @ `a4aaeec0636e6fef84abdcbe3544cb2bf7e9f6fb` (1.6 GB `weights.safetensors`) | Hugging Face API |
 | faster-whisper 1.2.1 | `WhisperModel(path, device="cpu", compute_type="int8")`; `transcribe(..., word_timestamps=True, vad_filter=False, clip_timestamps=[...], hallucination_silence_threshold=, condition_on_previous_text=False)`; `detect_language(audio)` returns `(code, prob, [(code, prob), ...])` | Read from the installed package source |
@@ -189,21 +189,21 @@ Remotion: `remotion browser ensure` (`npx remotion browser --help`, @remotion/cl
 | Item | Value | How checked |
 |---|---|---|
 | MediaPipe Tasks face detector | mediapipe 1.1.1: `mediapipe.tasks.python.vision.FaceDetector.create_from_options(FaceDetectorOptions(base_options=BaseOptions(model_asset_path=...)))`, `detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb))` returns `detections[].bounding_box` (`origin_x`, `origin_y`, `width`, `height`, pixels) and `categories[0].score`; default `min_detection_confidence` 0.5, IMAGE running mode | `inspect.signature` on the installed package, then run on the face photo |
-| BlazeFace model | `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite` (1,083,786 bytes; identical to `latest`) | URL from the face detector guide on ai.google.dev; SHA-256 pinned in `reelcut.vision` |
+| BlazeFace model | `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_full_range/float16/1/blaze_face_full_range.tflite` (1,083,786 bytes; identical to `latest`) | URL from the face detector guide on ai.google.dev; SHA-256 pinned in `motion_studio.vision` |
 | YuNet (fallback) | OpenCV 5.0.0: `cv2.FaceDetectorYN.create(model, "", (w, h), score_threshold)`, `setInputSize((w, h))`, `detect(bgr)` returns rows `[x, y, w, h, 10 landmark values, score]` | `cv2.FaceDetectorYN.create.__doc__`, then run on the face photo |
-| YuNet model | `face_detection_yunet_2023mar.onnx` at opencv_zoo commit `48b10fa505aeb51fbd127fc60a5c660040e823b7` (232,589 bytes) | `git ls-remote` for the commit; SHA-256 pinned in `reelcut.vision` |
+| YuNet model | `face_detection_yunet_2023mar.onnx` at opencv_zoo commit `48b10fa505aeb51fbd127fc60a5c660040e823b7` (232,589 bytes) | `git ls-remote` for the commit; SHA-256 pinned in `motion_studio.vision` |
 | PySceneDetect | scenedetect 0.7.2: `SceneManager()`, `auto_downscale = True`, `add_detector(ContentDetector())` (threshold 27, min scene 15 frames), `detect_scenes(open_video(path))`, `get_scene_list(start_in_scene=True)` of `FrameTimecode` pairs with `.seconds` | `inspect.signature` and `dir()` on the installed package |
 
-The face detector guide offers three BlazeFace models: short range, full range and sparse full range. reelcut uses full range. On a 1080x1920 frame scaled to 640 px tall, short range found the photo's face only when the face was at least about 15% of the frame width (score 0.58 there, nothing at 12% or less), while full range found it at every size tried (score 0.56 with the face at 6% of the width, 0.93 at 22%). Talking heads filmed with a back camera on a tripod are often that small. Both models load in Tasks' `FaceDetector`.
+The face detector guide offers three BlazeFace models: short range, full range and sparse full range. motion-studio uses full range. On a 1080x1920 frame scaled to 640 px tall, short range found the photo's face only when the face was at least about 15% of the frame width (score 0.58 there, nothing at 12% or less), while full range found it at every size tried (score 0.56 with the face at 6% of the width, 0.93 at 22%). Talking heads filmed with a back camera on a tripod are often that small. Both models load in Tasks' `FaceDetector`.
 
 ## Contact sheets (ticket #9, 2026-10-24)
 
 | Item | Value | How checked |
 |---|---|---|
 | Pillow | 13.0.0 with FreeType (`PIL.features.check("freetype2")` is true): `ImageFont.truetype(path, size)`, `FreeTypeFont.getbbox`, `ImageDraw.text/line/rectangle`, `Image.save(..., optimize=True)` | Run on the installed package |
-| Pillow's bundled font | `ImageFont.load_default(size=...)` is Aileron and has no glyphs for "è" or "ù" (they drew as boxes on the IT fixture sheet), so reelcut vendors a Latin cut of DejaVu Sans 2.35 instead | Opened the sheet |
-| Font subset | `pyftsubset DejaVuSans.ttf --unicodes=U+0020-007E,U+00A0-024F,U+2010-2027,U+2030-203A,U+20AC,U+2212 --layout-features='*'` (fontTools 4.67.0, pulled in by matplotlib; not a runtime dependency of reelcut); 81,272 bytes, SHA-256 `ce1367a05a187fbd021ce52d4b6c207845bc68cb5c88e921b76b4eb1e0be11db` | `TTFont(...).getBestCmap()` covers àèéìòù and the ellipsis |
-| Frame seeking | `ffmpeg -ss <t> -i <mezzanine> -frames:v 1` (input seek, one decode per frame) through `reelcut.media.ffmpeg.read_frames` | Fixture sheets show the expected timestamps |
+| Pillow's bundled font | `ImageFont.load_default(size=...)` is Aileron and has no glyphs for "è" or "ù" (they drew as boxes on the IT fixture sheet), so motion-studio vendors a Latin cut of DejaVu Sans 2.35 instead | Opened the sheet |
+| Font subset | `pyftsubset DejaVuSans.ttf --unicodes=U+0020-007E,U+00A0-024F,U+2010-2027,U+2030-203A,U+20AC,U+2212 --layout-features='*'` (fontTools 4.67.0, pulled in by matplotlib; not a runtime dependency of motion-studio); 81,272 bytes, SHA-256 `ce1367a05a187fbd021ce52d4b6c207845bc68cb5c88e921b76b4eb1e0be11db` | `TTFont(...).getBestCmap()` covers àèéìòù and the ellipsis |
+| Frame seeking | `ffmpeg -ss <t> -i <mezzanine> -frames:v 1` (input seek, one decode per frame) through `motion_studio.media.ffmpeg.read_frames` | Fixture sheets show the expected timestamps |
 
 
 ## Check (ticket #15, 2026-10-24)
@@ -216,18 +216,18 @@ ffmpeg filter options, checked with `ffmpeg -h filter=<name>` on 9.0.1; the CI t
 | `blackdetect` | `d=0.5` (default 2), `pix_th=0.10`; logs `black_start: black_end: black_duration:` |
 | `freezedetect` | `n=-60dB`, `d=2`; logs `lavfi.freezedetect.freeze_start` and `freeze_end` (no end when the freeze reaches the end of the file) |
 
-Re-transcription uses `reelcut.asr.transcribe_clips` (ticket #7): the same backend and model as analyze, in its subprocess under the heavy-model lock, on `build/voice_<fmt>.wav` resampled to 16 kHz mono. Alignment uses the standard library's `difflib.SequenceMatcher(autojunk=False)` on case-folded tokens with punctuation removed.
+Re-transcription uses `motion_studio.asr.transcribe_clips` (ticket #7): the same backend and model as analyze, in its subprocess under the heavy-model lock, on `build/voice_<fmt>.wav` resampled to 16 kHz mono. Alignment uses the standard library's `difflib.SequenceMatcher(autojunk=False)` on case-folded tokens with punctuation removed.
 
 ## Music (ticket #14, 2026-10-24)
 
 | Item | Value | How checked |
 |---|---|---|
 | ACE-Step 1.5 source | `ace-step/ACE-Step-1.5` @ `ca1e85fe9430179831e6bc6be790c332190a3866` (main on 2026-10-24), package `ace-step` 1.5.0, Python `>=3.11,<3.13` | `gh api`; `pyproject.toml` at that commit |
-| Install on Apple Silicon | The official README and `docs/en/INSTALL.md`: get the source, `uv sync`; macOS gets `torch>=2.9.1`, `mlx>=0.25.2` and `mlx-lm` by platform markers, and the MLX DiT and VAE are used automatically on MPS. reelcut downloads the commit tarball and runs `uv sync --frozen` in `<cache>/envs/ace-step/src` | README, INSTALL.md and the startup log (`MLX-DiT ... initialized`, `Native MLX VAE initialized`) |
+| Install on Apple Silicon | The official README and `docs/en/INSTALL.md`: get the source, `uv sync`; macOS gets `torch>=2.9.1`, `mlx>=0.25.2` and `mlx-lm` by platform markers, and the MLX DiT and VAE are used automatically on MPS. motion-studio downloads the commit tarball and runs `uv sync --frozen` in `<cache>/envs/ace-step/src` | README, INSTALL.md and the startup log (`MLX-DiT ... initialized`, `Native MLX VAE initialized`) |
 | Weights | `ACE-Step/Ace-Step1.5` @ `19671f406d603126926c1b7e2adc169acbcade22`: `acestep-v15-turbo` (DiT, 8 steps), `vae`, `Qwen3-Embedding-0.6B`, `acestep-5Hz-lm-1.7B`; 9.4 GB in `src/checkpoints`, where `initialize_service(project_root=...)` looks | Hugging Face API; `MAIN_MODEL_COMPONENTS` in `acestep/model_downloader.py` |
 | Python API | `AceStepHandler().initialize_service(project_root, config_path="acestep-v15-turbo", device="auto")` returns `(status, ok)`; `generate_music(dit_handler, llm_handler, GenerationParams, GenerationConfig, save_dir)`; `llm_handler=None` with `thinking=False` runs the DiT alone (`use_lm` is False) | `docs/en/INFERENCE.md`; `acestep/inference.py`, `init_service_orchestrator.py` |
 | Duration, BPM, seed | `GenerationParams(duration=<s>, bpm=<int>, seed=<int>)` with `GenerationConfig(batch_size=1, use_random_seed=False, seeds=[seed], audio_format="wav")`; output 48 kHz stereo WAV, normalised to −1 dBFS peak | INFERENCE.md; the generated file |
-| Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so reelcut sends it and runs the VAD check | `grep` of `acestep/` |
+| Instrumental | No hard switch on the DiT path: `GenerationParams.instrumental` is only read by the LM. The lyrics tag `[Instrumental]` is the convention ACE-Step's own UI and training data use, so motion-studio sends it and runs the VAD check | `grep` of `acestep/` |
 | librosa | 1.0.0: `beat.beat_track(*, y, sr, units="time", trim=False)` returns `(tempo, beats)`; `load(path, sr=, mono=)` | `inspect.signature` on the installed package |
 
 ## Documentation and release (ticket #18, 2026-10-24)
@@ -236,10 +236,10 @@ Re-transcription uses `reelcut.asr.transcribe_clips` (ticket #7): the same backe
 |---|---|---|
 | Remotion licence | remotion.dev/license redirects (307) to `LICENSE.md` on the main branch of remotion-dev/remotion | Fetched; byte-identical to `node_modules/remotion/LICENSE.md` of 4.0.538 in the installed renderer |
 | CrisperWhisper licence | CC BY-NC 4.0; the repository is now `nyralabs/CrisperWhisper` (was `nyrahealth/`) | Hugging Face API: `license:cc-by-nc-4.0` tag and card front matter |
-| Typer docs generator | `uv run typer reelcut.cli utils docs --name reelcut --output <file>` | Ran with typer 0.27.3; produced the base of `docs/cli.md` |
+| Typer docs generator | `uv run typer motion_studio.cli utils docs --name motion-studio --output <file>` | Ran with typer 0.27.3; produced the base of `docs/cli.md` |
 | Python licence survey | `uv export --no-dev --extra cpu --extra mac --no-hashes --frozen` for the package list, `importlib.metadata` for each licence | 90 packages; two platform-only ones (`colorama`, `httpx2-jsfetch`) checked on PyPI |
 | npm licence survey | each `package.json` under the installed renderer's `node_modules` | 285 packages |
-| Version | 0.1.0 in `pyproject.toml` and `uv.lock` | `reelcut --version` prints `reelcut 0.1.0`; the renderer installs into `<cache>/renderer/0.1.0` |
+| Version | 0.1.0 in `pyproject.toml` and `uv.lock` | `motion-studio --version` prints `motion-studio 0.1.0`; the renderer installs into `<cache>/renderer/0.1.0` |
 
 ## Code review fixes (2026-10-24)
 

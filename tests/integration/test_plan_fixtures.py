@@ -1,6 +1,6 @@
 """`plan draft`, `plan validate` and `words` on the analysed EN and IT fixtures.
 
-Uses the real cache and the platform's default speech-to-text backend; run `reelcut setup`
+Uses the real cache and the platform's default speech-to-text backend; run `motion-studio setup`
 and `just fixtures` first.
 """
 
@@ -12,12 +12,12 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from reelcut.asr import DEFAULT_MODELS, model_path, resolve_backend
-from reelcut.asr.vad import vad_model_path
-from reelcut.audio.enhance import deep_filter_binary
-from reelcut.cli import app
-from reelcut.edl import Timeline
-from reelcut.text import normalise_words
+from motion_studio.asr import DEFAULT_MODELS, model_path, resolve_backend
+from motion_studio.asr.vad import vad_model_path
+from motion_studio.audio.enhance import deep_filter_binary
+from motion_studio.cli import app
+from motion_studio.edl import Timeline
+from motion_studio.text import normalise_words
 
 pytestmark = [pytest.mark.slow, pytest.mark.mac, pytest.mark.models]
 
@@ -44,12 +44,12 @@ def analysed(
         pytest.skip("fixtures not generated; run `just fixtures`")
     backend = resolve_backend("auto")
     if not vad_model_path().is_file() or model_path(DEFAULT_MODELS[backend]) is None:  # type: ignore[index]
-        pytest.skip("speech models not in the cache; run `reelcut setup`")
+        pytest.skip("speech models not in the cache; run `motion-studio setup`")
     with pytest.MonkeyPatch.context() as monkeypatch:
         deep_filter = deep_filter_binary()
         if deep_filter:
-            monkeypatch.setenv("REELCUT_DEEP_FILTER", str(deep_filter))
-        monkeypatch.setenv("REELCUT_MIN_FREE_GB", "0")
+            monkeypatch.setenv("MOTION_STUDIO_DEEP_FILTER", str(deep_filter))
+        monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_GB", "0")
         workspace = tmp_path_factory.mktemp(language) / "reels"
         run("init", str(workspace))
         monkeypatch.chdir(workspace)
