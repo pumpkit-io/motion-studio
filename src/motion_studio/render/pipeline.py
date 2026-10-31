@@ -42,7 +42,7 @@ DEFAULT_CONCURRENCY = 4
 # Bump when the assemble recipe changes, so earlier assembled A-roll goes stale.
 ASSEMBLE_RECIPE = 2
 # Bump when the renderer's output or the mix recipe changes, so earlier renders go stale.
-RENDER_RECIPE = 3
+RENDER_RECIPE = 4
 ASSEMBLE_RECORD = "render.assemble"
 # Bump when the share copy's encode changes: it redoes the share copies, not the finals.
 SHARE_RECIPE = 1

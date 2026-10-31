@@ -347,6 +347,21 @@ def test_a_render_cached_under_an_older_renderer_recipe_is_composed_again(
     assert assembled.stat().st_mtime_ns == assembled_at
 
 
+def test_a_render_from_before_true_peak_mastering_is_mixed_again(
+    demo: Path, fake_renderer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Recipe 3 is the last one that mastered without the true-peak limiter.
+    current = pipeline.RENDER_RECIPE
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", 3)
+    render("--preview", "--format", "9x16")
+    monkeypatch.setattr(pipeline, "RENDER_RECIPE", current)
+
+    out = render("--preview", "--format", "9x16")
+
+    assert out["noop"] is False
+    assert len(calls(fake_renderer)) == 2
+
+
 def test_a_mezzanine_replaced_in_place_is_assembled_and_rendered_again(
     demo: Path, fake_renderer: Path
 ) -> None:
