@@ -912,6 +912,29 @@ Checked:
 - vitest in `deviceFrame.test.ts`: rest, smooth easing (half-way at half time), snap cuts, interrupted moves, zoom 1 at rest, and the camera point landing on the canvas centre.
 - `tests/integration/test_product_render.py` (`renderer`): a snap move onto a red box in the synthetic recording holds it at 2x on the canvas centre in the final's still.
 
+## Kinetic text, proof shot, logo outro, terminal frame and brand mascot (ticket #35, spec #26)
+
+Built:
+
+- Scene types `kinetic_text` (`lines`, `accent`; the lines share the scene equally and each springs in word by word), `proof` (`image` clip, optional `headline`, `accent`, `subline`, `badge`) and `logo_outro` (`tagline`, `accent`, `url`, `mascot`, default true). Footage takes `device_frame: "terminal"`, with `address` as the window title.
+- `[brand]` gains `wordmark` (an image path) and `mascot = { sheet, timings }`. `motion_studio.brand.load_brand_assets` loads them before resolving (file present, timings parse as `SpriteTimings`, frames inside the sheet, sheet size read with Pillow) and hands the resolver a `BrandAssets`; the resolver stays pure and raises `missing_brand_asset` only for a logo outro that needs an asset, naming the `[brand]` key and why it failed. `SpriteTimings` is a new contract, `schemas/sprite.schema.json`; it ignores exporter keys such as `image`, `columns`, `rows` and `loop_ms`.
+- Issue codes `unknown_image` and `missing_brand_asset`; `unknown_accent` now covers taglines and kinetic lines.
+- The timeline gains `TimelineKineticText`, `TimelineProof` (with the image's size), `TimelineLogoOutro`, and `brand.wordmark` and `brand.mascot` (sheet path and size, frame size, frames, loops) on product timelines. Render links the wordmark and sheet to `brand/` in the public directory and passes `wordmark_file` and `mascot_file` in the props; both are render inputs.
+- Renderer components after `launch-video/project/src/Launch.tsx`: `KineticText` (the intro's line-by-line punches, 150 px for short lines and 110 px for long ones), `TerminalFrame` (the dark Claude Code window bar), `Proof` (the tweet shot: headline left, image rising and drifting in 3D on the right, accent badge), `LogoOutro` and `Mascot` (mascot and wordmark sliding together, tagline and URL pill, fade to black). Sprite timing and the sheet's CSS are pure functions in `lib/sprite.ts`; the sheet is drawn with `image-rendering: pixelated`.
+- Docs: the product section of `reference/edl.md` (scene table, brand files, codes, example), the workspace `motion-studio.toml` template, `library/brand/README.md`, the glossary (proof shot, logo outro, mascot) and `docs/architecture.md`.
+
+Deviations:
+
+- The logo outro's tagline and URL appear at the launch video's 1.6 s and 2.2 s, or at 30% and 40% of the scene when that is sooner, so a short outro still shows its URL.
+- A mascot is a sprite sheet only; story 43's GIF option is not built.
+- `config show` leaves unset optional keys (`[brand] wordmark`, `mascot`) out of both its TOML and JSON output, since TOML has no null.
+- Brand files live in the workspace, outside the plan stage's recorded inputs, so editing one after a successful `plan validate` needs another `plan validate` before render picks it up (as with `[brand]` colours today).
+
+Checked:
+
+- `tests/unit/test_resolver_product_scenes.py` (resolver seam), `test_product_brand_cli.py` (`plan validate` with the Pumpkit mascot and wordmark from `tests/fixtures/brand/`: the sheet's size and timings in the timeline; unset, missing and malformed assets named by key; assets no scene needs left unchecked) and `test_product_render_cli.py` (wordmark and sheet in the props and public dir) in CI; vitest specs for sprite frame timing (per-frame durations, looping, holding the last frame) and the sheet's CSS.
+- `tests/integration/test_product_scenes_render.py` (`slow`, `renderer`) renders all four with the real renderer and checks stills at scene midpoints: kinetic text on the backdrop, terminal footage under the dark bar, the proof image right of its headline with the badge, and a 4x4 red-and-blue sprite drawn 300 px tall with over 90% pure pixels (26% when smoothing is switched on) on the frame its timings put there.
+
 ## Highlight, mask, caption pill and flash events (ticket #34, spec #26)
 
 Built:
@@ -924,7 +947,7 @@ Built:
 Deviations:
 
 - A flash marks the cut into its scene rather than a time inside it: product scenes have one continuous range each, so the cut is the scene boundary.
-- A mask's default fill is the device frame's background (the browser page grey), not a colour sampled from the footage; `color` overrides it.
+- A mask's default fill is the device frame's background (the browser page grey or the terminal's), not a colour sampled from the footage; `color` overrides it.
 
 Checked:
 

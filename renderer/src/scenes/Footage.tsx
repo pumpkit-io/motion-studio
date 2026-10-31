@@ -7,10 +7,11 @@ import { Backdrop } from "./Backdrop";
 import { BROWSER_BODY, BrowserBar } from "./BrowserFrame";
 import { EXIT_FRAMES } from "./Kinetic";
 import { Highlights, Masks } from "./Overlays";
+import { TERMINAL_BODY, TerminalBar } from "./TerminalFrame";
 
 /**
- * A screen recording in a browser window that tilts in, follows its camera moves, then blurs out.
- * Masks and highlights sit on the footage, so they move with the camera.
+ * A screen recording in a browser or terminal window that tilts in, follows its camera moves, then
+ * blurs out. Masks and highlights sit on the footage, so they move with the camera.
  */
 export const Footage: React.FC<{
   scene: TimelineFootage;
@@ -32,6 +33,8 @@ export const Footage: React.FC<{
   });
   const camera = cameraAt(scene.camera, scene.start + frame, layout, fps);
   const transform = frameTransform(layout, canvas, { enter, camera });
+  const terminal = scene.device_frame === "terminal";
+  const body = terminal ? TERMINAL_BODY : BROWSER_BODY;
   return (
     <AbsoluteFill>
       <Backdrop palette={palette} unit={unit} />
@@ -48,10 +51,14 @@ export const Footage: React.FC<{
             borderRadius: 18 * unit,
             overflow: "hidden",
             boxShadow: `0 ${40 * unit}px ${120 * unit}px rgba(0, 0, 0, 0.55), 0 0 0 ${unit}px rgba(255, 255, 255, 0.08)`,
-            backgroundColor: BROWSER_BODY,
+            backgroundColor: body,
           }}
         >
-          <BrowserBar height={layout.bar} address={scene.address} font={font} />
+          {terminal ? (
+            <TerminalBar height={layout.bar} title={scene.address} font={font} />
+          ) : (
+            <BrowserBar height={layout.bar} address={scene.address} font={font} />
+          )}
           <div style={{ position: "relative", width: layout.content.width, height: layout.content.height, overflow: "hidden" }}>
             <OffthreadVideo
               src={staticFile(scene.src)}
@@ -59,7 +66,7 @@ export const Footage: React.FC<{
               {...footagePlayback(scene, fps)}
               style={{ width: layout.content.width, height: layout.content.height, display: "block" }}
             />
-            <Masks masks={masks} fill={BROWSER_BODY} frame={scene.start + frame} scale={layout.scale} unit={unit} />
+            <Masks masks={masks} fill={body} frame={scene.start + frame} scale={layout.scale} unit={unit} />
             <Highlights
               highlights={highlights}
               footageWidth={scene.width}

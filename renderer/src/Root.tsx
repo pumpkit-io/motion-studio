@@ -36,7 +36,7 @@ const defaultProps: ReelProps = {
       text_color: "#FFFFFF",
       stroke_color: "#000000",
     },
-    brand: { primary: "#111111", accent: "#FFD400", logo: "" },
+    brand: { primary: "#111111", accent: "#FFD400", logo: "", wordmark: null, mascot: null },
     music_path: null,
   },
 };
@@ -45,6 +45,8 @@ const productDefaults: ProductProps = {
   format: "16x9",
   font_file: null,
   logo_file: null,
+  wordmark_file: null,
+  mascot_file: null,
   timeline: {
     ...defaultProps.timeline,
     kind: "product",

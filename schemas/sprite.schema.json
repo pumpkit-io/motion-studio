@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "SpriteFrame": {
+      "properties": {
+        "ms": {
+          "description": "How long the frame shows.",
+          "exclusiveMinimum": 0,
+          "title": "Ms",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Left edge of the frame in the sheet, in sheet pixels.",
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "ms"
+      ],
+      "title": "SpriteFrame",
+      "type": "object"
+    }
+  },
+  "description": "A mascot's frame-timing JSON: where each frame sits in the sheet and how long it shows.",
+  "properties": {
+    "frame_height": {
+      "exclusiveMinimum": 0,
+      "title": "Frame Height",
+      "type": "integer"
+    },
+    "frame_width": {
+      "exclusiveMinimum": 0,
+      "title": "Frame Width",
+      "type": "integer"
+    },
+    "frames": {
+      "description": "In playing order.",
+      "items": {
+        "$ref": "#/$defs/SpriteFrame"
+      },
+      "minItems": 1,
+      "title": "Frames",
+      "type": "array"
+    },
+    "loops": {
+      "default": 0,
+      "description": "Times the frames play before the last one holds; 0 is forever.",
+      "minimum": 0,
+      "title": "Loops",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "frame_width",
+    "frame_height",
+    "frames"
+  ],
+  "title": "SpriteTimings",
+  "type": "object"
+}

@@ -45,11 +45,36 @@
           "title": "Logo",
           "type": "string"
         },
+        "mascot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Mascot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sprite-sheet mascot for product outros."
+        },
         "primary": {
           "default": "#111111",
           "description": "#RRGGBB; #RGB is accepted and expanded.",
           "title": "Primary",
           "type": "string"
+        },
+        "wordmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Wordmark image for product outros, relative to the workspace.",
+          "title": "Wordmark"
         }
       },
       "title": "Brand",
@@ -211,6 +236,27 @@
         }
       },
       "title": "Edit",
+      "type": "object"
+    },
+    "Mascot": {
+      "additionalProperties": false,
+      "properties": {
+        "sheet": {
+          "description": "Sprite sheet image, relative to the workspace.",
+          "title": "Sheet",
+          "type": "string"
+        },
+        "timings": {
+          "description": "The sheet's frame-timing JSON, relative to the workspace.",
+          "title": "Timings",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sheet",
+        "timings"
+      ],
+      "title": "Mascot",
       "type": "object"
     },
     "Master": {

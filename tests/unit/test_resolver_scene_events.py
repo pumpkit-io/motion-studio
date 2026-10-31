@@ -182,3 +182,9 @@ def test_a_highlight_or_mask_off_footage_and_a_second_pill_or_flash_are_errors()
 
     assert [i.code for i in issues] == ["event_needs_footage", "duplicate_event", "duplicate_event"]
     assert "title_card" in issues[0].message
+
+
+def test_a_flash_on_terminal_footage_is_softer_by_default() -> None:
+    [flash] = events(footage({"type": "flash"}, device_frame="terminal"))
+
+    assert flash.model_dump()["strength"] == 0.12

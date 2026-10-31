@@ -3,7 +3,8 @@ import type { Size, TimelineFootage } from "./timeline";
 
 /**
  * Geometry of footage in a device frame, after the Pumpkit launch video: 1600x900 footage sits
- * at 1:1 under a 44 px browser bar on a 1920x1080 canvas, and other sizes scale into that room.
+ * at 1:1 under a 44 px title bar (browser or terminal) on a 1920x1080 canvas, and other sizes
+ * scale into that room.
  */
 
 const REFERENCE_WIDTH = 1920;
