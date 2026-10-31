@@ -16,11 +16,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from motion_studio import APP_NAME
 from motion_studio.analysis import ClipAnalysis
+from motion_studio.brand import load_brand_assets
 from motion_studio.config import Config, load_config
 from motion_studio.edl import resolve
 from motion_studio.edl.grid import DEFAULT_BPM, BeatGrid
 from motion_studio.edl.models import Edl, MusicPreset, ProductEdl
 from motion_studio.edl.models import MusicAlign as EdlMusicAlign
+from motion_studio.edl.product import BrandAssets
 from motion_studio.errors import UserError
 from motion_studio.media.ffmpeg import run_ffmpeg
 from motion_studio.music import acestep, library
@@ -245,7 +247,13 @@ def run_music(
             )
             return _generate(
                 project,
-                Fit(edl, load_analyses(project), config, duration),
+                Fit(
+                    edl,
+                    load_analyses(project),
+                    config,
+                    duration,
+                    brand=load_brand_assets(workspace, config.brand),
+                ),
                 request,
                 step=step,
                 on_wait=on_wait,
@@ -272,6 +280,7 @@ class Fit:
     clips: list[ClipAnalysis]
     config: Config
     duration_s: float
+    brand: BrandAssets | None = None
 
     def generation_s(self, bpm: int | None) -> float:
         """The length to generate: the timeline, a product's scenes on the requested tempo.
@@ -309,7 +318,14 @@ class Fit:
         return at, total
 
     def _resolved(self, beats: list[float]) -> "_Timed":
-        timeline = resolve(self.clips, self.edl, self.config, beats).timeline
+        timeline = resolve(
+            self.clips,
+            self.edl,
+            self.config,
+            beats,
+            beats_per_bar=BEATS_PER_BAR,
+            brand=self.brand,
+        ).timeline
         return _Timed(
             duration_s=timeline.duration_frames / timeline.fps,
             starts={s.id: s.start / timeline.fps for s in timeline.scenes},

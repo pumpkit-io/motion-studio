@@ -5,6 +5,7 @@ drop and ending of 8, 8, 8 and 4 bars from 0.25 s, the drop carrying a 660 Hz le
 """
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,12 @@ BAR = 2.0
 FIRST_BEAT_S = 0.25
 RAW_HITS = {"intro_end": 16.25, "build": 16.25, "drop": 32.25, "ending": 48.25}
 FPS = 30
+BRAND_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "brand"
+BRAND_TOML = """
+[brand]
+wordmark = "library/brand/wordmark.svg"
+mascot = { sheet = "library/brand/mascot.png", timings = "library/brand/mascot.json" }
+"""
 
 
 def invoke(*args: str | Path):
@@ -278,3 +285,24 @@ def test_more_than_four_candidates_is_refused(launch: Path) -> None:
     result = invoke("music", "launch", "--candidates", "5")
 
     assert result.exit_code != 0
+
+
+def test_music_generates_for_an_edl_ending_on_a_branded_logo_outro(
+    launch: Path, worker: Path
+) -> None:
+    ws = launch.parents[1]
+    for name in ("wordmark.svg", "mascot.png", "mascot.json"):
+        shutil.copy(BRAND_FIXTURES / name, ws / "library" / "brand" / name)
+    (launch / "project.toml").open("a", encoding="utf-8").write(BRAND_TOML)
+    outro = {"id": "logo_outro", "type": "logo_outro", "bars": 4, "url": "example.com"}
+    write_edl(
+        launch, [title("intro", 4), outro], bpm=120, align={"hit": "drop", "at": "logo_outro"}
+    )
+
+    result = invoke("music", "launch", "--json")
+
+    assert result.exit_code == 0, result.output
+    assert len(jobs(worker)) == 1
+    timeline = validated(launch)
+    hits = {h["name"]: h["time_s"] for h in music_json(launch)["hits"]}
+    assert hits["drop"] == pytest.approx(scene_start_s(timeline, "logo_outro"), abs=1 / FPS)
