@@ -253,4 +253,4 @@ Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_l
 
 Music errors: `align_scene` (`music.align.at` is not a scene ID), `align_mode` (`music.align` on a bed that is not generated), `align_kind` (`music.align` in a talk EDL).
 
-Warnings: `seconds_addressed` (a footage scene in source seconds), `too_long`.
+Warnings: `seconds_addressed` (a footage scene in source seconds), `target_too_wide` (a camera move with no `zoom` whose target fills more than 70% of the footage, so it stays at 1x and only recentres), `too_long`.

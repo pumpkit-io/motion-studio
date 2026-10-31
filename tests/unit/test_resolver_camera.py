@@ -63,6 +63,20 @@ def test_the_70_percent_framing_never_zooms_out_or_past_the_limit() -> None:
     assert (wide.zoom, tiny.zoom) == (1.0, 2.0)
 
 
+def test_a_target_too_wide_to_zoom_on_warns_that_the_move_stays_at_1x() -> None:
+    moves = (
+        {"at": "c1.m.start", "target": {"x": 0, "y": 0, "w": 1500, "h": 800}},
+        {"at": "c1.m.typed", "target": "full"},
+    )
+
+    warnings = resolve([C1], product(scene(*moves)), Config()).warnings
+
+    [warning] = warnings
+    assert warning.code == "target_too_wide"
+    assert warning.message.startswith("scene demo camera[0]: ")
+    assert "1x" in warning.message
+
+
 def test_full_frames_the_whole_footage_and_a_box_frames_its_centre() -> None:
     [full, box] = keys(
         {"at": "c1.m.start", "target": "full"},

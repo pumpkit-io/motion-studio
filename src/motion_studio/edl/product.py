@@ -404,6 +404,13 @@ def _move(
     zoom = _zoom(move.zoom, box, width, height, where, problems)
     if zoom is None:
         return None
+    if move.zoom is None and move.target != "full" and _fill(box, width, height) < 1.0:
+        problems.warn(
+            "target_too_wide",
+            f"{where}: the target fills more than {_FILL:.0%} of the {width}x{height} footage, "
+            "so the move stays at 1x and only recentres",
+            hint='target a smaller element or box, or "full" to show the whole frame',
+        )
     return TimelineCameraKey(
         frame=_frame_at(at, span, slot),
         cx=round(box.x + box.w / 2, 2),
@@ -493,7 +500,7 @@ def _zoom(
     """The given zoom, or one that fills 70% of the footage with the box, within the limit."""
     limit = _max_zoom(width, height)
     if zoom is None:
-        return min(limit, max(1.0, _FILL * min(width / box.w, height / box.h)))
+        return min(limit, max(1.0, _fill(box, width, height)))
     if zoom > limit + 1e-9:
         problems.error(
             "zoom_too_far",
@@ -503,6 +510,11 @@ def _zoom(
         )
         return None
     return zoom
+
+
+def _fill(box: Rect, width: int, height: int) -> float:
+    """The zoom at which the box fills 70% of the footage."""
+    return _FILL * min(width / box.w, height / box.h)
 
 
 def _max_zoom(width: int, height: int) -> float:
