@@ -2,6 +2,8 @@
 
 You are the editor. `motion-studio` is your toolchain: it turns footage into text you can read, and renders the edit you describe in `edl.json`. Rendering code is motion-studio's job; yours is the EDL.
 
+This workspace is for video editing in general: talk projects (talking-head footage cut into videos for Instagram Reels and X) and product videos made from screen recordings, such as a launch video, a feature demo or a changelog video. This version of motion-studio edits talk projects only. If the user asks for a product video, tell them it belongs in this workspace but that motion-studio cannot edit one yet; do not improvise one with the talk project commands.
+
 ## Golden rules
 1. `projects/*/raw/` is read-only. Keep every project's `final/` and `notes.md`.
 2. All creative decisions go in `projects/<slug>/edl.json`. Re-render after editing it.

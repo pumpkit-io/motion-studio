@@ -1,6 +1,6 @@
 # Contributing to motion-studio
 
-Thanks for helping. motion-studio is deterministic plumbing: the editorial judgement lives in the host agent, and the harness turns footage into text and an EDL into video.
+Thanks for helping. motion-studio edits video with a coding agent: talking-head videos for Reels and X, and product videos made from screen recordings. It is deterministic plumbing: the editorial judgement lives in the host agent, and the harness turns footage into text and an EDL into video.
 
 ## Set up
 

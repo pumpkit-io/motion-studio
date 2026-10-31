@@ -1,6 +1,6 @@
 # Developing motion-studio
 
-This file is for agents working on motion-studio itself. The agent that edits videos reads the workspace `AGENTS.md` that `motion-studio init` writes, not this one.
+This file is for agents working on motion-studio itself: a tool that edits video with a coding agent, covering talk projects (talking-head videos for Reels and X) and product videos made from screen recordings. The agent that edits videos reads the workspace `AGENTS.md` that `motion-studio init` writes, not this one.
 
 ## Commands
 

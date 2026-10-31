@@ -1,6 +1,8 @@
 # motion-studio
 
-motion-studio lets the coding agent you already use (Claude Code, Codex, Gemini CLI, Cursor) edit raw talking-head footage into finished short videos for Instagram Reels and X. You drop your takes into a project, open the agent and say "Edit this into a 45-second Reel and an X version". The agent reads a compact text index of the footage and writes an edit decision list (EDL) that names words and utterances by ID. motion-studio validates the EDL into a frame-accurate timeline and renders it: cuts, filler and dead-air removal, retake selection, the hook moved to the front, face-centred reframing for 9:16, 16:9 and 4:5, word-by-word captions, punch-in zooms, B-roll, locally generated music, ducking and loudness mastering. Everything runs on your machine. motion-studio never calls a language model and never uploads anything.
+motion-studio edits video with the coding agent you already use (Claude Code, Codex, Gemini CLI, Cursor). It covers two kinds of video: talking-head videos for Instagram Reels and X, and product videos made from screen recordings, such as launch videos, feature demos and changelog videos. This release edits talking-head videos; the product video commands are still being built.
+
+For a talking-head video, you drop your takes into a project, open the agent and say "Edit this into a 45-second Reel and an X version". The agent reads a compact text index of the footage and writes an edit decision list (EDL) that names words and utterances by ID. motion-studio validates the EDL into a frame-accurate timeline and renders it: cuts, filler and dead-air removal, retake selection, the hook moved to the front, face-centred reframing for 9:16, 16:9 and 4:5, word-by-word captions, punch-in zooms, B-roll, locally generated music, ducking and loudness mastering. Everything runs on your machine. motion-studio never calls a language model and never uploads anything.
 
 ## How it works
 

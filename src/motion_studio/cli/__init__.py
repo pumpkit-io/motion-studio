@@ -67,7 +67,10 @@ class _Group(TyperGroup):
 app = typer.Typer(
     name=APP_NAME,
     cls=_Group,
-    help=f"{APP_NAME}: turn talking-head footage into finished short videos, driven by an agent.",
+    help=(
+        f"{APP_NAME}: edit video with a coding agent, from talking-head videos for Reels and X"
+        " to product videos made from screen recordings."
+    ),
     no_args_is_help=True,
     add_completion=False,
 )
@@ -91,7 +94,7 @@ def main(
         ),
     ] = False,
 ) -> None:
-    """Edit talking-head footage into short videos from an EDL the host agent writes."""
+    """Edit talking-head videos and product videos from an EDL the host agent writes."""
 
 
 def _register() -> None:
