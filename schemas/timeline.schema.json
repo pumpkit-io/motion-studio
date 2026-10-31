@@ -311,6 +311,115 @@
       "title": "TimelineCaptions",
       "type": "object"
     },
+    "TimelineFootage": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Address"
+        },
+        "clip": {
+          "title": "Clip",
+          "type": "string"
+        },
+        "device_frame": {
+          "const": "browser",
+          "title": "Device Frame",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "integer"
+        },
+        "height": {
+          "description": "Pixel height of the footage.",
+          "title": "Height",
+          "type": "integer"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "rate": {
+          "description": "Playback speed that fits src_in_s to src_out_s in the scene.",
+          "title": "Rate",
+          "type": "number"
+        },
+        "src": {
+          "description": "The recording's mezzanine, relative to the project.",
+          "title": "Src",
+          "type": "string"
+        },
+        "src_in_s": {
+          "description": "Source seconds of the scene's first frame.",
+          "title": "Src In S",
+          "type": "number"
+        },
+        "src_out_s": {
+          "description": "Source seconds where the scene ends.",
+          "title": "Src Out S",
+          "type": "number"
+        },
+        "start": {
+          "title": "Start",
+          "type": "integer"
+        },
+        "type": {
+          "const": "footage",
+          "title": "Type",
+          "type": "string"
+        },
+        "width": {
+          "description": "Pixel width of the footage.",
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "clip",
+        "src",
+        "width",
+        "height",
+        "src_in_s",
+        "src_out_s",
+        "rate",
+        "device_frame",
+        "address"
+      ],
+      "title": "TimelineFootage",
+      "type": "object"
+    },
+    "TimelineHeadlineWord": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "description": "Drawn in the brand accent colour.",
+          "title": "Accent",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "accent"
+      ],
+      "title": "TimelineHeadlineWord",
+      "type": "object"
+    },
     "TimelineImage": {
       "additionalProperties": false,
       "properties": {
@@ -423,6 +532,70 @@
         "end"
       ],
       "title": "TimelineTitle",
+      "type": "object"
+    },
+    "TimelineTitleCard": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "description": "Output frame after the last one.",
+          "title": "End",
+          "type": "integer"
+        },
+        "headline": {
+          "items": {
+            "$ref": "#/$defs/TimelineHeadlineWord"
+          },
+          "title": "Headline",
+          "type": "array"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "start": {
+          "description": "First output frame.",
+          "title": "Start",
+          "type": "integer"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Step"
+        },
+        "subline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subline"
+        },
+        "type": {
+          "const": "title_card",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "start",
+        "end",
+        "step",
+        "headline",
+        "subline"
+      ],
+      "title": "TimelineTitleCard",
       "type": "object"
     },
     "TimelineWord": {
@@ -559,6 +732,16 @@
       "title": "Fps",
       "type": "integer"
     },
+    "kind": {
+      "default": "talk",
+      "description": "talk: runs of A-roll. product: scenes, and no runs.",
+      "enum": [
+        "talk",
+        "product"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
     "language": {
       "anyOf": [
         {
@@ -589,6 +772,28 @@
       "title": "Runs",
       "type": "array"
     },
+    "scenes": {
+      "description": "Product videos: scenes back to back in output order.",
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "footage": "#/$defs/TimelineFootage",
+            "title_card": "#/$defs/TimelineTitleCard"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TimelineTitleCard"
+          },
+          {
+            "$ref": "#/$defs/TimelineFootage"
+          }
+        ]
+      },
+      "title": "Scenes",
+      "type": "array"
+    },
     "schema_version": {
       "const": 1,
       "default": 1,
@@ -610,6 +815,7 @@
   },
   "required": [
     "schema_version",
+    "kind",
     "title",
     "language",
     "fps",
@@ -618,6 +824,7 @@
     "runs",
     "words",
     "events",
+    "scenes",
     "captions",
     "brand",
     "music_path"

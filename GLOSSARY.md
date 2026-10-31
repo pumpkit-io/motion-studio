@@ -156,6 +156,10 @@ _Avoid_: Clip, section, part
 An entry in a product video's EDL: one title card, footage shot, proof shot or outro, with its own duration. The order of scenes is their order in the output.
 _Avoid_: Segment (a segment keeps a range of words), slide, shot
 
+**Beat grid**:
+The beats a product video's scenes are laid on: the music bed's beats once it exists, a steady 120 bpm before. Scene lengths in beats or bars count on it.
+_Avoid_: Tempo map, click track
+
 **Title card**:
 A short full-frame scene with a headline, and optionally a step number and a subline, that introduces what comes next.
 _Avoid_: Title (a title is text over footage), slate, intertitle

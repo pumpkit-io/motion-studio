@@ -138,7 +138,7 @@ npm 11.6.0 drops every platform-specific optional package (`@rolldown/binding-*`
 |---|---|---|---|
 | @remotion/layout-utils | 4.0.538 | MIT | `measureText({ text, fontFamily, fontSize, fontWeight })` for the caption width cap |
 | @remotion/fonts | 4.0.538 | MIT | `loadFont({ family, url, weight, unicodeRange })`; calls `delayRender` until the font is in `document.fonts` |
-| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so the default font needs no network |
+| @fontsource/inter | 5.3.0 (published 2026-07-19) | OFL-1.1 | Inter 800 and 500 woff2 files (latin, latin-ext) bundled by Remotion's webpack, so the default font needs no network; 500 is for product sublines |
 
 Remotion APIs checked against the installed 4.0.538 type definitions:
 
@@ -157,6 +157,8 @@ Remotion CLI flags (`npx remotion render --help` and `npx remotion still --help`
 | `--crf` | 16 | |
 | `--scale` | 0.5 (preview) or 1 | 16x9 at 0.5 renders 960x540 |
 | `--log` | `error` | |
+| `--enforce-audio-track` | product renders | adds a silent track to a video with no audio, so the mix has a stream to add the bed to |
+| `render ... Product` | product renders | the second composition, registered in `src/Root.tsx` |
 | `still ... --frame=<n>` | stills for visual checks | `remotion still --help` |
 
 The first render downloads Chrome Headless Shell (about 570 MB) into `renderer/node_modules/.remotion/`; `npx remotion browser ensure` does that ahead of time.

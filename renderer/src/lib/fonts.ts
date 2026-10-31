@@ -1,10 +1,19 @@
 import { loadFont } from "@remotion/fonts";
 import { useState } from "react";
 import { staticFile } from "remotion";
+import interLatin500 from "@fontsource/inter/files/inter-latin-500-normal.woff2";
+import interLatinExt500 from "@fontsource/inter/files/inter-latin-ext-500-normal.woff2";
 import interLatin from "@fontsource/inter/files/inter-latin-800-normal.woff2";
 import interLatinExt from "@fontsource/inter/files/inter-latin-ext-800-normal.woff2";
 
 export const FONT_WEIGHT = 800;
+/** The lighter weight product sublines use; captions only need FONT_WEIGHT. */
+export const TEXT_WEIGHT = 500;
+
+const INTER: Record<number, { latin: string; latinExt: string }> = {
+  [FONT_WEIGHT]: { latin: interLatin, latinExt: interLatinExt },
+  [TEXT_WEIGHT]: { latin: interLatin500, latinExt: interLatinExt500 },
+};
 
 // Unicode ranges copied from @fontsource/inter 5.3.0's 800.css.
 const LATIN =
@@ -18,17 +27,21 @@ export type LoadedFont = { family: string; ready: boolean };
  * Loads the brand font file when there is one, else the bundled Inter, which keeps renders
  * offline. `ready` turns true once the font is in `document.fonts`, so text can be measured.
  */
-export function useCaptionFont(brandFamily: string, fontFile: string | null): LoadedFont {
+export function useCaptionFont(
+  brandFamily: string,
+  fontFile: string | null,
+  weights: readonly (typeof FONT_WEIGHT | typeof TEXT_WEIGHT)[] = [FONT_WEIGHT],
+): LoadedFont {
   const family = fontFile === null ? "Inter" : brandFamily;
   const [ready, setReady] = useState(false);
   // Starts loading during the first render, so loadFont's delayRender holds the first frame.
   useState(() => {
     const loads =
       fontFile === null
-        ? [
-            loadFont({ family, url: interLatin, weight: String(FONT_WEIGHT), unicodeRange: LATIN }),
-            loadFont({ family, url: interLatinExt, weight: String(FONT_WEIGHT), unicodeRange: LATIN_EXT }),
-          ]
+        ? weights.flatMap((weight) => [
+            loadFont({ family, url: INTER[weight]!.latin, weight: String(weight), unicodeRange: LATIN }),
+            loadFont({ family, url: INTER[weight]!.latinExt, weight: String(weight), unicodeRange: LATIN_EXT }),
+          ])
         : [loadFont({ family, url: staticFile(fontFile) })];
     void Promise.all(loads).then(() => setReady(true));
     return null;

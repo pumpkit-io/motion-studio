@@ -4,6 +4,8 @@
 
 `motion-studio plan draft <slug>` writes a baseline to start from. The JSON Schema is `schemas/edl.schema.json` in the motion-studio repository.
 
+There are two kinds of EDL, one per project kind. A talk EDL (`kind` left out, or `"talk"`) keeps words in `segments`; it is described first. A product EDL (`"kind": "product"`) lays out `scenes` and has its own section, [Product EDLs](#product-edls), below. The shared top-level fields mean the same in both.
+
 ## IDs
 
 | ID | Means | Where to find it |
@@ -50,6 +52,7 @@
 | Field | Default | Meaning |
 |---|---|---|
 | `schema_version` | `1` | Always 1. |
+| `kind` | `talk` | `talk` or `product`, the project's kind. |
 | `title` | `""` | The video's title. |
 | `language` | project language | Caption language: `en` or `it`. |
 | `formats` | config `formats` | Any of `9x16`, `16x9`, `4x5`. One EDL serves every format. |
@@ -135,3 +138,64 @@ Validate lists every problem at once, each with a fix, and exits 1 when any is a
 Errors: `invalid_edl` (a field fails the schema), `bad_ref`, `unknown_ref`, `cross_clip`, `reversed_range`, `duplicate_segment`, `bad_segment_id`, `overlapping_segments`, `bad_drop_range`, `unknown_language`, `dropped_anchor`, `event_range`, `bad_asset`, `overlay_overlap`.
 
 Warnings: `short_run`, `empty_segment`, `drop_and_keep`, `too_long`, `asset_short`, `title_over_broll`.
+
+## Product EDLs
+
+A product video is scenes back to back, in output order: title cards and footage of screen recordings in a device frame. Screen recordings have no words, so you point into them by marker (ADR 0005), and scene lengths are in beats or bars so cuts land on the music.
+
+### IDs
+
+| ID | Means | Where to find it |
+|---|---|---|
+| `c2` | Screen recording c2 | `analysis/packed.md` |
+| `c2.m.v1_shown` | Marker `v1_shown` of c2, written by the recording script's `mark()` | under each screen recording in `analysis/packed.md` |
+| `intro` | A scene you named | your own `scenes[].id` |
+
+### Example
+
+```json
+{
+  "schema_version": 1,
+  "kind": "product",
+  "title": "Pumpkit launch",
+  "scenes": [
+    { "id": "intro", "type": "title_card", "bars": 2, "headline": "Got an idea?", "accent": ["idea"] },
+    { "id": "step1", "type": "title_card", "beats": 2, "step": "01", "headline": "Pick who inspires you.", "accent": ["inspires"] },
+    { "id": "pick", "type": "footage", "clip": "c1", "from": "c1.m.open", "to": { "marker": "c1.m.picked", "offset_s": 0.4 }, "rate": 1.8, "address": "pumpkit.io" },
+    { "id": "brief", "type": "footage", "clip": "c2", "from": "c2.m.typing", "to": "c2.m.sent", "bars": 2 }
+  ],
+  "music": { "mode": "generate", "prompt": "bright electronic launch, instrumental", "bpm": 120, "seed": 7 },
+  "rationale": "Hook question, then one numbered step per recording."
+}
+```
+
+### Top-level fields
+
+`schema_version`, `title`, `language`, `max_duration_s`, `captions`, `music` and `rationale` mean what they mean in a talk EDL. `kind` is `product`, and `scenes` (at least one) is the video in output order. `formats` may only be `["16x9"]`, the default: product videos render in 16x9 only.
+
+### The beat grid
+
+Scene lengths are `beats`, `bars` or `seconds`. Before music exists the grid is a steady 120 bpm with four beats to a bar; once `motion-studio music` has written the bed, its beats and bars are the grid, so run `plan validate` again after music. A scene in beats or bars ends on the nearest beat, even after a scene in seconds. Scene starts are whole output frames, with no gap between scenes.
+
+### Scenes
+
+Every scene has an `id` (unique), a `type`, a length (exactly one of `beats`, `bars` or `seconds`, except for footage, below) and an optional `note`.
+
+| Type | Fields | Meaning |
+|---|---|---|
+| `title_card` | `headline`, `accent` (`[]`), `step`, `subline` | A full-frame card that introduces a step: the `step` number (such as `"01"`) above, the `headline` springing in word by word with the `accent` words in the brand accent colour, and the `subline` smaller underneath. |
+| `footage` | `clip`, `from`, `to`, `rate`, `device_frame` (`browser`), `address` | A stretch of a screen recording in a browser frame; `address` is the text in its address bar. |
+
+A footage scene's `from` and `to` are each one of:
+
+- a marker ID: `"c1.m.open"`;
+- a marker with an offset: `{ "marker": "c1.m.open", "offset_s": 0.4 }` or `{ "marker": "c1.m.open", "offset_beats": -1 }`. `marker` is the marker ID, `offset_s` is seconds after it and `offset_beats` beats of the grid after it (negative is before; both add up);
+- source seconds, such as `12.5`, only for a recording that has no markers (footage you brought in). Each such scene gets a warning.
+
+Its length comes one of two ways. With `rate` (default 1) and no length, it plays from `from` to `to` at that speed and lasts that long, rounded to whole beats (at least one); the speed is adjusted slightly so the footage fills the scene. With a length, `from` to `to` is played at whatever speed fills it, and `rate` must be left out. Typing reads well at a `rate` of 2.6 to 3.2.
+
+### Product errors and warnings
+
+Errors: `product_format` (a format other than 16x9), `duplicate_scene`, `scene_length` (no length, or more than one), `length_and_rate` (a footage scene with both), `unknown_accent` (an accent word that is not in the headline), `unknown_clip` (not a screen recording), `bad_marker` (not a marker ID), `unknown_marker`, `cross_clip` (a marker of another recording), `seconds_on_marked_clip` (source seconds on a recording that has markers), `reversed_range`, `outside_clip` (an offset past either end of the recording), `unknown_language`.
+
+Warnings: `seconds_addressed` (a footage scene in source seconds), `too_long`.
