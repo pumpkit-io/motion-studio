@@ -31,7 +31,7 @@ raw/ ──ingest──► media/<id>.mp4 (CFR, SDR mezzanine), <id>.wav (48 kHz
                                      │
               render: assemble (ffmpeg cuts, 30 ms audio fades) ──► build/assembled.mp4
                       compose  (Remotion: reframe, zooms, B-roll, captions) ──► build/composed_<fmt>.mp4
-                      mix      (ffmpeg: duck music under voice, two-pass loudnorm, video copied)
+                      mix      (ffmpeg: duck music under voice, gain to target, true-peak limiter, video copied)
                                      │
                                      ▼
                      preview/<fmt>.mp4  or  final/<slug>_<fmt>.mp4
@@ -65,9 +65,9 @@ Python lives in `src/motion_studio/`, the renderer in `renderer/`.
 | `look/` | Contact sheets for a time range or an asset, and the look budget. |
 | `edl/` | EDL and timeline models, reference resolution, the draft, the resolver and the validate summary. All pure. |
 | `plan.py` | Reads the analysis and the EDL, calls the resolver, writes `build/timeline.json`. |
-| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the library picker and the bed analysis (tempo, beat and bar grid, sections and hits). |
+| `music/` | The ACE-Step client and worker (run with the isolated environment's Python), the vocal check, the small-speaker shaping of generated beds, the library picker and the bed analysis (tempo, beat and bar grid, sections and hits). |
 | `render/` | Assemble (one ffmpeg filter graph), compose (props and public directory, then the Remotion CLI), mix, the share copy beside each final, and locating the installed renderer. |
-| `check/` | Re-transcription and diff near cuts, loudness, black and frozen frames, duration, caption density, the cut stills, and the report. |
+| `check/` | Re-transcription and diff near cuts, loudness, band energy, black and frozen frames, duration, caption density, the cut stills, and the report. |
 | `agents/` | Installs the canonical skills from `templates/skills/` into each agent's skill directory. |
 | `templates/` | The workspace template and the five skills. |
 | `reference/edl.md` | The EDL reference printed by `motion-studio docs edl` (`docs/edl.md` links to it). |
@@ -96,7 +96,7 @@ ACE-Step runs from its own uv environment in `<cache>/envs/ace-step`, so its PyT
 
 ## Rendering
 
-The renderer is a Remotion 4 project with one composition, `Reel`. `render` writes `build/props_<fmt>.json` (the timeline, the format, the assembled video's size and each A-roll clip's region in it, and the brand font and logo paths) and a public directory of hard links, then runs the installed `remotion render` CLI. Assemble centres every A-roll clip unscaled on a canvas as wide as the widest clip and as tall as the tallest, so a landscape take beside portrait ones keeps its full frame. The composition frames each run from its own clip's region: it draws the reframed base video (fit-blur for a portrait clip in a landscape format, chosen per run), zoom and push transforms, B-roll and image overlays, titles, the logo and word-by-word captions inside each format's safe zone. Remotion's output keeps the voice; the mix stage adds the ducked music bed and masters loudness while copying the video stream, so video is encoded once by Remotion.
+The renderer is a Remotion 4 project with one composition, `Reel`. `render` writes `build/props_<fmt>.json` (the timeline, the format, the assembled video's size and each A-roll clip's region in it, and the brand font and logo paths) and a public directory of hard links, then runs the installed `remotion render` CLI. Assemble centres every A-roll clip unscaled on a canvas as wide as the widest clip and as tall as the tallest, so a landscape take beside portrait ones keeps its full frame. The composition frames each run from its own clip's region: it draws the reframed base video (fit-blur for a portrait clip in a landscape format, chosen per run), zoom and push transforms, B-roll and image overlays, titles, the logo and word-by-word captions inside each format's safe zone. Remotion's output keeps the voice; the mix stage adds the ducked music bed and masters loudness (a fixed gain, then an oversampled true-peak limiter) while copying the video stream, so video is encoded once by Remotion.
 
 ## Stage state
 

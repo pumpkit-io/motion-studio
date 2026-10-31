@@ -17,7 +17,8 @@ from motion_studio.edl import Timeline
 runner = CliRunner()
 
 # Writes a 48 kHz stereo click track at the job's BPM, or loud noise (vocals to the stub
-# detector) for the seeds listed in the VOCAL_SEEDS file. Every job is appended to jobs.jsonl.
+# detector) for the seeds listed in the VOCAL_SEEDS file, or the numpy expression of t in
+# BASS_HEAVY when that file exists. Every job is appended to jobs.jsonl.
 FAKE_WORKER = """
 import json, sys
 from pathlib import Path
@@ -31,8 +32,11 @@ vocal = here / "VOCAL_SEEDS"
 vocal_seeds = json.loads(vocal.read_text()) if vocal.exists() else []
 sr = 48000
 n = int(job["duration"] * sr)
+t = np.arange(n) / sr
 if job["seed"] in vocal_seeds:
     y = np.random.default_rng(0).uniform(-0.9, 0.9, n)
+elif (here / "BASS_HEAVY").exists():
+    y = eval((here / "BASS_HEAVY").read_text(), {"np": np, "t": t})
 else:
     y = np.zeros(n)
     click = 0.3 * np.sin(2 * np.pi * 1000 * np.arange(2400) / sr) * np.exp(-np.arange(2400) / 300)
@@ -459,3 +463,47 @@ def test_a_bed_analysed_before_the_bar_grid_is_analysed_again_without_regenerati
     info = json.loads(path.read_text(encoding="utf-8"))
     assert info["tempo_from"] == "onsets"
     assert info["bars"]
+
+
+# A 60 Hz bass with a 2.5 kHz line and an 8 kHz shimmer, the top about 15 dB under the bass.
+# Its RMS stays under the stand-in voice detector's 0.1.
+BASS_HEAVY = (
+    "0.12 * np.sin(2 * np.pi * 60 * t) + 0.02 * np.sin(2 * np.pi * 2500 * t)"
+    " + 0.01 * np.sin(2 * np.pi * 8000 * t)"
+)
+
+
+def bass_over_top_db(samples: np.ndarray, rate: int) -> float:
+    """Energy under 150 Hz minus energy over 1 kHz, in dB, from one FFT of the mono mix."""
+    mono = samples.mean(axis=1) if samples.ndim == 2 else samples
+    power = np.abs(np.fft.rfft(mono * np.hanning(len(mono)))) ** 2
+    freqs = np.fft.rfftfreq(len(mono), 1 / rate)
+    return float(10 * np.log10(power[freqs < 150].sum() / power[freqs >= 1000].sum()))
+
+
+def test_a_generated_bass_heavy_bed_is_shaped_for_small_speakers(demo: Path, worker: Path) -> None:
+    (worker / "BASS_HEAVY").write_text(BASS_HEAVY)
+    set_music(demo, mode="generate", prompt="deep house, instrumental", bpm=120, seed=1)
+    t = np.arange(48000 * 4) / 48000
+    raw = eval(BASS_HEAVY, {"np": np, "t": t})
+    assert bass_over_top_db(raw, 48000) > 10
+
+    result = invoke("music", "demo")
+
+    assert result.exit_code == 0, result.output
+    shaped, rate = sf.read(str(demo / "build" / "music.wav"))
+    middle = shaped[rate * 2 : rate * 6]
+    assert bass_over_top_db(middle, rate) <= 10
+    assert np.abs(shaped).max() <= 1.0
+
+
+def test_a_library_track_is_left_as_licensed(demo: Path, library: Path) -> None:
+    set_music(demo, mode="library", track="bright.wav")
+
+    assert invoke("music", "demo").exit_code == 0
+
+    source, source_rate = sf.read(str(library / "bright.wav"))
+    bed, rate = sf.read(str(demo / "build" / "music.wav"))
+    assert bass_over_top_db(bed[: rate * 10], rate) == pytest.approx(
+        bass_over_top_db(source[: source_rate * 10], source_rate), abs=0.5
+    )

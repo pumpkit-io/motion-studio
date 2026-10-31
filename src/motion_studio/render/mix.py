@@ -1,4 +1,4 @@
-"""Mix and master: duck the music under the voice, two-pass loudnorm, and copy the video stream."""
+"""Mix and master: duck the music, gain to target, true-peak limit, and copy the video stream."""
 
 import json
 from dataclasses import dataclass
@@ -12,6 +12,14 @@ SAMPLE_RATE = 48_000
 MUSIC_FADE_S = 1.5
 ATTACK_MS = 10
 RELEASE_MS = 400
+# The limiter runs at 4x the sample rate so it catches the peaks between samples (true peak).
+OVERSAMPLE = 4
+# Headroom under the ceiling for the inter-sample peaks resampling and AAC put back.
+LIMITER_MARGIN_DB = 0.5
+LIMITER_ATTACK_MS = 5
+LIMITER_RELEASE_MS = 100
+GAIN_CORRECTIONS = 2
+GAIN_TOLERANCE_LU = 0.3
 
 
 @dataclass(frozen=True)
@@ -54,14 +62,26 @@ def premaster_graph(duration_s: float, music: Music | None) -> str:
     )
 
 
-def loudnorm(master: Master, measured: Loudness | None = None) -> str:
-    base = f"loudnorm=I={master.integrated_lufs}:TP={master.true_peak_db}:LRA={master.lra}"
-    if measured is None:
-        return f"{base}:print_format=json"
+def loudnorm(master: Master) -> str:
+    """The first pass: loudnorm only measures, printing its JSON summary."""
     return (
-        f"{base}:measured_I={measured.input_i}:measured_TP={measured.input_tp}"
-        f":measured_LRA={measured.input_lra}:measured_thresh={measured.input_thresh}"
-        f":offset={measured.target_offset}:linear=true:print_format=summary"
+        f"loudnorm=I={master.integrated_lufs}:TP={master.true_peak_db}:LRA={master.lra}"
+        ":print_format=json"
+    )
+
+
+def mastering(master: Master, gain_db: float) -> str:
+    """A fixed gain to the target loudness, then an oversampled true-peak limiter.
+
+    Unlike linear loudnorm, which falls back to dynamic compression when the gain would push the
+    peaks past the ceiling, this keeps the target loudness and lets the limiter take the peaks.
+    """
+    ceiling = 10 ** ((master.true_peak_db - LIMITER_MARGIN_DB) / 20)
+    rate = SAMPLE_RATE * OVERSAMPLE
+    return (
+        f"volume={gain_db:.2f}dB,aresample={rate},"
+        f"alimiter=limit={ceiling:.4f}:attack={LIMITER_ATTACK_MS}:release={LIMITER_RELEASE_MS}"
+        f":level=false:latency=true,aresample={SAMPLE_RATE}"
     )
 
 
@@ -104,22 +124,35 @@ def mix(
     pre = premaster_graph(duration_s, music if music_file is not None else None)
     caps = ffmpeg_caps()
 
-    first = f"{pre};[premaster]{loudnorm(master)}[out]"
-    lines = run_ffmpeg(
-        [
-            *inputs,
-            *filter_graph_args(caps, first, scratch / "mix1.filtergraph"),
-            "-map",
-            "[out]",
-            "-f",
-            "null",
-            "-",
-        ]
-    )
-    measured = parse_loudnorm(lines)
-    final_pass = loudnorm(master, measured if measured.usable else None)
+    def measure(chain: str, name: str) -> Loudness:
+        graph = f"{pre};[premaster]{chain}{loudnorm(master)}[out]"
+        lines = run_ffmpeg(
+            [
+                *inputs,
+                *filter_graph_args(caps, graph, scratch / name),
+                "-map",
+                "[out]",
+                "-f",
+                "null",
+                "-",
+            ]
+        )
+        return parse_loudnorm(lines)
 
-    second = f"{pre};[premaster]{final_pass},aresample={SAMPLE_RATE}[out]"
+    measured = measure("", "mix1.filtergraph")
+    gain = 0.0
+    if measured.usable:
+        gain = master.integrated_lufs - float(measured.input_i)
+        # Limiting the peaks lowers the loudness, so measure the mastered mix and correct the gain.
+        for _ in range(GAIN_CORRECTIONS):
+            after = measure(f"{mastering(master, gain)},", "mix_gain.filtergraph")
+            off = master.integrated_lufs - float(after.input_i)
+            if not after.usable or abs(off) <= GAIN_TOLERANCE_LU:
+                break
+            gain += off
+    final_pass = mastering(master, gain)
+
+    second = f"{pre};[premaster]{final_pass}[out]"
     run_ffmpeg(
         [
             *inputs,

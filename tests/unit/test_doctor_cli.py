@@ -21,6 +21,12 @@ FILTERS = [
     "freezedetect",
     "arnndn",
     "colorspace",
+    "alimiter",
+    "acompressor",
+    "highpass",
+    "lowshelf",
+    "highshelf",
+    "equalizer",
 ]
 
 
