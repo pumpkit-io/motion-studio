@@ -12,6 +12,9 @@ from motion_studio.analysis.models import ClipAnalysis, Role, Span
 class VisualParams:
     static_threshold: float = 1.5
     """Mean absolute difference (0-255) between sampled frames below which nothing moves."""
+    screen_static_threshold: float = 0.02
+    """The same for screen recordings, which have no sensor noise: one typed glyph in a
+    1600x900 frame measures about 0.03, a blinking caret under 0.01."""
     static_min_s: float = 2.0
     aroll_speech_ratio: float = 0.3
     aroll_face_ratio: float = 0.5

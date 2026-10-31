@@ -177,6 +177,39 @@ def test_the_packed_index_lists_length_frame_size_and_static_stretches(
     assert re.search("^- static \\[00:01\\.\\d\N{EN DASH}00:04\\.5\\]", packed, flags=re.M), packed
 
 
+def typing_recording(path: Path) -> Path:
+    """1600x900: a light page idle for 3 s, then 10x18 px glyphs typed 4 a second for 4 s."""
+    glyphs = ",".join(
+        f"drawbox=x={200 + 12 * i}:y=400:w=10:h=18:color=0x202020:t=fill"
+        f":enable='gte(t,{3 + i / 4:.2f})'"
+        for i in range(16)
+    )
+    run_ffmpeg(
+        [
+            "-f", "lavfi", "-i", "color=c=0xF4F4F4:size=1600x900:rate=30:duration=7",
+            "-vf", glyphs, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", path,
+        ]
+    )  # fmt: skip
+    return path
+
+
+@needs_ffmpeg
+def test_typing_in_a_screen_recording_is_motion_and_the_idle_page_is_static(
+    workspace: Path, tmp_path: Path, model_log: Path
+) -> None:
+    run_json("new", "typing", "--kind", "product", "--from", typing_recording(tmp_path / "t.mp4"))
+    run_json("ingest", "typing")
+
+    run_json("analyze", "typing")
+
+    analysis = json.loads(
+        (workspace / "projects" / "typing" / "analysis" / "c1.json").read_text(encoding="utf-8")
+    )
+    [static] = analysis["static"]
+    assert static["start"] == 0.0
+    assert static["end"] == pytest.approx(3.0, abs=0.5)
+
+
 def write_sidecar(product: Path, data: dict[str, Any]) -> Path:
     path = product / "raw" / "demo flow.markers.json"
     path.write_text(json.dumps(data), encoding="utf-8")

@@ -9,7 +9,7 @@ or settings changed go back through the speech-to-text and face workers.
 import hashlib
 import tomllib
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,7 @@ from motion_studio.analysis import (
     Faces,
     Retakes,
     ScreenMarkers,
+    VisualParams,
     analyse_transcript,
     finalise_role,
     find_retakes,
@@ -52,6 +53,8 @@ from motion_studio.vision.motion import MOTION_FPS, find_shots, frame_difference
 STAGE = "analyze"
 # Bump when the analysis output changes for the same audio, so existing projects re-analyse.
 RECIPE = 2
+# Bump when only screen-recording analysis changes, so talk projects keep their transcripts.
+SCREEN_RECIPE = 1
 
 RETAKES = "retakes.json"
 PACKED = "packed.md"
@@ -184,7 +187,7 @@ def _analyze(
         }
     else:
         backend = None
-        params = {"recipe": RECIPE, "project_kind": kind.value}
+        params = {"recipe": RECIPE, "screen_recipe": SCREEN_RECIPE, "project_kind": kind.value}
     manifest_path = project.media / "manifest.json"
     stage_inputs = [
         manifest_path,
@@ -406,8 +409,11 @@ def _with_visuals(
     if clip.kind == "video" and clip.duration_s:
         video = project.root / clip.mezzanine
         diffs = frame_differences(video, clip.width, clip.height)
+        params = VisualParams()
+        if clip.role == "screen":
+            params = replace(params, static_threshold=params.screen_static_threshold)
         update["static"] = find_static(
-            diffs, MOTION_FPS, vad=analysis.vad, duration_s=clip.duration_s
+            diffs, MOTION_FPS, vad=analysis.vad, duration_s=clip.duration_s, params=params
         )
         update["shots"] = find_shots(video, clip.duration_s)
     return analysis.model_copy(update=update)
