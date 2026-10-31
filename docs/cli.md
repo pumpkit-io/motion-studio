@@ -558,7 +558,7 @@ $ motion-studio render talk --final --format 9x16 --format 16x9
 
 ## `motion-studio check`
 
-Re-transcribe, measure and look at a render; exit 1 when anything blocks delivery.
+Re-transcribe (talk), measure and look at a render; exit 1 when anything blocks delivery.
 
 ```console
 $ motion-studio check [OPTIONS] {slug}
@@ -571,6 +571,8 @@ $ motion-studio check [OPTIONS] {slug}
 * `--help`: Show this message and exit.
 
 Writes `check/report.md`, `check/report.json` and `check/cuts.png` (the frames either side of every cut). Blocking issues: `clipped_cut` (a word missing near a cut), `over_duration`, `black_frames`, `overlay_overlap`, and on `--final` also `loudness` (integrated loudness more than 1 LU off `[master] integrated_lufs`) and `true_peak` (above `[master] true_peak_db`). Warnings: `loudness` and `true_peak` on a preview (true peak only from 0.5 dB over), `small_speaker` (energy above 1 kHz more than 10 dB below the energy under 150 Hz, so the mix sounds faint on laptop and phone speakers), `frozen_frames`, `caption_density`, `title_over_broll`, `event_past_end`. The metrics give each format's energy in four bands: below 150 Hz, 150 Hz to 1 kHz, 1 to 5 kHz and above 5 kHz (`bands` in `--json`, in dB full scale). Each issue carries a fix in EDL terms. Run it right after the render it checks: re-validating the EDL makes the render stale and check refuses.
+
+On a product project `check` loads no speech model: a product video is music only, so there is nothing to re-transcribe and no `clipped_cut`. It measures loudness, true peak, the four bands, black and frozen frames and duration, and writes `check/contact.png` (one frame of the render per second, stamped with its output time) next to `check/cuts.png` (the frames either side of every scene cut). `small_speaker` blocks here, on previews and finals alike, because with no voice to carry it a bass-heavy mix is near silent on a laptop. Black and frozen stretches mostly inside a scene other than footage (a title card, kinetic text, a proof or the outro) are taken as intended. The report lists every masked region under "Masked regions", with the scene, the element or box, the output frames it covers (end inclusive) and a `look --at` command for its middle frame; `--json` has them in `metrics.masks` (`start` and `end` are output frames, end exclusive). The warning `cursor_over_target` fires when the recorded cursor track sits inside a highlight's box while the highlight shows (the cursor's last position before the highlight starts counts); terminal footage has no cursor and is skipped. `over_duration` names the longest scenes between the intro and the outro. For any moment the sheets leave unclear, run `motion-studio look <slug> --at <scene | marker | seconds>`, which every mask line and cursor warning spells out.
 
 ## Environment variables
 

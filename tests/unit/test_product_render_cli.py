@@ -23,9 +23,10 @@ runner = CliRunner()
 
 BRAND_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "brand"
 
-# Writes a grey video as long as the timeline, silent unless asked for an audio track.
+# Writes a grey video as long as the timeline, silent unless asked for an audio track, which
+# plays the aevalsrc expression in $FAKE_REMOTION_AUDIO when it is set.
 FAKE_REMOTION = """
-    import json, subprocess, sys
+    import json, os, subprocess, sys
     from pathlib import Path
 
     args = sys.argv[1:]
@@ -45,7 +46,9 @@ FAKE_REMOTION = """
     grey = f"color=c=gray:size={w}x{h}:rate={timeline['fps']}:duration={seconds}"
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", grey]
     if "--enforce-audio-track" in args:
-        cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds)]
+        expr = os.environ.get("FAKE_REMOTION_AUDIO")
+        audio = f"aevalsrc={expr}:s=48000" if expr else "anullsrc=r=48000:cl=stereo"
+        cmd += ["-f", "lavfi", "-i", audio, "-t", str(seconds)]
         cmd += ["-c:a", "aac"]
     cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(out)]
     subprocess.run(cmd, check=True)

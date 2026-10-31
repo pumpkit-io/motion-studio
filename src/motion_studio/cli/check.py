@@ -26,7 +26,7 @@ def check(
     final: FinalOption = False,
     as_json: JsonOption = False,
 ) -> None:
-    """Re-transcribe, measure and look at a render; exit 1 when anything blocks delivery."""
+    """Re-transcribe (talk), measure and look at a render; exit 1 when anything blocks delivery."""
     target = pick_target(preview=preview, final=final)
     with Reporter(as_json) as reporter:
         report = check_project(
@@ -42,7 +42,15 @@ def check(
     infos = sum(f.severity == "info" for f in report.findings)
     lines.append(f"{warnings} warnings, {infos} notes; metrics in the report")
     lines.append(f"wrote {report.report}")
-    lines.append(f"wrote {report.cuts_sheet} (look at it once per loop)")
+    if report.contact_sheet is None:
+        lines.append(f"wrote {report.cuts_sheet} (look at it once per loop)")
+    else:
+        masks = len(report.metrics["masks"])
+        lines.append(f"wrote {report.cuts_sheet}")
+        lines.append(f"wrote {report.contact_sheet} (look at it once per loop)")
+        if masks:
+            lines.append(f"{masks} masked region{'s' * (masks != 1)} listed in the report")
+        lines.append(f"closer look: `{APP_NAME} look {slug} --at <scene | marker | seconds>`")
     if report.blocked:
         lines.append(
             f"next: edit edl.json, then `{APP_NAME} plan validate {slug}` and render again"

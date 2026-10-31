@@ -997,3 +997,24 @@ Checked:
 
 - `tests/unit/test_product_draft_cli.py` (CLI seam): two recordings and an image draft to seven scenes that validate with no warnings; frame-exact scene starts on the steady grid and on a 150 bpm 3/4 bed; a markerless recording in source seconds with `seconds_addressed`; one marker; terminal frame; mascot on and off; no wordmark; no recordings or images; `--force`; the printed lines.
 - `tests/integration/test_product_draft_render.py` (`slow`, `renderer`): the draft of a green and a blue recording and a magenta image, with music set to none, renders; stills at scene midpoints show each recording in its footage scene and the image in the proof.
+
+## check for product videos (ticket #42, spec #26)
+
+Built:
+
+- `check` on a product project no longer exits 1. It loads no ASR model and skips the word diff and `clipped_cut`; it measures loudness, true peak, the four bands, black and frozen frames and duration with the talk code (now shared through `_measure_formats` and `_shared_metrics`), and writes `check/contact.png` (1 fps of the render, at most 180 frames) beside `check/cuts.png`, whose cells are the scene cuts labelled with the scene IDs either side.
+- `small_speaker` is blocking on product renders, previews included, and still a warning on talk renders. Its fix for a product points at a brighter music bed.
+- `check/product.py`: masked regions read from `timeline.events` (`metrics.masks`, and a "Masked regions" section in `report.md` with the frames covered and a `look --at` line for each); `cursor_over_target`, a warning when the analysis cursor track (mezzanine pixels, the same as the event boxes) sits inside a highlight's box between `src_start_s` and `src_end_s`, counting the last sample before the start since the recorder samples only on moves. Highlights on terminal scenes are skipped. `over_duration` names the longest middle scenes.
+- The stdout summary and the report notes point at `look <slug> --at <scene | marker | seconds>`.
+- Tests: the fake Remotion in `test_product_render_cli.py` plays `$FAKE_REMOTION_AUDIO` when set, and `product_project` takes sidecar overrides (markers with elements, a cursor track).
+
+Deviations:
+
+- Black and frozen stretches mostly inside a non-footage scene are treated as intended, as images are on talk renders. The canvas is `[brand] primary`, so a near-black brand or the outro's fade to black could read as black frames. On the default palette the real render passes without the exemption too (the backdrop grid moves), so it is a guard, not a fix for an observed failure.
+- "Music-only" is taken to mean the product kind: talk renders always carry a voice.
+
+Checked:
+
+- `tests/unit/test_product_check_cli.py` (CI): no ASR worker started, contact sheet and report written; a bass-heavy product render blocked (the talk case stays the warning in `test_check_cli.py`); two masks listed with their frames; the cursor warning, no warning once parked, and terminal footage skipped; the stdout summary.
+- `tests/integration/test_product_render.py::test_check_passes_the_real_preview_and_lists_its_mask` (`renderer`, run locally): `check` passes the real preview with no black or frozen frames, lists the mask, and writes the contact sheet.
+- No dev stack (the repo has no `scripts/dev-stack`): verified through tests only.

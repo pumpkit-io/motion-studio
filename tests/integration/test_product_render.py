@@ -245,3 +245,18 @@ def test_overlays_cover_their_targets_and_frames(launch: Path, tmp_path: Path) -
         assert tag, name
         assert top - 70 < max(y for _, y in tag), name
         assert (left + right) / 2 < min(x for x, _ in tag) < right + 20, name
+
+
+def test_check_passes_the_real_preview_and_lists_its_mask(launch: Path) -> None:
+    run("render", "launch")
+
+    result = runner.invoke(app, ["check", "launch", "--json"])
+
+    body = json.loads(result.stdout)
+    assert result.exit_code == 0, body
+    # The dark title cards sit under blackdetect's threshold but are not black frames.
+    assert not [i for i in body["issues"] if i["code"] in ("black_frames", "frozen_frames")]
+    [mask] = body["metrics"]["masks"]
+    assert (mask["scene"], mask["element"]) == ("pick", "c1.e.box")
+    with Image.open(body["contact_sheet"]) as sheet:
+        assert sheet.height > 180
