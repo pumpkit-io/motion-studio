@@ -468,7 +468,9 @@ def _generate(
     )
     path = _write(project, info)
     mark_done(project, STAGE, inputs, outputs=[wav, path], params=params)
-    return MusicReport(info, path, wav, fresh=False, warnings=notices, model_loads=loads)
+    return MusicReport(
+        info, path, wav, fresh=False, warnings=[*notices, *store.notices], model_loads=loads
+    )
 
 
 def _adopt_unshaped(
@@ -577,6 +579,8 @@ class CandidateStore:
                 shutil.rmtree(self.dir)
             index = _Index(key=key)
         self.index = index
+        # Fallback warnings raised while making beds, already recorded in state.json.
+        self.notices: list[str] = []
 
     @property
     def candidates(self) -> list[MusicCandidate]:
@@ -600,7 +604,10 @@ class CandidateStore:
         step: Callable[[str], None],
     ) -> MusicCandidate:
         """Generate, check for vocals, shape and analyse one bed, and record it."""
-        session.check_memory(what)
+        notice = session.check_memory(what)
+        if notice is not None and notice not in self.notices:
+            record_warning(self.project, STAGE, notice)
+            self.notices.append(notice)
         step(f"generating {length:.0f} s of music with ACE-Step ({what})")
         self.dir.mkdir(parents=True, exist_ok=True)
         raw = self.dir / f"seed-{seed}.generated.wav"

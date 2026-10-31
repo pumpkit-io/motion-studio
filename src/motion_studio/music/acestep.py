@@ -210,17 +210,23 @@ class Session:
     def __exit__(self, *_exc: object) -> None:
         self.close()
 
-    def check_memory(self, what: str) -> None:
-        """Raise LowMemory naming `what` when free memory is under the threshold."""
+    def check_memory(self, what: str) -> str | None:
+        """Raise LowMemory naming `what` when free memory is under the threshold.
+
+        Returns a warning when the free memory cannot be read, so the generation goes unguarded.
+        """
         need = min_free_memory_gb()
         if need <= 0:
-            return
+            return None
         free = free_memory_gb()
-        if free is not None and free < need:
+        if free is None:
+            return f"could not read the free memory, so music ran without its {need:g} GB check"
+        if free < need:
             raise LowMemory(
                 f"only {free:.1f} GB of memory free before {what}; ACE-Step needs {need:g} GB",
                 hint=f"close memory-hungry apps and run it again, or set {MIN_FREE_MEMORY_ENV}",
             )
+        return None
 
     def generate(
         self, *, prompt: str, duration_s: float, bpm: int | None, seed: int, out: Path

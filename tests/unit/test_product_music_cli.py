@@ -270,6 +270,23 @@ def test_low_memory_before_a_candidate_stops_and_keeps_those_made(
     assert [c["seed"] for c in music_json(launch)["candidates"]] == [1, 2, 3]
 
 
+def test_unreadable_free_memory_is_a_warning_recorded_once(
+    launch: Path, worker: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    write_edl(launch, [title("intro", 4)], bpm=120, seed=1)
+    monkeypatch.setenv("MOTION_STUDIO_MIN_FREE_MEMORY_GB", "4")
+    monkeypatch.setattr("motion_studio.music.acestep.free_memory_gb", lambda: None)
+
+    result = invoke("music", "launch", "--candidates", "2")
+
+    assert result.exit_code == 0, result.output
+    assert len(jobs(worker)) == 2
+    (notice,) = [line for line in result.output.splitlines() if line.startswith("warning:")]
+    assert "free memory" in notice
+    state = json.loads((launch / "state.json").read_text(encoding="utf-8"))
+    assert state["stages"]["music"]["warnings"] == [notice.removeprefix("warning: ")]
+
+
 def test_candidates_need_a_generated_bed(launch: Path) -> None:
     write_edl(launch, [title("intro", 4)], mode="none")
 
