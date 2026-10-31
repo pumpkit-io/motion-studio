@@ -48,7 +48,7 @@
           "title": "Height"
         },
         "id": {
-          "description": "Stable short clip ID: c1 (A-roll), b1 (B-roll), i1 (image).",
+          "description": "Stable short clip ID: c1 (A-roll or screen recording), b1 (B-roll), i1 (image).",
           "title": "Id",
           "type": "string"
         },
@@ -81,7 +81,8 @@
           "enum": [
             "aroll",
             "broll",
-            "image"
+            "image",
+            "screen"
           ],
           "title": "Role",
           "type": "string"
@@ -112,6 +113,79 @@
         "duration_s"
       ],
       "title": "ClipInfo",
+      "type": "object"
+    },
+    "CursorSample": {
+      "additionalProperties": false,
+      "description": "Where the recorder's cursor was, in the same pixels as the element boxes.",
+      "properties": {
+        "down": {
+          "default": false,
+          "description": "True while the button is pressed.",
+          "title": "Down",
+          "type": "boolean"
+        },
+        "t": {
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        },
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "t",
+        "x",
+        "y"
+      ],
+      "title": "CursorSample",
+      "type": "object"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "description": "A named on-screen box at one marker, in the pixels of the frame the sidecar declares.",
+      "properties": {
+        "h": {
+          "exclusiveMinimum": 0,
+          "title": "H",
+          "type": "number"
+        },
+        "name": {
+          "description": "Addressed as `<clip>.e.<name>`.",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "w": {
+          "exclusiveMinimum": 0,
+          "title": "W",
+          "type": "number"
+        },
+        "x": {
+          "description": "Left edge, pixels from the frame's left.",
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "description": "Top edge, pixels from the frame's top.",
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Element",
       "type": "object"
     },
     "FaceSample": {
@@ -197,6 +271,37 @@
         "confidence"
       ],
       "title": "LanguageGuess",
+      "type": "object"
+    },
+    "Marker": {
+      "additionalProperties": false,
+      "description": "A named moment on the clip's clock, with the boxes of the elements captured then.",
+      "properties": {
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "title": "Elements",
+          "type": "array"
+        },
+        "name": {
+          "description": "Addressed as `<clip>.m.<name>`.",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "t": {
+          "description": "Seconds from the clip's first frame.",
+          "minimum": 0,
+          "title": "T",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "t"
+      ],
+      "title": "Marker",
       "type": "object"
     },
     "Pause": {
@@ -382,6 +487,14 @@
     "clip": {
       "$ref": "#/$defs/ClipInfo"
     },
+    "cursor": {
+      "description": "The recorded cursor track, in the mezzanine's pixels.",
+      "items": {
+        "$ref": "#/$defs/CursorSample"
+      },
+      "title": "Cursor",
+      "type": "array"
+    },
     "faces": {
       "$ref": "#/$defs/Faces"
     },
@@ -396,6 +509,27 @@
       ],
       "default": null,
       "description": "Null for silent clips."
+    },
+    "markers": {
+      "description": "From the sidecar, in time order, with boxes scaled to the mezzanine's pixels.",
+      "items": {
+        "$ref": "#/$defs/Marker"
+      },
+      "title": "Markers",
+      "type": "array"
+    },
+    "markers_source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The screen recording's markers sidecar, relative to the project; null when it has none and can only be addressed in source seconds.",
+      "title": "Markers Source"
     },
     "pauses": {
       "items": {

@@ -35,6 +35,7 @@ from motion_studio.edl import (
 from motion_studio.edl.issues import Problems
 from motion_studio.edl.refs import RefIndex
 from motion_studio.errors import UserError
+from motion_studio.kind import ProjectKind, require_kind
 from motion_studio.paths import ProjectPaths, project_paths
 from motion_studio.state import mark_done, mark_failed, project_lock
 
@@ -165,6 +166,13 @@ def word_range(
     Both ends are word or utterance IDs in one clip; an utterance end means its last word.
     """
     project = project_paths(workspace, slug).require()
+    require_kind(
+        project,
+        ProjectKind.TALK,
+        "words",
+        hint="screen recordings have no transcript: address them by the markers in "
+        "analysis/packed.md",
+    )
     index = RefIndex(load_analyses(project))
     problems = Problems()
     first = index.word_index(start, "words", problems, end="first")

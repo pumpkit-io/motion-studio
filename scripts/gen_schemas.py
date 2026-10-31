@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from motion_studio.analysis import ClipAnalysis
+from motion_studio.analysis import ClipAnalysis, ScreenMarkers
 from motion_studio.config import Config
 from motion_studio.edl import Edl, Timeline
 from motion_studio.music.stage import MusicInfo
@@ -26,6 +26,7 @@ CONTRACTS: dict[str, type[BaseModel]] = {
     "analysis": ClipAnalysis,
     "config": Config,
     "edl": Edl,
+    "markers": ScreenMarkers,
     "music": MusicInfo,
     "timeline": Timeline,
 }

@@ -5,18 +5,22 @@ from motion_studio.analysis.language import project_language
 from motion_studio.analysis.models import (
     ClipAnalysis,
     ClipInfo,
+    CursorSample,
+    Element,
     Faces,
     FaceSample,
     LanguageGuess,
+    Marker,
     Pause,
     RetakeCluster,
     Retakes,
+    ScreenMarkers,
     Span,
     TranscribedWord,
     Utterance,
     Word,
 )
-from motion_studio.analysis.pack import pack_project
+from motion_studio.analysis.pack import pack_project, pack_screen_project
 from motion_studio.analysis.retakes import find_retakes
 from motion_studio.analysis.transcript import AnalysisParams, analyse_transcript
 from motion_studio.analysis.visual import (
@@ -30,12 +34,16 @@ __all__ = [
     "AnalysisParams",
     "ClipAnalysis",
     "ClipInfo",
+    "CursorSample",
+    "Element",
     "FaceSample",
     "Faces",
     "LanguageGuess",
+    "Marker",
     "Pause",
     "RetakeCluster",
     "Retakes",
+    "ScreenMarkers",
     "Span",
     "TranscribedWord",
     "Utterance",
@@ -48,6 +56,7 @@ __all__ = [
     "find_static",
     "pack_assets",
     "pack_project",
+    "pack_screen_project",
     "project_language",
     "read_descriptions",
 ]
