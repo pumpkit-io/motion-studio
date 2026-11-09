@@ -39,6 +39,21 @@ Extras: `mac` = mlx-whisper 0.4.3 (`py3-none-any`; pulls torch 2.14.1), `cpu` = 
 
 Dev group (`uv sync` installs it by default): ruff 0.17.2, pyright 1.1.414, pytest 9.1.1, pytest-cov 7.1.0, hypothesis 6.170.9, pre-commit 4.7.0.
 
+## Online video references (2026-11-09)
+
+`yt-dlp[default]==2026.10.26` is a core runtime dependency, pinned in `pyproject.toml` and resolved in `uv.lock`. The `default` extra follows [upstream installation guidance](https://github.com/yt-dlp/yt-dlp/wiki/Installation) and includes YouTube challenge scripts. Existing core dependency versions were retained.
+
+| Item | Verified version or behavior | How checked |
+|---|---|---|
+| yt-dlp | 2026.10.26; Python >=3.11, compatible with this project's 3.12–3.13 range | PyPI metadata; `uv run yt-dlp --version`; `import yt_dlp` |
+| yt-dlp-ejs | 0.8.0, required exactly by this yt-dlp release | Installed package metadata and `uv.lock` |
+| Additional default dependencies | brotli 1.2.1, mutagen 1.48.1, pycryptodomex 3.24.2, websockets 17.4; brotlicffi 1.2.1.0 for non-CPython interpreters | Installed metadata; `uv.lock` for brotlicffi |
+| Metadata inspection | `--no-playlist --skip-download --dump-single-json` | Installed `--help` and `yt_dlp.parse_options` without network extraction |
+| Local downloads | `-P references -o '%(extractor_key)s-%(id)s.%(ext)s' --print after_move:filepath` | Installed `--help` and `yt_dlp.parse_options` |
+| YouTube JavaScript runtime | Node 24.8.0 installed; Node >=22 supported, enabled explicitly with `--js-runtimes node` | `node --version`; installed option parser; [upstream EJS requirements](https://github.com/yt-dlp/yt-dlp/wiki/EJS) |
+
+ffmpeg is already required by the video pipeline and is also used by yt-dlp to merge separate audio/video streams. CLI and instruction checks do not download live platform media; platform availability and authenticated extraction were not tested. See [the agent workflow](agents.md#online-video-references) for commands and access limitations.
+
 ## Renderer (npm, exact pins in `renderer/package.json`)
 
 | Package | Version | Notes |

@@ -20,6 +20,23 @@ Checked against each agent's official docs on 2026-10-24.
 
 The `TARGETS` table in `src/motion_studio/agents/__init__.py` holds these paths; change both together.
 
+## Online video references
+
+When a task needs a video or Reel from a URL, agents use the yt-dlp Python library (`import yt_dlp`) or its CLI to inspect metadata and download a local reference. It is a pinned runtime dependency installed by `uv sync` or `just setup`. In this checkout, use:
+
+```sh
+uv run yt-dlp --js-runtimes node --no-playlist --skip-download --dump-single-json 'URL'
+uv run yt-dlp --js-runtimes node --no-playlist -P 'references' -o '%(extractor_key)s-%(id)s.%(ext)s' --print after_move:filepath 'URL'
+```
+
+`--no-playlist` selects the single video when its URL also names a playlist. Only download playlists or record livestreams when requested. The download command prints the final local path. Keep references outside existing projects' read-only `raw/` directories, analyze local media into compact text, and request contact sheets when a decision needs visual inspection. If the downloaded file is intended as source footage, pass it to the normal project-creation workflow.
+
+Standalone editing workspaces can use `yt-dlp` on PATH, or `uv run --with 'yt-dlp[default]==2026.10.26' yt-dlp` if that executable is unavailable. Installing motion-studio as a uv tool installs the library in its tool environment, but does not necessarily expose dependency executables on PATH. The fallback requires network access on its first run. New workspaces receive these instructions through their `AGENTS.md`; `CLAUDE.md` imports it. Existing workspaces keep their instructions: `agents sync` refreshes skills only.
+
+The `default` extra includes `yt-dlp-ejs` for YouTube challenges. YouTube also needs a supported JavaScript runtime: the examples enable Node.js 22+ with `--js-runtimes node`, using the Node installation already needed by the renderer. ffmpeg merges separate audio and video streams. See [upstream installation](https://github.com/yt-dlp/yt-dlp/wiki/Installation) and [YouTube JavaScript requirements](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
+
+Supported extraction candidates include Instagram (Reels, posts, Stories), YouTube (videos, Shorts, livestreams, playlists), TikTok, X/Twitter, Facebook, Reddit, LinkedIn, Twitch, Vimeo, Pinterest, Dailymotion, Loom and Bilibili. Extractor coverage does not guarantee that every URL or video type works: platforms change, and login, region or account restrictions may apply. Threads may work through generic extraction. Check the [upstream supported-sites list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) and report extraction failures or access requirements explicitly. Use authenticated cookies only when the user provides or authorizes them.
+
 ## Notes
 
 - **Codex outside a Git repository** only checks the launch directory for `.agents/skills` and `AGENTS.md`. Open Codex in the workspace root, which is where both live.

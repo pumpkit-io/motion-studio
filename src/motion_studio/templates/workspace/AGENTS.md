@@ -34,6 +34,19 @@ Both use `motion-studio-look` for visual inspection, `motion-studio-music` for m
 
 After upgrading motion-studio, run `motion-studio agents sync` to refresh them.
 
+## Online video references
+
+When you need to inspect a linked video or Reel, use yt-dlp to retrieve metadata and download the media locally. It supports extraction from YouTube, Instagram, TikTok, X/Twitter, Facebook, Reddit, LinkedIn, Twitch, Vimeo, Pinterest, Dailymotion, Loom and Bilibili; availability depends on the URL and access restrictions. Threads may work through generic extraction. Consult the [upstream supported-sites list](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md) rather than assuming every video type works.
+
+Use `yt-dlp` if it is on PATH. Otherwise use `uv run --with 'yt-dlp[default]==2026.10.26' yt-dlp` in its place in these examples (the package includes YouTube challenge scripts). For YouTube, enable Node.js 22+ with `--js-runtimes node`; ffmpeg is used for merging separate audio and video streams.
+
+```sh
+yt-dlp --js-runtimes node --no-playlist --skip-download --dump-single-json 'URL'
+yt-dlp --js-runtimes node --no-playlist -P 'references' -o '%(extractor_key)s-%(id)s.%(ext)s' --print after_move:filepath 'URL'
+```
+
+Keep reference downloads in `references/`, outside existing projects' read-only `raw/` footage. Analyze downloaded files into compact text and use contact sheets for visual decisions. If reference footage is meant to become source material, create a project from the local file through the normal workflow. Report login requirements, unavailable media or extraction failures explicitly; use authenticated cookies only when the user provides or authorizes them. Download only the requested media; playlists and livestream recording require an explicit request.
+
 ## Quick reference
 Every command takes `--json`. Exit codes: 0 OK, 1 fixable EDL or input error, 2 missing dependency (run `motion-studio doctor`), 3 internal error.
 

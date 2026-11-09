@@ -46,10 +46,22 @@ Pinned exactly in `pyproject.toml`.
 | soundfile | 0.14.0 | BSD-3-Clause | [github.com/bastibe/python-soundfile](https://github.com/bastibe/python-soundfile) |
 | pillow | 13.0.0 | MIT-CMU | [python-pillow.github.io](https://python-pillow.github.io) |
 | platformdirs | 4.13.5 | MIT | [github.com/tox-dev/platformdirs](https://github.com/tox-dev/platformdirs) |
+| yt-dlp (extra `default`) | 2026.10.26 | Unlicense | [github.com/yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp) |
 | mlx-whisper (extra `mac`) | 0.4.3 | MIT | [github.com/ml-explore/mlx-examples](https://github.com/ml-explore/mlx-examples/tree/main/whisper) |
 | faster-whisper (extra `cpu`) | 1.2.1 | MIT | [github.com/SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper) |
 
 ## Python: packages these pull in
+
+Added for yt-dlp on 2026-11-09, checked against installed package metadata (PyPI metadata for brotlicffi, which is selected on non-CPython interpreters):
+
+| Package | Version | Licence |
+|---|---|---|
+| [brotli](https://pypi.org/project/brotli/) | 1.2.1 | MIT |
+| [brotlicffi](https://pypi.org/project/brotlicffi/) | 1.2.1.0 | MIT |
+| [mutagen](https://pypi.org/project/mutagen/) | 1.48.1 | GPL-2.0-or-later |
+| [pycryptodomex](https://pypi.org/project/pycryptodomex/) | 3.24.2 | BSD, Public Domain |
+| [websockets](https://pypi.org/project/websockets/) | 17.4 | BSD-3-Clause |
+| [yt-dlp-ejs](https://pypi.org/project/yt-dlp-ejs/) | 0.8.0 | Unlicense AND MIT AND ISC |
 
 Every other package in the runtime closure of `uv.lock` with both extras (`uv export --no-dev --extra cpu --extra mac`), with its PyPI page as the link (`https://pypi.org/project/<name>/`). Two are platform-only and not installed on macOS: `colorama` (Windows) and `httpx2-jsfetch` (Emscripten); their licences come from PyPI.
 
